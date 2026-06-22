@@ -5,7 +5,8 @@ import { SITE } from '../../site.config';
 import { sortByDateDesc } from '../../utils/content';
 
 const projects = sortByDateDesc(await getCollection('projects', ({ data }) => !data.draft));
-const bgUrl = `${import.meta.env.BASE_URL}images/shared-bg.png`;
+const base = import.meta.env.BASE_URL || '/Satone-blog/';
+const bgUrl = `${base}images/shared-bg.png`;
 ---
 
 <BaseLayout title={`作品 | ${SITE.name}`} description="个人项目、视觉实验和前端作品展示。">
@@ -20,44 +21,49 @@ const bgUrl = `${import.meta.env.BASE_URL}images/shared-bg.png`;
     </div>
 
     <div class="weibo-feed">
-      {projects.map((project) => (
-        <article class="weibo-card" data-reveal>
-          <div class="weibo-card__header">
-            <div class="weibo-avatar">
-              <span>S</span>
+      {projects.map((project) => {
+        const coverImg = project.data.coverImage?.startsWith('/') && !project.data.coverImage?.startsWith(base)
+          ? `${base}${project.data.coverImage.slice(1)}`
+          : project.data.coverImage;
+        return (
+          <article class="weibo-card" data-reveal>
+            <div class="weibo-card__header">
+              <div class="weibo-avatar">
+                <span>S</span>
+              </div>
+              <div class="weibo-meta">
+                <strong>{SITE.author}</strong>
+                <time>{project.data.pubDate.toLocaleDateString('zh-CN')}</time>
+              </div>
             </div>
-            <div class="weibo-meta">
-              <strong>{SITE.author}</strong>
-              <time>{project.data.pubDate.toLocaleDateString('zh-CN')}</time>
-            </div>
-          </div>
-          <div class="weibo-card__body">
-            <h2><a href={`/projects/${project.id}/`}>{project.data.title}</a></h2>
-            <p>{project.data.description}</p>
-            {project.data.coverImage && (
-              <a href={`/projects/${project.id}/`} class="weibo-image">
-                <img src={project.data.coverImage} alt={project.data.coverAlt ?? ''} loading="lazy" />
-              </a>
-            )}
-            <div class="stack-list">
-              {project.data.stack.map((tech) => (
-                <span>{tech}</span>
-              ))}
-            </div>
-          </div>
-          <div class="weibo-card__footer">
-            <div class="weibo-links">
-              {project.data.demoUrl && (
-                <a class="weibo-readmore" href={project.data.demoUrl} target="_blank" rel="noopener noreferrer">查看演示</a>
+            <div class="weibo-card__body">
+              <h2><a href={`/projects/${project.id}/`}>{project.data.title}</a></h2>
+              <p>{project.data.description}</p>
+              {coverImg && (
+                <a href={`/projects/${project.id}/`} class="weibo-image">
+                  <img src={coverImg} alt={project.data.coverAlt ?? ''} loading="lazy" />
+                </a>
               )}
-              {project.data.repoUrl && (
-                <a class="weibo-readmore" href={project.data.repoUrl} target="_blank" rel="noopener noreferrer">源码</a>
-              )}
+              <div class="stack-list">
+                {project.data.stack.map((tech) => (
+                  <span>{tech}</span>
+                ))}
+              </div>
             </div>
-            <a class="weibo-readmore" href={`/projects/${project.id}/`}>详情</a>
-          </div>
-        </article>
-      ))}
+            <div class="weibo-card__footer">
+              <div class="weibo-links">
+                {project.data.demoUrl && (
+                  <a class="weibo-readmore" href={project.data.demoUrl} target="_blank" rel="noopener noreferrer">查看演示</a>
+                )}
+                {project.data.repoUrl && (
+                  <a class="weibo-readmore" href={project.data.repoUrl} target="_blank" rel="noopener noreferrer">源码</a>
+                )}
+              </div>
+              <a class="weibo-readmore" href={`/projects/${project.id}/`}>详情</a>
+            </div>
+          </article>
+        );
+      })}
     </div>
   </section>
 

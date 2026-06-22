@@ -13,7 +13,9 @@ type Props = {
 };
 
 const { post, jsonLd } = Astro.props;
-const image = post.data.heroImage ?? SITE.defaultImage;
+const base = import.meta.env.BASE_URL || '/Satone-blog/';
+const rawImage = post.data.heroImage ?? SITE.defaultImage;
+const image = rawImage.startsWith('/') && !rawImage.startsWith(base) ? `${base}${rawImage.slice(1)}` : rawImage;
 ---
 
 <BaseLayout title={`${post.data.title} | ${SITE.name}`} description={post.data.description} image={image} type="article" jsonLd={jsonLd} class="article-page">
