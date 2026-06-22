@@ -1,0 +1,15 @@
+{
+  "name": "你的名字 | 视觉博客与作品集",
+  "short_name": "视觉博客",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08090d",
+  "theme_color": "#08090d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml"
+    }
+  ]
+}

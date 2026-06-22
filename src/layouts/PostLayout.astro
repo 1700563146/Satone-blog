@@ -1,0 +1,40 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseLayout from './BaseLayout.astro';
+import GlassPanel from '../components/GlassPanel.astro';
+import Prose from '../components/Prose.astro';
+import TagPill from '../components/TagPill.astro';
+import { SITE } from '../site.config';
+import { formatDate } from '../utils/content';
+
+type Props = {
+  post: CollectionEntry<'blog'>;
+  jsonLd: Record<string, unknown>;
+};
+
+const { post, jsonLd } = Astro.props;
+const image = post.data.heroImage ?? SITE.defaultImage;
+---
+
+<BaseLayout title={`${post.data.title} | ${SITE.name}`} description={post.data.description} image={image} type="article" jsonLd={jsonLd} class="article-page">
+  <section class="detail-hero">
+    <div class="detail-bg parallax-layer" style={`--detail-image: url('${image}')`}></div>
+    <div class="detail-shade"></div>
+    <div class="page-shell detail-hero__content">
+      <GlassPanel class="detail-title">
+        <p class="eyebrow">{formatDate(post.data.pubDate)}</p>
+        <h1>{post.data.title}</h1>
+        <p>{post.data.description}</p>
+        <div class="tag-list">
+          {post.data.tags.map((tag) => <TagPill tag={tag} />)}
+        </div>
+      </GlassPanel>
+    </div>
+  </section>
+  <article class="page-shell article-shell" data-reveal>
+    <Prose>
+      <slot />
+    </Prose>
+    <p class="back-link"><a href="/blog/">返回博客列表</a></p>
+  </article>
+</BaseLayout>

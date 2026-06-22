@@ -1,0 +1,27 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { entrySlug, formatDate } from '../utils/content';
+
+type Props = {
+  project: CollectionEntry<'projects'>;
+  featured?: boolean;
+};
+
+const { project, featured = false } = Astro.props;
+const href = `/projects/${entrySlug(project.id)}/`;
+const image = project.data.coverImage ?? '/images/project-nebula.svg';
+---
+
+<article class:list={['content-card', 'project-card', featured && 'content-card--featured']} data-reveal>
+  <a class="card-media project-card__media" href={href} aria-label={`查看作品：${project.data.title}`}>
+    <img src={image} alt={project.data.coverAlt ?? ''} loading="lazy" />
+  </a>
+  <div class="card-body project-card__body">
+    <p class="card-meta">{project.data.role} · {formatDate(project.data.pubDate)}</p>
+    <h2><a href={href}>{project.data.title}</a></h2>
+    <p>{project.data.description}</p>
+    <div class="stack-list" aria-label="技术栈">
+      {project.data.stack.map((item) => <span>{item}</span>)}
+    </div>
+  </div>
+</article>

@@ -1,0 +1,6 @@
+---
+type Props = { tag: string };
+const { tag } = Astro.props;
+---
+
+<a class="tag-pill" href={`/tags/${encodeURIComponent(tag)}/`}>#{tag}</a>

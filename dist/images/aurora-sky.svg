@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.45" stop-color="#163c5a"/>
+      <stop offset="0.72" stop-color="#241a3e"/>
+      <stop offset="1" stop-color="#05060a"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="62%" cy="20%" r="36%">
+      <stop offset="0" stop-color="#d7f1ff" stop-opacity=".82"/>
+      <stop offset=".38" stop-color="#79c8ff" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#79c8ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <rect width="1600" height="1000" fill="url(#moon)"/>
+  <path d="M-40 640C250 410 475 835 810 560c270-222 530-174 860-5v445H-40Z" fill="#05070c" opacity=".72"/>
+  <path d="M0 610C320 390 560 720 900 475c250-180 455-120 700 12" fill="none" stroke="#9ad7ff" stroke-width="64" stroke-opacity=".24" filter="url(#blur)"/>
+  <path d="M0 690C340 505 560 760 890 560c240-146 450-96 710 54" fill="none" stroke="#d9b76f" stroke-width="38" stroke-opacity=".18" filter="url(#blur)"/>
+  <g fill="#fff" opacity=".75">
+    <circle cx="145" cy="130" r="2"/><circle cx="330" cy="92" r="1.5"/><circle cx="510" cy="160" r="1.7"/><circle cx="735" cy="88" r="2.2"/>
+    <circle cx="940" cy="155" r="1.4"/><circle cx="1120" cy="90" r="2"/><circle cx="1360" cy="170" r="1.6"/><circle cx="1480" cy="78" r="2.3"/>
+  </g>
+</svg>

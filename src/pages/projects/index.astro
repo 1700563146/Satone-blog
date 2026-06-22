@@ -1,0 +1,117 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../site.config';
+import { sortByDateDesc } from '../../utils/content';
+
+const projects = sortByDateDesc(await getCollection('projects', ({ data }) => !data.draft));
+---
+
+<BaseLayout title={`作品 | ${SITE.name}`} description="个人项目、视觉实验和前端作品展示。">
+  <div class="page-bg" style="background-image: url('/images/shared-bg.png')"></div>
+  <div class="page-bg-shade"></div>
+
+  <section class="page-shell weibo-page">
+    <div class="weibo-header" data-reveal>
+      <h1>作品</h1>
+      <p>项目、视觉实验与前端练习</p>
+      <button class="button button--primary new-post-btn" id="newPostBtn">新建作品</button>
+    </div>
+
+    <div class="weibo-feed">
+      {projects.map((project) => (
+        <article class="weibo-card" data-reveal>
+          <div class="weibo-card__header">
+            <div class="weibo-avatar">
+              <span>S</span>
+            </div>
+            <div class="weibo-meta">
+              <strong>{SITE.author}</strong>
+              <time>{project.data.pubDate.toLocaleDateString('zh-CN')}</time>
+            </div>
+          </div>
+          <div class="weibo-card__body">
+            <h2><a href={`/projects/${project.id}/`}>{project.data.title}</a></h2>
+            <p>{project.data.description}</p>
+            {project.data.coverImage && (
+              <a href={`/projects/${project.id}/`} class="weibo-image">
+                <img src={project.data.coverImage} alt={project.data.coverAlt ?? ''} loading="lazy" />
+              </a>
+            )}
+            <div class="stack-list">
+              {project.data.stack.map((tech) => (
+                <span>{tech}</span>
+              ))}
+            </div>
+          </div>
+          <div class="weibo-card__footer">
+            <div class="weibo-links">
+              {project.data.demoUrl && (
+                <a class="weibo-readmore" href={project.data.demoUrl} target="_blank" rel="noopener noreferrer">查看演示</a>
+              )}
+              {project.data.repoUrl && (
+                <a class="weibo-readmore" href={project.data.repoUrl} target="_blank" rel="noopener noreferrer">源码</a>
+              )}
+            </div>
+            <a class="weibo-readmore" href={`/projects/${project.id}/`}>详情</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- New Project Modal -->
+  <dialog id="newPostModal" class="post-modal">
+    <div class="modal-content glass-panel glass-panel--padded">
+      <div class="modal-header">
+        <h2>新建作品</h2>
+        <button class="modal-close" id="modalClose" aria-label="关闭">&times;</button>
+      </div>
+      <form class="modal-form" id="postForm">
+        <label>
+          <span>标题</span>
+          <input type="text" name="title" required placeholder="作品标题" />
+        </label>
+        <label>
+          <span>正文</span>
+          <textarea name="content" rows="14" required placeholder="用 Markdown 格式书写..."></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="button button--ghost" id="modalCancel">取消</button>
+          <button type="submit" class="button button--primary">提交</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script define:vars={{}}>
+    const modal = document.getElementById('newPostModal');
+    const btn = document.getElementById('newPostBtn');
+    const closeBtn = document.getElementById('modalClose');
+    const cancelBtn = document.getElementById('modalCancel');
+    const form = document.getElementById('postForm');
+
+    btn.addEventListener('click', () => modal.showModal());
+    closeBtn.addEventListener('click', () => modal.close());
+    cancelBtn.addEventListener('click', () => modal.close());
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.close();
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const post = {
+        title: data.get('title'),
+        content: data.get('content'),
+        date: new Date().toISOString(),
+      };
+      console.log('Project submitted:', post);
+      alert('作品已提交（实际部署需配合后端或 Git 工作流）');
+      modal.close();
+      form.reset();
+    });
+  </script>
+</BaseLayout>

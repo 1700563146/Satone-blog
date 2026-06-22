@@ -1,0 +1,28 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { entrySlug, formatDate } from '../utils/content';
+import TagPill from './TagPill.astro';
+
+type Props = {
+  post: CollectionEntry<'blog'>;
+  featured?: boolean;
+};
+
+const { post, featured = false } = Astro.props;
+const href = `/blog/${entrySlug(post.id)}/`;
+const image = post.data.heroImage ?? '/images/aurora-sky.svg';
+---
+
+<article class:list={['content-card', 'post-card', featured && 'content-card--featured']} data-reveal>
+  <a class="card-media" href={href} aria-label={`阅读文章：${post.data.title}`}>
+    <img src={image} alt={post.data.heroAlt ?? ''} loading="lazy" />
+  </a>
+  <div class="card-body">
+    <p class="card-meta">{formatDate(post.data.pubDate)}</p>
+    <h2><a href={href}>{post.data.title}</a></h2>
+    <p>{post.data.description}</p>
+    <div class="tag-list" aria-label="文章标签">
+      {post.data.tags.map((tag) => <TagPill tag={tag} />)}
+    </div>
+  </div>
+</article>

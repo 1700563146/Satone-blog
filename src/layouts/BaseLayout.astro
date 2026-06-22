@@ -1,0 +1,39 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import SiteNav from '../components/SiteNav.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import '../styles/tokens.css';
+import '../styles/global.css';
+import '../styles/layout.css';
+import '../styles/motion.css';
+import '../styles/prose.css';
+
+type Props = {
+  title?: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  jsonLd?: Record<string, unknown>;
+  class?: string;
+};
+
+const { title, description, image, type, jsonLd, class: className = '' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN" id="top">
+  <head>
+    <BaseHead title={title} description={description} image={image} type={type} jsonLd={jsonLd} />
+  </head>
+  <body class={className}>
+    <SiteNav />
+    <main id="main">
+      <slot />
+    </main>
+    <SiteFooter />
+    <script>
+      import '../scripts/reveal';
+      import '../scripts/parallax';
+    </script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+---
+type Props = {
+  as?: 'section' | 'article' | 'div';
+  tone?: 'dark' | 'light';
+  padded?: boolean;
+  class?: string;
+};
+
+const { as: Tag = 'div', tone = 'dark', padded = true, class: className = '' } = Astro.props;
+---
+
+<Tag class:list={['glass-panel', `glass-panel--${tone}`, padded && 'glass-panel--padded', className]}>
+  <slot />
+</Tag>

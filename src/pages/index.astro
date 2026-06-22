@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HeroVisual from '../components/HeroVisual.astro';
+import { SITE } from '../site.config';
+---
+
+<BaseLayout title={SITE.title} description={SITE.description}>
+  <HeroVisual
+    eyebrow=""
+    title="Satone"
+    subtitle="沢山聽"
+    video="/videos/hero-wallpaper.mp4"
+    extendBg="/images/hero-extend.jpg"
+  />
+</BaseLayout>

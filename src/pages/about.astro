@@ -1,0 +1,31 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GlassPanel from '../components/GlassPanel.astro';
+import Reveal from '../components/Reveal.astro';
+import { SITE } from '../site.config';
+---
+
+<BaseLayout title={`关于 | ${SITE.name}`} description="关于这个个人博客与作品集空间。">
+  <section class="subpage-hero page-shell">
+    <GlassPanel class="subpage-hero__panel">
+      <p class="eyebrow">About</p>
+      <h1>你好，我是你的名字</h1>
+      <p>我在这里记录技术、创作、视觉实验和项目复盘。这个网站像一个安静的私人展厅，用沉浸式背景和极简文字保存阶段性的思考。</p>
+    </GlassPanel>
+  </section>
+
+  <section class="page-shell about-grid">
+    <Reveal class="about-block">
+      <h2>关注方向</h2>
+      <p>前端开发、视觉设计、个人知识管理、创意表达，以及那些介于技术和审美之间的细节。</p>
+    </Reveal>
+    <Reveal class="about-block">
+      <h2>网站维护方式</h2>
+      <p>文章和作品都以 Markdown 文件保存。新增内容时，只需要复制示例文件夹，修改 frontmatter，再写正文。</p>
+    </Reveal>
+    <Reveal class="about-block">
+      <h2>联系我</h2>
+      <p>你可以把这里替换为邮箱、GitHub、即刻、微博、B站或任何你想公开展示的链接。</p>
+    </Reveal>
+  </section>
+</BaseLayout>

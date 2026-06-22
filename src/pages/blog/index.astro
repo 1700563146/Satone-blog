@@ -1,0 +1,109 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../site.config';
+import { sortByDateDesc } from '../../utils/content';
+
+const posts = sortByDateDesc(await getCollection('blog', ({ data }) => !data.draft));
+---
+
+<BaseLayout title={`博客 | ${SITE.name}`} description="文章、技术笔记、创作记录与灵感片段。">
+  <div class="page-bg" style="background-image: url('/images/shared-bg.png')"></div>
+  <div class="page-bg-shade"></div>
+
+  <section class="page-shell weibo-page">
+    <div class="weibo-header" data-reveal>
+      <h1>博客</h1>
+      <p>记录灵感、技术与创作</p>
+      <button class="button button--primary new-post-btn" id="newPostBtn">新建文章</button>
+    </div>
+
+    <div class="weibo-feed">
+      {posts.map((post) => (
+        <article class="weibo-card" data-reveal>
+          <div class="weibo-card__header">
+            <div class="weibo-avatar">
+              <span>S</span>
+            </div>
+            <div class="weibo-meta">
+              <strong>{SITE.author}</strong>
+              <time>{post.data.pubDate.toLocaleDateString('zh-CN')}</time>
+            </div>
+          </div>
+          <div class="weibo-card__body">
+            <h2><a href={`/blog/${post.id}/`}>{post.data.title}</a></h2>
+            <p>{post.data.description}</p>
+            {post.data.heroImage && (
+              <a href={`/blog/${post.id}/`} class="weibo-image">
+                <img src={post.data.heroImage} alt={post.data.heroAlt ?? ''} loading="lazy" />
+              </a>
+            )}
+          </div>
+          <div class="weibo-card__footer">
+            <div class="tag-list">
+              {post.data.tags.map((tag) => (
+                <a class="tag-pill" href={`/tags/${tag}/`}>#{tag}</a>
+              ))}
+            </div>
+            <a class="weibo-readmore" href={`/blog/${post.id}/`}>阅读全文</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- New Post Modal -->
+  <dialog id="newPostModal" class="post-modal">
+    <div class="modal-content glass-panel glass-panel--padded">
+      <div class="modal-header">
+        <h2>新建文章</h2>
+        <button class="modal-close" id="modalClose" aria-label="关闭">&times;</button>
+      </div>
+      <form class="modal-form" id="postForm">
+        <label>
+          <span>标题</span>
+          <input type="text" name="title" required placeholder="文章标题" />
+        </label>
+        <label>
+          <span>正文</span>
+          <textarea name="content" rows="14" required placeholder="用 Markdown 格式书写..."></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="button button--ghost" id="modalCancel">取消</button>
+          <button type="submit" class="button button--primary">提交</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script define:vars={{}}>
+    const modal = document.getElementById('newPostModal');
+    const btn = document.getElementById('newPostBtn');
+    const closeBtn = document.getElementById('modalClose');
+    const cancelBtn = document.getElementById('modalCancel');
+    const form = document.getElementById('postForm');
+
+    btn.addEventListener('click', () => modal.showModal());
+    closeBtn.addEventListener('click', () => modal.close());
+    cancelBtn.addEventListener('click', () => modal.close());
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.close();
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const post = {
+        title: data.get('title'),
+        content: data.get('content'),
+        date: new Date().toISOString(),
+      };
+      console.log('Post submitted:', post);
+      alert('文章已提交（实际部署需配合后端或 Git 工作流）');
+      modal.close();
+      form.reset();
+    });
+  </script>
+</BaseLayout>

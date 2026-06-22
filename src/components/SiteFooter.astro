@@ -1,0 +1,14 @@
+---
+import { SITE } from '../site.config';
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <p>© {year} {SITE.author}. 记录创作、技术与视觉实验。</p>
+  <div class="footer-links">
+    {SITE.socials.map((item) => (
+      <a href={item.href}>{item.label}</a>
+    ))}
+    <a href="#top">回到顶部</a>
+  </div>
+</footer>

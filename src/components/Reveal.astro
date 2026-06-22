@@ -1,0 +1,11 @@
+---
+type Props = {
+  class?: string;
+  as?: 'div' | 'section' | 'article';
+};
+const { class: className = '', as: Tag = 'div' } = Astro.props;
+---
+
+<Tag class={className} data-reveal>
+  <slot />
+</Tag>

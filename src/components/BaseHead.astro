@@ -1,0 +1,47 @@
+---
+import { SITE } from '../site.config';
+
+type Props = {
+  title?: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  jsonLd?: Record<string, unknown>;
+};
+
+const {
+  title = SITE.title,
+  description = SITE.description,
+  image = SITE.defaultImage,
+  type = 'website',
+  jsonLd,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, SITE.url).href;
+const imageUrl = new URL(image, SITE.url).href;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content={Astro.generator} />
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="sitemap" href="/sitemap-index.xml" />
+<meta name="theme-color" content="#08090d" />
+
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:type" content={type} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={imageUrl} />
+<meta property="og:locale" content={SITE.locale.replace('-', '_')} />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={imageUrl} />
+
+{jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}

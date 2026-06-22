@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light;
+  --color-bg: #eaf4f4;
+  --color-bg-soft: #d8ecec;
+  --color-text: #2a3f3f;
+  --color-muted: #5a7a7a;
+  --color-subtle: #8aa8a8;
+  --color-accent: #3a9a9a;
+  --color-accent-2: #6bc4c4;
+  --surface: 255 255 255;
+  --surface-light: 255 255 255;
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --shadow-glow: 0 16px 48px rgb(107 196 196 / 0.18);
+  --shadow-panel: 0 12px 40px rgb(0 0 0 / 0.06);
+  --blur-glass: 24px;
+  --space-page: clamp(1rem, 4vw, 4rem);
+  --font-sans: "LXGW WenKai Screen", "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --font-display: "STKaiti", "KaiTi", "LXGW WenKai Screen", serif;
+  --motion-fast: 200ms;
+  --motion-med: 500ms;
+  --motion-slow: 900ms;
+}
