@@ -5,10 +5,11 @@ import { SITE } from '../../site.config';
 import { sortByDateDesc } from '../../utils/content';
 
 const projects = sortByDateDesc(await getCollection('projects', ({ data }) => !data.draft));
+const bgUrl = `${import.meta.env.BASE_URL}images/shared-bg.png`;
 ---
 
 <BaseLayout title={`作品 | ${SITE.name}`} description="个人项目、视觉实验和前端作品展示。">
-  <div class="page-bg" style="background-image: url('/images/shared-bg.png')"></div>
+  <div class="page-bg" style={`background-image: url('${bgUrl}')`}></div>
   <div class="page-bg-shade"></div>
 
   <section class="page-shell weibo-page">
