@@ -7,10 +7,13 @@
 
 | 项目       | 说明                                                            |
 | ---------- | --------------------------------------------------------------- |
-| 远程仓库   | GitHub 私有/公开仓库，`main` 分支即生产分支                     |
-| 托管平台   | Vercel 优先；也可用任何支持 Next.js 16 + Node 24 的平台         |
+| 远程仓库   | <https://github.com/1700563146/Satone-blog>，`main` 分支即生产分支 |
+| 托管平台   | Vercel（已选定）；也可用任何支持 Next.js 16 + Node 24 的平台     |
 | 域名       | 可选；没有则先用 `*.vercel.app` 域名                            |
 | `SITE_URL` | 站点**最终**公开地址，决定 canonical、sitemap、RSS 里的绝对地址 |
+
+> **不要部署到 GitHub Pages。** 本项目需要 Node 运行时：`cacheComponents` / `ensureStatic` 是 Next.js 的服务端能力，`/feed.xml` 是路由处理器，Pages 只能托管静态文件。
+> 仓库里旧版的 Astro + Pages 方案（`deploy.yml`、`base: '/Satone-blog'`、`output: 'static'`）已整体存档到 `astro-archive` 分支；如仍在仓库设置里开着 Pages，建议到 **Settings → Pages** 关闭，避免出现空白部署记录。
 
 > 顺序很重要：先确定域名再设 `SITE_URL`。如果先用临时域名部署，改域名后必须更新 `SITE_URL` 并重新部署，否则搜索引擎看到的 canonical 还是旧地址。
 

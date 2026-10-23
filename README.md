@@ -2,6 +2,8 @@
 
 个人博客系统。Next.js App Router + TypeScript + Tailwind CSS，文章以 Markdown 保存在仓库中（content/ 是内容的唯一来源）。
 
+> 仓库：<https://github.com/1700563146/Satone-blog>（旧版 Astro 站点已存档到 `astro-archive` 分支，历史可从那里取回）
+
 ## 快速开始
 
 环境要求：Node.js >= 20.9（推荐 24，见 [.nvmrc](.nvmrc)）。
