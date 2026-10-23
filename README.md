@@ -17,18 +17,21 @@ npm run dev
 
 ## 常用命令
 
-| 命令                       | 说明                               |
-| -------------------------- | ---------------------------------- |
-| `npm run dev`              | 启动开发服务器（Turbopack）        |
-| `npm run build`            | 校验内容并生产构建                 |
-| `npm run start`            | 启动生产服务器                     |
-| `npm run lint`             | ESLint 检查                        |
-| `npm run typecheck`        | 生成路由类型并执行 TypeScript 检查 |
-| `npm run test`             | Vitest 单元测试                    |
-| `npm run test:watch`       | Vitest 监听模式                    |
-| `npm run validate:content` | 校验文章 frontmatter 与正文        |
-| `npm run format`           | Prettier 格式化全部文件            |
-| `npm run format:check`     | Prettier 格式检查（CI 使用）       |
+| 命令                       | 说明                                          |
+| -------------------------- | --------------------------------------------- |
+| `npm run dev`              | 启动开发服务器（Turbopack）                   |
+| `npm run build`            | 校验内容并生产构建                            |
+| `npm run start`            | 启动生产服务器                                |
+| `npm run lint`             | ESLint 检查                                   |
+| `npm run typecheck`        | 生成路由类型并执行 TypeScript 检查            |
+| `npm run test`             | Vitest 单元测试 + 组件测试（jsdom）           |
+| `npm run test:watch`       | Vitest 监听模式                               |
+| `npm run test:e2e`         | Playwright 端到端测试（需先 `npm run build`） |
+| `npm run validate:content` | 校验文章 frontmatter 与正文                   |
+| `npm run format`           | Prettier 格式化全部文件                       |
+| `npm run format:check`     | Prettier 格式检查（CI 使用）                  |
+
+端到端测试默认使用 Playwright 自带的 Chromium（`npx playwright install chromium`）；网络受限时可用本机浏览器：`PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
 
 写文章：在 `content/posts/` 新建 `<slug>.md`，按 [内容规范](docs/CONTENT_SCHEMA.md) 填写 frontmatter，然后运行 `npm run validate:content`。草稿（`published: false` 或 `draft: true`）不会出现在任何公开页面。
 
@@ -103,8 +106,8 @@ npm run dev
 
 - [x] 阶段 1：项目骨架
 - [x] 阶段 2：内容引擎
-- [x] 阶段 3：前台页面（首页、列表、详情、分类、标签、关于、404、SEO、RSS、sitemap）
-- [ ] 阶段 4：部署与可观测性
+- [x] 阶段 3：前台页面（首页、列表、详情、分类、标签、关于、404、SEO、RSS、sitemap、代码高亮、移动端折叠导航）
+- [ ] 阶段 4：部署与可观测性（清单见 [部署指南](docs/DEPLOYMENT.md)）
 - [ ] 阶段 5：写作体验与增强功能
 
-阶段 3 的收尾项：移动端导航折叠方案（当前为换行布局）、组件测试与 Playwright、站内搜索（P1）。
+测试：120 个单元/组件用例，9 个端到端用例（桌面与移动端两个 project，共 18 次执行）。P1 待做：站内搜索、友链、暗色主题。

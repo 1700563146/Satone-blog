@@ -1,35 +1,140 @@
-# 部署指南
+# 部署指南（可执行清单）
 
-> 状态：占位（阶段 4 内容）。当前仅有本地开发与 CI 检查，尚未创建部署环境。
+> 状态：阶段 4 runbook。CI 已包含检查与端到端测试；下面的命令按顺序执行即可完成首次上线。
+> 站点是**全静态产出**（Cache Components + `ensureStatic = "navigation"`），因此不需要数据库、迁移或运行时密钥。
 
-## 规划要点（依据开发文档 §14）
+## 0. 前置条件
 
-- 目标平台：Vercel（或兼容 Next.js 的 Node.js 平台），待确认预算与区域要求。
-- 环境区分：`development`（本地）、`preview`（测试部署，不使用生产密钥）、`production`（正式站点）。
-- 环境变量：生产环境设置真实 `SITE_URL`；密钥仅存于平台环境变量，不进入仓库与客户端。
-- 自动部署：`main` 分支通过 CI 检查后触发生产部署；PR 生成预览部署。
-- 回滚：保留部署历史，出现问题时回滚到上一个已知可用版本。
-- 备份：Git 远程仓库作为文章版本备份；媒体文件保存清单并确认可导出。
+| 项目       | 说明                                                            |
+| ---------- | --------------------------------------------------------------- |
+| 远程仓库   | GitHub 私有/公开仓库，`main` 分支即生产分支                     |
+| 托管平台   | Vercel 优先；也可用任何支持 Next.js 16 + Node 24 的平台         |
+| 域名       | 可选；没有则先用 `*.vercel.app` 域名                            |
+| `SITE_URL` | 站点**最终**公开地址，决定 canonical、sitemap、RSS 里的绝对地址 |
 
-## 发布门槛
+> 顺序很重要：先确定域名再设 `SITE_URL`。如果先用临时域名部署，改域名后必须更新 `SITE_URL` 并重新部署，否则搜索引擎看到的 canonical 还是旧地址。
 
-与 CI 一致（开发文档 §13.4）：
+## 1. 建立远程仓库并启用 CI
+
+```bash
+git remote add origin git@github.com:<你的账号>/sato-blog.git
+git push -u origin main
+```
+
+push 之后 GitHub Actions（[.github/workflows/ci.yml](../.github/workflows/ci.yml)）会跑两组任务：
+
+1. `checks`：format:check → lint → typecheck → test（单元 + 组件）→ build
+2. `e2e`：build → 安装 Chromium → Playwright 端到端（桌面 + 移动端两个 project）
+
+两组的日志与失败报告（`playwright-report`）都会保留在 Actions 页面；e2e 失败时先下载 artifact 看截图与 trace。
+
+## 2. 在 Vercel 上创建项目
+
+1. Vercel → **Add New → Project** → 选择该仓库。
+2. Framework Preset 会自动识别为 Next.js，**保持默认**：
+   - Build Command：`npm run build`（`prebuild` 会先执行 `validate:content`，内容有错误则构建失败）
+   - Output Directory：留空（Next.js 由平台处理）
+   - Install Command：`npm install`
+3. **Node.js 版本**：Project Settings → General → Node.js Version 选择 **24.x**（与 [.nvmrc](../.nvmrc) 一致）。
+4. **环境变量**（Production 与 Preview 分别设置）：
+   - `SITE_URL` = `https://你的域名`（Preview 可用固定预览域名，或留空退化为 `http://localhost:3000`）
+5. Deploy。
+
+首次部署完成后，确认这三个地址可访问：`/sitemap.xml`、`/robots.txt`、`/feed.xml`。
+
+## 3. 域名、HTTPS 与 DNS
+
+1. Vercel → Project → **Settings → Domains** → 添加 `sato.example.com`（建议同时添加 `www` 并设为主域名的跳转）。
+2. 按提示在域名商处配置：
+   - 根域名：`A` 记录指向 Vercel 提供的 IP，或改用 `ALIAS/ANAME`
+   - 子域名：`CNAME` 指向 `cname.vercel-dns.com`
+3. 等待证书签发（Let's Encrypt，自动续期）。
+4. **把 `SITE_URL` 改成最终域名并重新部署**，然后复查 `/sitemap.xml` 里的绝对地址。
+
+## 4. 上线前的本地检查
 
 ```bash
 npm run format:check
 npm run lint
 npm run typecheck
-npm run test
-npm run build
+npm run test        # 单元 + 组件（jsdom）
+npm run build       # 含内容校验
+npm run test:e2e    # 端到端；需要先 build
 ```
 
-`npm run build` 会通过 `prebuild` 自动执行 `validate:content`；内容有 error 时不会产出部署产物。
+如果所在网络下载不到 Playwright 的浏览器二进制，可以先借用本机已安装的 Chrome/Edge：
 
-## 待办（阶段 4）
+```bash
+PLAYWRIGHT_CHANNEL=chrome npm run test:e2e   # Windows PowerShell: $env:PLAYWRIGHT_CHANNEL="chrome"
+```
 
-- [ ] 创建 GitHub 远程仓库并启用 CI
+## 5. 上线后的冒烟测试
+
+```bash
+BASE=https://sato.example.com
+
+curl -sS -o /dev/null -w 'home %{http_code}\n'      "$BASE/"
+curl -sS -o /dev/null -w 'posts %{http_code}\n'     "$BASE/posts"
+curl -sS -o /dev/null -w 'post %{http_code}\n'      "$BASE/posts/hello-world"
+curl -sS -o /dev/null -w 'draft %{http_code}\n'     "$BASE/posts/draft-notes"   # 期望 404
+curl -sS -o /dev/null -w 'sitemap %{http_code}\n'   "$BASE/sitemap.xml"
+curl -sS "$BASE/feed.xml" | head -c 160; echo
+curl -sS "$BASE/sitemap.xml" | grep -c '<loc>'
+curl -sS "$BASE/robots.txt"
+```
+
+人工检查：
+
+- [ ] 手机与桌面浏览器各打开首页、文章详情、分类/标签页
+- [ ] 移动端汉堡菜单能展开、能跳转、Escape 能关闭
+- [ ] 文章页目录锚点能跳转，代码块有高亮且可横向滚动
+- [ ] RSS 阅读器能订阅 `/feed.xml`
+- [ ] Lighthouse 检查首页与文章页（性能、可访问性、SEO）
+- [ ] 分享链接时 Open Graph 标题与摘要正确（可用平台预览工具）
+
+## 6. 回滚
+
+| 场景           | 操作                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| 代码/内容回退  | Vercel → Deployments → 选中上一个成功部署 → **Promote to Production** |
+| 需要修历史     | `git revert <sha>` 后 push，自动触发新部署（推荐，保留完整历史）      |
+| 单篇文章回退   | `git checkout <sha> -- content/posts/<slug>.md` 后提交                |
+| 平台侧快速回退 | `vercel rollback`（已安装并登录 Vercel CLI 时）                       |
+
+回滚后仍需跑一遍第 5 节冒烟测试：静态站点的 sitemap/RSS 是构建产物，回滚会一并回退。
+
+## 7. 备份与恢复演练
+
+内容就是 Git 里的 Markdown，**Git 远程仓库本身就是备份**；此外建议：
+
+- 每月导出一次：`git archive --format=zip HEAD content/ > content-backup.zip`
+- 图片：`public/images/` 随仓库备份；若后续改用图床，保留一份文件清单
+- **恢复演练（至少做一次）**：clone 到临时目录 → `npm ci && npm run build`，确认能独立构建出完整站点
+
+## 8. 环境区分
+
+- `development`：本地 `npm run dev`，`SITE_URL` 默认 `http://localhost:3000`
+- `preview`：Vercel 为每个 PR 生成预览部署；建议用非生产域名，且不要接入生产分析/密钥
+- `production`：正式站点，只有 `main` 合并后部署
+
+## 9. 备选：自托管 Node
+
+```bash
+npm ci
+npm run build
+npm run start          # 默认 3000 端口
+```
+
+- 需要 Node 24（见 [.nvmrc](../.nvmrc)），前面加反向代理时转发 `Host` 与 `X-Forwarded-*`
+- 静态产物在 `.next/`；若打包成容器，可在 `next.config.ts` 打开 `output: "standalone"` 后复制 `.next/standalone`（当前未启用）
+- 反向代理的缓存策略要放行 `/_next/static` 的长期缓存，其它路径不要缓存 HTML（内容随构建变化）
+
+## 10. 阶段 4 待办
+
+- [ ] 创建 GitHub 远程仓库并确认 CI 两组任务变绿
 - [ ] 创建 Vercel 项目、绑定仓库与自动部署
 - [ ] 配置自定义域名、HTTPS 与 DNS
-- [ ] 配置生产环境变量
-- [ ] 记录回滚与恢复演练步骤
-- [ ] 部署后冒烟测试
+- [ ] 配置生产 `SITE_URL` 并复查 canonical/sitemap/RSS
+- [ ] 完成一次回滚演练与一次备份恢复演练
+- [ ] 上线后冒烟测试（第 5 节）全部勾选
+- [ ] （可选）接入错误监控与访问统计

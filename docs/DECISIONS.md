@@ -162,3 +162,27 @@
 - 决策：引入 `rehype-pretty-code` + `shiki`，在 `renderMarkdown` 的 rehype 链上着色；主题 `github-dark-default`，`keepBackground: false`（背景仍由 `.prose pre` 决定），`defaultLang: "text"`（未标语言的代码块按纯文本渲染），`bypassInlineCode: true`（行内代码不着色）。
 - 理由：页面、SEO、404 已经闭环，代码可读性是技术博客的核心阅读体验；Shiki 在构建期把代码渲染成纯 HTML + 行内颜色，不向客户端发送 JS（已核对产物：客户端 chunk 中不含 shiki/oniguruma）。`defaultLang` 避免"忘记写语言"导致构建失败，`bypassInlineCode` 避免给行内代码套一层无意义的 span。
 - 影响：HTML 体积随代码量增长（示例文章页约 26 KB）；主题升级可能改变配色，单元测试只断言结构与"存在行内颜色"，不断言具体色值。新增语法无需配置——Shiki 按需加载语言包。
+
+## ADR-022：组件测试用 jsdom + Testing Library，按文件声明环境
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：引入 `jsdom`、`@testing-library/react`、`@testing-library/user-event`、`@testing-library/jest-dom`；Vitest 全局环境仍是 `node`，组件测试文件首行用 `// @vitest-environment jsdom` 切换。`tests/setup.tsx` 提供两件事：jest-dom 匹配器；把 `next/link` 替成普通 `<a href>` 并拦截 `<a>` 的默认跳转。
+- 理由：绝大多数测试是纯逻辑（内容引擎、SEO、RSS），放进 jsdom 会显著拖慢；按文件切换环境可以两者兼得。组件在 jsdom 里没有 App Router 上下文，`next/link` 会直接报错，因此在 setup 里替换为语义等价的链接，断言仍然落在可访问名称与 `href` 上。
+- 影响：新增组件测试文件必须写环境注释，否则会因为没有 `document` 而失败；断言不要依赖 Tailwind 类名，优先 `getByRole` / `getByText`。
+
+## ADR-023：端到端测试用 Playwright，桌面与移动端双 project
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：引入 `@playwright/test`，`tests/e2e/*.spec.ts`；`playwright.config.ts` 定义 `desktop`（Desktop Chrome）与 `mobile`（Pixel 7）两个 project，`webServer` 只负责 `next start`（固定端口 34901），构建由调用方先行完成。CI 中 e2e 是独立 job：build → 安装 Chromium → 跑测试 → 失败时上传 `playwright-report`/`test-results`。
+- 理由：单元/组件测试无法覆盖"真浏览器里点进去"的关键路径（路由跳转、PPR 静态壳、移动端折叠菜单）。桌面/移动端双 project 让同一份用例顺带验证响应式行为，移动端专属用例用 `test.skip(({ isMobile }) => !isMobile)` 精确跳过。
+- 影响：本地必须先 `npm run build`；浏览器二进制需要单独下载。网络受限时可用 `PLAYWRIGHT_CHANNEL=chrome`（或 `msedge`）借用本机浏览器，CI 不受影响。
+
+## ADR-024：导航折叠菜单是客户端组件，状态复位在渲染阶段完成
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：把交互部分拆到 `src/components/navigation/nav-menu.tsx`（`"use client"`），`navbar.tsx` 保持服务端组件并以 props 传入导航条目；折叠状态与"它属于哪个路径"一起存放，路由变化时在渲染阶段直接复位，而不是在 `useEffect` 里 `setState`。
+- 理由：原方案靠 `flex-wrap` 折行，虽然无 JS，但开发文档 §9.3 要求"清楚的折叠方案"；真正的折叠菜单需要 `aria-expanded`、`aria-controls`、Escape 关闭与焦点归还，这些只有客户端组件能做。把服务端配置留在父组件，避免把 `SITE_URL` 等 env 派生值打进客户端包。渲染期复位遵循 React 的"派生状态"模式，同时满足 `react-hooks/set-state-in-effect` 规则（该规则会拦截 effect 里的同步 setState）。
+- 影响：引入首个客户端组件（体积很小：只有图标与状态）；`<details>` 方案虽然零 JS，但无法在 Escape 时关闭并归还焦点，也无法标记当前页，故未采用。

@@ -85,15 +85,26 @@ npm run dev        # http://localhost:3000
 
 ## 测试
 
-- 单元测试：Vitest，纯 Node 环境，文件放在 `tests/unit/*.test.ts`。
-- 内容引擎测试直接使用 `tests/fixtures/content/` 下的夹具；测试**不要**导入 `@/lib/content`（`index.ts` 依赖 `server-only` 与 `next/cache`）。
-- 组件测试：需要时再引入 jsdom 与 Testing Library。
-- 端到端：Playwright，阶段 3/4 引入。
-- CI 门槛：format:check → lint → typecheck → test → build（与开发文档 §13.4 对应）；`build` 内含内容校验。
+三层，命令与职责分开：
+
+| 层     | 命令               | 位置                    | 环境                                             |
+| ------ | ------------------ | ----------------------- | ------------------------------------------------ |
+| 单元   | `npm run test`     | `tests/unit/*.test.ts`  | Node（内容引擎、SEO、RSS）                       |
+| 组件   | 同上（一次跑完）   | `tests/unit/*.test.tsx` | jsdom（文件首行 `// @vitest-environment jsdom`） |
+| 端到端 | `npm run test:e2e` | `tests/e2e/*.spec.ts`   | 真实浏览器（先 `npm run build`）                 |
+
+细则：
+
+- 内容引擎测试直接使用 `tests/fixtures/content/` 与 `tests/fixtures/pages/` 下的夹具；测试**不要**导入 `@/lib/content`（`index.ts` 依赖 `server-only` 与 `next/cache`）。
+- 组件测试用 Testing Library + `tests/setup.tsx` 里的全局桩：`next/link` 被替换成普通 `<a href>`，并拦截 `<a>` 的默认跳转（jsdom 不支持导航）。断言优先用可访问名称（`getByRole`），不要依赖类名。
+- 端到端测试覆盖：首页 → 文章详情（含目录锚点）、列表与归档页、草稿返回 404 且不泄漏正文、RSS/sitemap/robots、移动端折叠菜单。桌面与移动端由 `playwright.config.ts` 的两个 project 分别跑。
+- 端到端需要浏览器二进制：`npx playwright install chromium`；若网络下载不到，可临时借用本机浏览器 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
+- 本地跑 e2e 前必须先 `npm run build`：`webServer` 只启动 `next start`，不会替你构建。
+- CI 门槛：format:check → lint → typecheck → test → build（`checks` job），随后 e2e（`e2e` job，含构建与浏览器安装）。
 
 ## CI
 
-[.github/workflows/ci.yml](../.github/workflows/ci.yml)：push 到 `main`、PR、手动触发时运行全部检查。GitHub 远程仓库需由项目所有者创建并 push 后生效。
+[.github/workflows/ci.yml](../.github/workflows/ci.yml)：push 到 `main`、PR、手动触发时运行两组任务（`checks` 与 `e2e`）。GitHub 远程仓库需由项目所有者创建并 push 后生效。
 
 ## Windows 注意事项
 
@@ -104,7 +115,7 @@ npm run dev        # http://localhost:3000
 
 当前处于阶段 3（前台页面完成）：首页、文章列表、详情页（正文 + 目录 + 上一篇/下一篇）、分类与标签归档、关于页、404、SEO（canonical / Open Graph）、sitemap、robots 与 RSS 已完成，全部路由在构建期静态产出。
 
-下一阶段（阶段 4）处理部署与可观测性。阶段 3 的收尾项：代码高亮（ADR-020）、移动端导航折叠、组件测试与 Playwright。
+阶段 3 已全部完成（含代码高亮、移动端折叠菜单、组件测试与端到端测试）。下一阶段（阶段 4）按 [DEPLOYMENT.md](DEPLOYMENT.md) 的清单部署与观测。
 
 ## 页面开发
 
