@@ -39,11 +39,12 @@ push 之后 GitHub Actions（[.github/workflows/ci.yml](../.github/workflows/ci.
    - Output Directory：留空（Next.js 由平台处理）
    - Install Command：`npm install`
 3. **Node.js 版本**：Project Settings → General → Node.js Version 选择 **24.x**（与 [.nvmrc](../.nvmrc) 一致）。
-4. **环境变量**（Production 与 Preview 分别设置）：
-   - `SITE_URL` = `https://你的域名`（Preview 可用固定预览域名，或留空退化为 `http://localhost:3000`）
+4. **环境变量 `SITE_URL`（可选但推荐）**：
+   - 不配也能正常工作：构建时自动回退到 Vercel 注入的 `VERCEL_PROJECT_PRODUCTION_URL`（生产域名）或 `VERCEL_URL`（当前部署），见 [ADR-025](DECISIONS.md)
+   - 绑定自定义域名后建议显式设为 `https://你的域名`，让 Preview 部署的 canonical 也统一指向正式地址
 5. Deploy。
 
-首次部署完成后，确认这三个地址可访问：`/sitemap.xml`、`/robots.txt`、`/feed.xml`。
+首次部署完成后，确认这三个地址可访问：`/sitemap.xml`、`/robots.txt`、`/feed.xml`，并检查文章页的 canonical 是否是你的正式域名（不是 `localhost:3000`）。
 
 ## 3. 域名、HTTPS 与 DNS
 

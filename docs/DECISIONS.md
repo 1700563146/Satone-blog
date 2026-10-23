@@ -186,3 +186,11 @@
 - 决策：把交互部分拆到 `src/components/navigation/nav-menu.tsx`（`"use client"`），`navbar.tsx` 保持服务端组件并以 props 传入导航条目；折叠状态与"它属于哪个路径"一起存放，路由变化时在渲染阶段直接复位，而不是在 `useEffect` 里 `setState`。
 - 理由：原方案靠 `flex-wrap` 折行，虽然无 JS，但开发文档 §9.3 要求"清楚的折叠方案"；真正的折叠菜单需要 `aria-expanded`、`aria-controls`、Escape 关闭与焦点归还，这些只有客户端组件能做。把服务端配置留在父组件，避免把 `SITE_URL` 等 env 派生值打进客户端包。渲染期复位遵循 React 的"派生状态"模式，同时满足 `react-hooks/set-state-in-effect` 规则（该规则会拦截 effect 里的同步 setState）。
 - 影响：引入首个客户端组件（体积很小：只有图标与状态）；收起方式有三种——点击条目、按 Escape（焦点归还按钮）、点击面板与按钮之外的区域，另外路由变化会在渲染阶段复位。`<details>` 方案虽然零 JS，但无法在 Escape 时关闭并归还焦点，也无法标记当前页，故未采用。
+
+## ADR-025：站点地址按环境自动解析，线上不依赖手工配置
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：新增 `resolveSiteUrl(env)`，优先级为 `SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → `http://localhost:3000`；结果统一去掉结尾斜杠。`siteConfig.url` 由它计算。
+- 理由：首次部署到 Vercel 时忘记配 `SITE_URL`，实测整站 canonical、sitemap、RSS 全部写成了 `http://localhost:3000`——这会让搜索引擎认为正式地址在别处，是最容易发生、后果又最严重的一类配置事故。Vercel 本身会把域名注入构建环境，直接读取它就能开箱即用；显式 `SITE_URL` 仍作为覆盖项保留，用于绑定自定义域名后统一 Preview 与 Production。
+- 影响：本地开发（无这些变量）仍落到 `http://localhost:3000`；换域名只需在平台侧改域名（或设 `SITE_URL`）后重新部署，无需改代码。逻辑是纯函数并有单元测试覆盖五种输入组合。

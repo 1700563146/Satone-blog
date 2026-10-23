@@ -16,9 +16,11 @@ npm run dev        # http://localhost:3000
 
 环境变量：复制 [.env.example](../.env.example) 为 `.env.local` 后按需修改。`.env*` 不会提交到仓库（`.env.example` 除外）。
 
-| 变量       | 说明                                   | 默认值                  |
-| ---------- | -------------------------------------- | ----------------------- |
-| `SITE_URL` | 站点对外地址，用于 metadataBase 与 SEO | `http://localhost:3000` |
+| 变量       | 说明                                                       | 默认值                                                      |
+| ---------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
+| `SITE_URL` | 站点对外地址，用于 canonical、sitemap、RSS 与 metadataBase | 本地为 `http://localhost:3000`；Vercel 自动回退到注入的域名 |
+
+Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环境，未配置 `SITE_URL` 时自动使用它们（见 [ADR-025](DECISIONS.md)），所以线上不会出现 canonical 指向 localhost 的情况。绑定自定义域名后建议显式设置 `SITE_URL`，让 Preview 部署也统一指向正式域名。
 
 ## 命令
 
