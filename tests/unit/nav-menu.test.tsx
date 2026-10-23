@@ -134,4 +134,23 @@ describe("NavMenu", () => {
 
     expect(panel).toHaveAttribute("hidden");
   });
+
+  it("点击面板外部收起", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <NavMenu items={items} />
+        <button type="button">外部按钮</button>
+      </div>,
+    );
+
+    const toggle = screen.getByRole("button", { name: "打开导航菜单" });
+    const panel = getPanel(toggle);
+
+    await user.click(toggle);
+    expect(panel).not.toHaveAttribute("hidden");
+
+    await user.click(screen.getByRole("button", { name: "外部按钮" }));
+    expect(panel).toHaveAttribute("hidden");
+  });
 });

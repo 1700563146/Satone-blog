@@ -185,4 +185,4 @@
 - 状态：已采纳
 - 决策：把交互部分拆到 `src/components/navigation/nav-menu.tsx`（`"use client"`），`navbar.tsx` 保持服务端组件并以 props 传入导航条目；折叠状态与"它属于哪个路径"一起存放，路由变化时在渲染阶段直接复位，而不是在 `useEffect` 里 `setState`。
 - 理由：原方案靠 `flex-wrap` 折行，虽然无 JS，但开发文档 §9.3 要求"清楚的折叠方案"；真正的折叠菜单需要 `aria-expanded`、`aria-controls`、Escape 关闭与焦点归还，这些只有客户端组件能做。把服务端配置留在父组件，避免把 `SITE_URL` 等 env 派生值打进客户端包。渲染期复位遵循 React 的"派生状态"模式，同时满足 `react-hooks/set-state-in-effect` 规则（该规则会拦截 effect 里的同步 setState）。
-- 影响：引入首个客户端组件（体积很小：只有图标与状态）；`<details>` 方案虽然零 JS，但无法在 Escape 时关闭并归还焦点，也无法标记当前页，故未采用。
+- 影响：引入首个客户端组件（体积很小：只有图标与状态）；收起方式有三种——点击条目、按 Escape（焦点归还按钮）、点击面板与按钮之外的区域，另外路由变化会在渲染阶段复位。`<details>` 方案虽然零 JS，但无法在 Escape 时关闭并归还焦点，也无法标记当前页，故未采用。

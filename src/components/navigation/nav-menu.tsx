@@ -65,7 +65,7 @@ const ACTIVE_CLASS = "text-text font-medium";
  *
  * - 桌面端：横排显示，当前条目用 `aria-current` 标记；
  * - 移动端：默认收起，按钮提供 `aria-expanded` / `aria-controls`，
- *   支持 Escape 关闭并把焦点还给按钮，路由变化后自动收起。
+ *   支持 Escape 关闭并把焦点还给按钮，点击面板外或路由变化后自动收起。
  *
  * 之所以是客户端组件：折叠状态、当前路径高亮与键盘处理都需要浏览器端状态。
  * 站点配置由父级（服务端组件）以 props 传入，避免把 env 派生的值打进客户端包。
@@ -74,6 +74,7 @@ export function NavMenu({ items }: NavMenuProps) {
   const pathname = usePathname() ?? "/";
   const panelId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // 折叠状态与"它属于哪个路径"一起保存：路由变化时在渲染阶段直接复位，
   // 既避免 effect 里的级联渲染，也保证导航后菜单不会残留展开。
@@ -97,6 +98,22 @@ export function NavMenu({ items }: NavMenuProps) {
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  // 点击面板与按钮之外的区域时收起（用 pointerdown，触摸设备同样生效）
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panelRef.current?.contains(target) === true) return;
+      if (buttonRef.current?.contains(target) === true) return;
+      setMenu((current) => ({ ...current, open: false }));
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
   return (
@@ -138,6 +155,7 @@ export function NavMenu({ items }: NavMenuProps) {
       {/* 折叠面板：靠 hidden 属性移出无障碍树，不额外写 display 工具类 */}
       <div
         id={panelId}
+        ref={panelRef}
         hidden={!open}
         className="absolute inset-x-0 top-full z-20 mt-2 sm:hidden"
       >
