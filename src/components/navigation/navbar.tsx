@@ -1,35 +1,24 @@
 import Link from "next/link";
 
+import { NavMenu } from "@/components/navigation/nav-menu";
 import { navItems, siteConfig } from "@/lib/config";
 
 /**
- * 主导航。
+ * 主导航：站点名 + 导航条目。
  *
- * 小屏下允许换行而不是隐藏条目：只有 4 个入口，折叠成汉堡菜单需要额外的
- * 客户端组件与键盘/焦点处理，收益不足（开发文档 §9.3 要求的是"清楚的折叠方案"，
- * 换行＋可视焦点同样满足可点击区域与可读性要求）。
+ * 服务端组件负责读配置，交互部分（折叠菜单、当前页高亮、键盘处理）交给
+ * 客户端组件 `NavMenu`，避免把站点配置里的环境变量打进客户端包。
  */
 export function Navbar() {
   return (
     <nav
       aria-label="主导航"
-      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 glass-card px-4 py-3 sm:px-5"
+      className="relative flex items-center justify-between gap-4 glass-card px-4 py-3 sm:px-5"
     >
       <Link href="/" className="text-base font-semibold tracking-tight">
         {siteConfig.name}
       </Link>
-      <ul className="flex flex-wrap items-center gap-1 text-sm">
-        {navItems.map((item) => (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              className="block rounded-control px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-text focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none sm:px-3"
-            >
-              {item.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <NavMenu items={navItems} />
     </nav>
   );
 }
