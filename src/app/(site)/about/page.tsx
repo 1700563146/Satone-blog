@@ -1,16 +1,35 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { PageHeader } from "@/components/layout/page-header";
+import { siteConfig } from "@/lib/config";
+import { getPage } from "@/lib/content";
+import { formatPostDate } from "@/lib/content/schema";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+/** 关于页正文来自 content/pages/about.md；文件缺失时返回 404 而不是空白页。 */
+export const metadata: Metadata = buildPageMetadata({
   title: "关于",
-};
+  description: `关于 ${siteConfig.name} 与作者。`,
+  path: "/about",
+});
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const page = await getPage("about");
+  if (page === null) notFound();
+
   return (
-    <PagePlaceholder
-      title="关于"
-      description="个人介绍、技能、项目与联系方式将在阶段 3 呈现，内容来自 content/pages/about.md。"
-    />
+    <div className="pb-8">
+      <PageHeader
+        title={page.title ?? "关于"}
+        description={page.description}
+        meta={
+          page.updatedAt === undefined ? undefined : (
+            <span>更新于 {formatPostDate(page.updatedAt)}</span>
+          )
+        }
+      />
+      <div className="prose" dangerouslySetInnerHTML={{ __html: page.html }} />
+    </div>
   );
 }

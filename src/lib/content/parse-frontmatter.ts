@@ -40,13 +40,15 @@ function yamlErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function toIssueField(issue: ZodIssue): string | undefined {
+/** 把 Zod 问题映射为 frontmatter 字段名；未知字段直接列出键名，便于定位拼写错误。 */
+export function toIssueField(issue: ZodIssue): string | undefined {
   if (issue.code === "unrecognized_keys") return issue.keys.join(", ");
   if (issue.path.length === 0) return undefined;
   return issue.path.join(".");
 }
 
-function zodIssuesToContentIssues(error: ZodError, sourcePath: string): ContentIssue[] {
+/** 文章与页面共用的 Zod 错误转换，保证两边的报错格式一致。 */
+export function zodIssuesToContentIssues(error: ZodError, sourcePath: string): ContentIssue[] {
   return error.issues.map((issue) => ({
     code: "INVALID_FRONTMATTER",
     severity: "error",

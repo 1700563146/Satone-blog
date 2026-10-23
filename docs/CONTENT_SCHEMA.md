@@ -1,14 +1,37 @@
 # 内容规范
 
-> 状态：正式规范（阶段 2）。实现位置：`src/lib/content/schema.ts`；改动规则时请同步更新本文件与单元测试。
+> 状态：正式规范（阶段 3）。实现位置：`src/lib/content/schema.ts`（文章）与 `src/lib/content/read-pages.ts`（独立页面）；改动规则时请同步更新本文件与单元测试。
 
 ## 文章位置
 
 - 文章：`content/posts/<slug>.md`（只支持顶层 `.md` 文件，不支持子目录）
-- 独立页面：`content/pages/<name>.md`（阶段 3 使用）
+- 独立页面：`content/pages/<name>.md`（关于页等，规则见下文）
 - 图片：`public/images/`（本地）或第三方图床/对象存储（P1）
 
 文件名不影响 URL，URL 由 frontmatter 中的 `slug` 决定。
+
+## 独立页面
+
+固定页面（目前是 `/about`）的正文来自 `content/pages/<name>.md`，页面名与路由的对应关系写在页面组件里（`getPage("about")`）。
+
+```yaml
+---
+title: "关于"
+description: "用于页面摘要与 SEO"
+updatedAt: "2026-10-23"
+---
+```
+
+| 字段          | 类型   | 必填 | 规则                             |
+| ------------- | ------ | ---- | -------------------------------- |
+| `title`       | string | 否   | 1–120 字符；省略时页面用默认标题 |
+| `description` | string | 否   | 1–200 字符                       |
+| `updatedAt`   | string | 否   | `YYYY-MM-DD`，必须是真实日期     |
+
+- 整个 frontmatter 可以省略；写了就必须符合上面的字段，**未知字段同样报错**。
+- 页面名只能是小写字母、数字与连字符（例如 `about`、`contact-me`），防止路径穿越。
+- 文件不存在时页面返回 404，不会渲染空白页；`npm run validate:content` 会把 `content/pages/` 一并检查。
+- 正文的 Markdown 规则（GFM、原始 HTML、链接与图片限制）与文章完全一致。
 
 ## Frontmatter
 
@@ -93,7 +116,7 @@ date: "2026-10-23"
 npm run validate:content
 ```
 
-脚本会检查 frontmatter、重复 slug、Markdown 链接与图片，并汇总所有问题（不会只报第一个）。`npm run build` 会通过 `prebuild` 自动执行同样的检查。
+脚本会检查 frontmatter、重复 slug、Markdown 链接与图片，并汇总所有问题（不会只报第一个）；`content/pages/` 下的独立页面走同一套检查。`npm run build` 会通过 `prebuild` 自动执行同样的检查。
 
 常见错误码：
 

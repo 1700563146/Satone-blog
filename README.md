@@ -36,8 +36,8 @@ npm run dev
 
 ```text
 ├─ content/            # 文章与页面内容（Markdown，唯一内容源）
-│  ├─ posts/
-│  └─ pages/
+│  ├─ posts/           # 文章（顶层 .md，URL 由 frontmatter 的 slug 决定）
+│  └─ pages/           # 独立页面，如 about.md → /about
 ├─ docs/               # 架构、开发、内容与部署文档
 ├─ public/             # 可公开访问的静态资源
 │  ├─ images/
@@ -45,28 +45,49 @@ npm run dev
 │  └─ favicon.ico
 ├─ src/
 │  ├─ app/
-│  │  ├─ (site)/       # 前台路由组：首页、文章、分类、标签、关于、友链
-│  │  ├─ layout.tsx    # 根布局（zh-CN、站点元数据）
-│  │  └─ not-found.tsx
+│  │  ├─ (site)/       # 前台路由组：首页、文章、分类、标签、关于、友链 + 404
+│  │  ├─ layout.tsx    # 根布局（zh-CN、站点元数据、RSS 自动发现）
+│  │  ├─ not-found.tsx # 未匹配路径的 404
+│  │  ├─ sitemap.ts    # /sitemap.xml（只含公开内容）
+│  │  ├─ robots.ts     # /robots.txt
+│  │  └─ feed.xml/     # /feed.xml（RSS 2.0，构建时预渲染）
 │  ├─ components/
-│  │  ├─ layout/
-│  │  ├─ navigation/
-│  │  ├─ post/
-│  │  ├─ effects/
-│  │  └─ ui/
+│  │  ├─ layout/       # 标题区、空状态、占位页
+│  │  ├─ navigation/   # 导航栏、分类/标签链接与总览
+│  │  ├─ post/         # 文章卡片、列表、目录、上一篇/下一篇
+│  │  ├─ effects/      # 预留（视觉增强）
+│  │  └─ ui/           # 预留（基础组件）
 │  ├─ lib/
-│  │  ├─ content/      # 内容引擎（唯一入口 index.ts，带缓存）
-│  │  ├─ seo/
+│  │  ├─ content/      # 内容引擎（唯一入口 index.ts，带缓存）+ 独立页面读取
+│  │  ├─ seo/          # 元数据与 RSS 构建（纯函数，可单测）
+│  │  ├─ routing.ts    # generateStaticParams 辅助
 │  │  └─ config.ts     # 站点配置唯一来源
 │  ├─ styles/
-│  │  └─ globals.css   # Tailwind 入口与设计 Token
+│  │  └─ globals.css   # Tailwind 入口、设计 Token 与正文排版
 │  └─ types/
 ├─ scripts/           # 内容校验等仓库级脚本
 ├─ tests/
 │  ├─ unit/
+│  ├─ fixtures/       # 文章与页面的测试夹具
 │  └─ e2e/
 └─ .github/workflows/ci.yml
 ```
+
+## 路由
+
+| 路由                          | 说明                                      |
+| ----------------------------- | ----------------------------------------- |
+| `/`                           | 首页：站点介绍、精选、最新文章、分类入口  |
+| `/posts`                      | 全部已发布文章 + 分类/标签总览            |
+| `/posts/[slug]`               | 文章详情：正文、目录、上一篇/下一篇       |
+| `/categories/[slug]`          | 分类归档（中文名称即 URL 段）             |
+| `/tags/[slug]`                | 标签归档                                  |
+| `/about`                      | 关于页，正文来自 `content/pages/about.md` |
+| `/friends`                    | 友链（P1，暂为占位）                      |
+| `/feed.xml`                   | RSS 2.0 订阅                              |
+| `/sitemap.xml`、`/robots.txt` | 搜索引擎用文件                            |
+
+草稿、未发布文章与不存在的 slug 统一返回真正的 404 状态码（见 [ADR-016](docs/DECISIONS.md)）。
 
 ## 文档
 
@@ -82,6 +103,8 @@ npm run dev
 
 - [x] 阶段 1：项目骨架
 - [x] 阶段 2：内容引擎
-- [ ] 阶段 3：前台页面
+- [x] 阶段 3：前台页面（首页、列表、详情、分类、标签、关于、404、SEO、RSS、sitemap）
 - [ ] 阶段 4：部署与可观测性
 - [ ] 阶段 5：写作体验与增强功能
+
+阶段 3 的收尾项：代码高亮（Shiki，见 [ADR-020](docs/DECISIONS.md)）、移动端导航折叠方案（当前为换行布局）、组件测试与 Playwright。

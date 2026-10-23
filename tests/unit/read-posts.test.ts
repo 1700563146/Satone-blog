@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPublicIndex,
   collectPosts,
+  findPostNeighbors,
   findPublicPostBySlug,
   findTaxonomyTerm,
   loadAllPosts,
@@ -247,5 +248,44 @@ describe("分类/标签查询", () => {
       findTaxonomyTerm(index.tags, encodeURIComponent("博客"))?.count,
     ).toBe(3);
     expect(findTaxonomyTerm(index.tags, "不存在")).toBeNull();
+  });
+});
+
+describe("findPostNeighbors", () => {
+  it("按列表顺序给出更早/更晚的文章", async () => {
+    const index = await loadPublicIndex({ postsDir: validDir });
+    expect(index.posts.map((post) => post.slug)).toEqual([
+      "beta",
+      "same-day-a",
+      "same-day-b",
+      "alpha",
+    ]);
+
+    const middle = findPostNeighbors(index.posts, "same-day-a");
+    expect(middle.newer?.slug).toBe("beta");
+    expect(middle.older?.slug).toBe("same-day-b");
+  });
+
+  it("首尾文章只有一侧邻居", async () => {
+    const index = await loadPublicIndex({ postsDir: validDir });
+
+    expect(findPostNeighbors(index.posts, "beta")).toEqual({
+      newer: null,
+      older: index.posts[1],
+    });
+    expect(findPostNeighbors(index.posts, "alpha").older).toBeNull();
+  });
+
+  it("未知或草稿 slug 返回空邻居", async () => {
+    const index = await loadPublicIndex({ postsDir: validDir });
+
+    expect(findPostNeighbors(index.posts, "draft-sentinel")).toEqual({
+      older: null,
+      newer: null,
+    });
+    expect(findPostNeighbors(index.posts, "does-not-exist")).toEqual({
+      older: null,
+      newer: null,
+    });
   });
 });

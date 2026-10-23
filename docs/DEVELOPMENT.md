@@ -1,6 +1,6 @@
 # 开发指南
 
-> 状态：阶段 2（内容引擎）。后续阶段（真实页面、部署、后台）补充相应说明。
+> 状态：阶段 3（前台页面）。后续阶段（部署、后台）补充相应说明。
 
 ## 环境要求
 
@@ -40,16 +40,18 @@ npm run dev        # http://localhost:3000
 
 ## 目录约定
 
-- `content/`：只存放内容（Markdown），不存放业务代码；是文章的唯一来源。
+- `content/`：只存放内容（Markdown），不存放业务代码；`posts/` 是文章，`pages/` 是独立页面。
 - `public/`：只放可公开访问的静态资源，不得放密钥、私密备份或草稿。
-- `src/app/`：路由与页面组合。前台页面统一放在 `(site)` 路由组内。
-- `src/components/`：可复用展示组件；`ui/` 预留给基础组件（shadcn/ui 按需引入）。
-- `src/lib/content/`：内容引擎。`index.ts` 是对外唯一入口（带缓存），其余模块保持纯函数以便单测。
-- `scripts/`：仓库级脚本；目前只有内容校验。
+- `src/app/`：路由与页面组合。前台页面统一放在 `(site)` 路由组内；`sitemap.ts`、`robots.ts`、`feed.xml/` 也在这一层。
+- `src/components/`：可复用展示组件（`post/`、`navigation/`、`layout/`）；`ui/` 预留给基础组件。
+- `src/lib/content/`：内容引擎。`index.ts` 是对外唯一入口（带缓存），其余模块保持纯函数以便单测；`read-pages.ts` 负责独立页面。
+- `src/lib/seo/`：元数据与 RSS 构建，纯函数，可直接单测。
+- `src/lib/routing.ts`：`generateStaticParams` 的参数辅助。
+- `scripts/`：仓库级脚本；目前只有内容校验（文章 + 独立页面）。
 - `src/lib/config.ts`：站点配置唯一来源，不要在组件中重复写死。
 - `docs/`：架构决策、内容规范、部署流程。
-- `tests/unit/`：单元测试；`tests/fixtures/content/` 是内容引擎的测试夹具。
-- `tests/e2e/`：Playwright（阶段 3/4 引入）。
+- `tests/unit/`：单元测试；`tests/fixtures/content/` 与 `tests/fixtures/pages/` 是测试夹具。
+- `tests/e2e/`：Playwright（阶段 4 引入）。
 
 ## 写作流程
 
@@ -100,4 +102,32 @@ npm run dev        # http://localhost:3000
 
 ## 阶段边界
 
-当前处于阶段 2（内容引擎）：Markdown 读取、frontmatter 校验、草稿隔离、目录与链接安全、内容校验脚本与单元测试已完成；页面仍是占位页。真实页面与 SEO（阶段 3）、部署（阶段 4）、后台与增强功能（阶段 5）按开发文档路线推进。
+当前处于阶段 3（前台页面完成）：首页、文章列表、详情页（正文 + 目录 + 上一篇/下一篇）、分类与标签归档、关于页、404、SEO（canonical / Open Graph）、sitemap、robots 与 RSS 已完成，全部路由在构建期静态产出。
+
+下一阶段（阶段 4）处理部署与可观测性。阶段 3 的收尾项：代码高亮（ADR-020）、移动端导航折叠、组件测试与 Playwright。
+
+## 页面开发
+
+前台页面统一放在 `(site)` 路由组，页面只负责组合，数据一律从 `@/lib/content` 获取：
+
+```tsx
+export default async function PostsPage() {
+  const [posts, categories] = await Promise.all([getPosts(), getCategories()]);
+  return <PostList posts={posts} />;
+}
+```
+
+规则：
+
+- 页面不能直接 `import` `read-posts` / `parse-frontmatter`（ESLint 会拦截），否则会绕过缓存与草稿隔离。
+- 动态段必须导出 `generateStaticParams`，参数用 `toStaticSlugParams()` 包装（处理空内容的情况）；`generateMetadata` 与页面本体可以各自调用访问层函数（都有缓存）。
+- 参数解析失败或内容不存在时调用 `notFound()`，不要渲染空白页。
+- 新增独立页面：在 `content/pages/` 加 `<name>.md`，页面里调用 `getPage("<name>")`。
+- 样式只使用 `@theme` 里的设计 Token（`text-muted`、`glass-card`、`max-w-(--content-width)` 等），不要在组件里写死颜色。
+
+### 不要破坏整站静态产出
+
+`(site)/layout.tsx` 导出了 `ensureStatic = "navigation"`，构建会校验"完整路由不包含未缓存读取或请求期 API"。因此：
+
+- 新增数据读取时放进 `use cache` 作用域（`src/lib/content/index.ts`），或明确接受该路由重新变成动态渲染（需要同步调整 `ensureStatic` 并记录 ADR）。
+- `use cache` 作用域里不要用 `revalidate: 0`，否则校验失败；开发期用 `{ revalidate: 1, stale: 30 }`。

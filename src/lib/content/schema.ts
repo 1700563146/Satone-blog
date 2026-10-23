@@ -241,6 +241,49 @@ export const postFrontmatterSchema = z
 
 export type PostFrontmatter = z.infer<typeof postFrontmatterSchema>;
 
+/** 可选文本字段：允许省略、写 null 或空字符串，其余规则与文章字段一致。 */
+function optionalTextSchema(label: string, max: number) {
+  return z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z
+      .string()
+      .transform((value) => value.normalize("NFC").trim())
+      .pipe(
+        z
+          .string()
+          .min(1, `${label}不能为空`)
+          .max(max, `${label}最多 ${max} 个字符`)
+          .refine((value) => !CONTROL_CHAR_PATTERN.test(value), `${label}不能包含控制字符`),
+      )
+      .optional(),
+  );
+}
+
+/**
+ * 独立页面（`content/pages/*.md`）的 frontmatter 规范。
+ *
+ * 与文章的区别：页面没有发布状态、分类标签与 slug（页面名由文件名决定），
+ * 只保留展示所需的标题、摘要与更新日期；整个 frontmatter 可以省略。
+ */
+export const pageFrontmatterSchema = z.strictObject({
+  title: optionalTextSchema("标题", MAX_TITLE_LENGTH),
+  description: optionalTextSchema("摘要", MAX_DESCRIPTION_LENGTH),
+  updatedAt: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    civilDateSchema.optional(),
+  ),
+});
+
+export type PageFrontmatter = z.infer<typeof pageFrontmatterSchema>;
+
+/** 渲染完成的独立页面（关于页等）。 */
+export interface PageDetail extends PageFrontmatter {
+  html: string;
+  toc: TocEntry[];
+  /** 仓库相对路径，用于报错定位。 */
+  sourcePath: string;
+}
+
 export interface Post extends PostFrontmatter {
   /** 正文 Markdown（不含 frontmatter）。 */
   content: string;
@@ -294,6 +337,11 @@ export function toTaxonomySlug(name: string): string {
 
 export function taxonomyHref(kind: TaxonomyKind, slug: string): string {
   return `/${kind}/${encodeURIComponent(slug)}`;
+}
+
+/** 文章详情地址；slug 只含小写字母、数字与连字符，无需再编码。 */
+export function postHref(slug: string): string {
+  return `/posts/${slug}`;
 }
 
 const FORBIDDEN_TAXONOMY_PARAM_PATTERN = /[/\\?#%\u0000-\u001f\u007f]/;

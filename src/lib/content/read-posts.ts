@@ -236,3 +236,27 @@ export async function loadTaxonomyPage(
     ),
   };
 }
+
+/** 文章详情页的上一篇/下一篇。 */
+export interface PostNeighbors {
+  /** 更早发布的一篇（列表中位于当前文章之后）。 */
+  older: PostSummary | null;
+  /** 更晚发布的一篇（列表中位于当前文章之前）。 */
+  newer: PostSummary | null;
+}
+
+/**
+ * 在公开文章列表（已按日期倒序）中定位相邻文章。
+ *
+ * 排序与列表页保持一致，保证"上一篇/下一篇"与列表顺序相符；找不到当前文章时
+ * 两者都返回 null。
+ */
+export function findPostNeighbors(published: PostSummary[], slug: string): PostNeighbors {
+  const index = published.findIndex((post) => post.slug === slug);
+  if (index === -1) return { older: null, newer: null };
+
+  return {
+    older: published[index + 1] ?? null,
+    newer: published[index - 1] ?? null,
+  };
+}

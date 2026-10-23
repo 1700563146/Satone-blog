@@ -114,3 +114,43 @@
 - 决策：使用 `z.strictObject`；`published` 与 `draft` 均为必填布尔值且不能同时为 `true`；`slug`/`title`/`description`/`date` 必填；分类最多 5 个、标签最多 20 个。
 - 理由：拼写错误（如 `pubished`）与缺失发布标志是静态博客最常见的事故来源，静默忽略可能导致文章意外发布或消失。显式要求两个标志，也让"草稿"和"未发布"语义清晰。
 - 影响：旧文章迁移时需要补全字段；错误消息统一为中文（Zod zh-CN locale + 自定义提示）。
+
+## ADR-016：前台整站要求静态产出，未列出的动态参数返回真正的 404
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：在 [`src/app/(site)/layout.tsx`](<../src/app/(site)/layout.tsx>) 导出 `ensureStatic = "navigation"`；同时把 `use cache` 作用域的开发期配置从 `revalidate: 0` 改为 `{ revalidate: 1, stale: 30 }`。
+- 理由：Cache Components 下 `dynamicParams` 被禁用（构建直接报错），未在 `generateStaticParams` 中列出的参数会先用 App Shell 响应——页面里的 `notFound()` 在流式渲染中已经来不及改状态码，实测第一次请求返回 **200 的软 404**，第二次请求又变成 Next 内置错误页。`ensureStatic = 'navigation'` 要求"未列出的参数等待完整静态结果生成后再响应"，`notFound()` 因此返回真正的 404；同时它在构建期校验"完整路由不得包含未缓存读取或请求期 API"，可防止后续改动悄悄把静态页变成动态页。
+- 影响：`revalidate: 0` 会与 `ensureStatic` 冲突（构建/开发均校验失败），开发期改用 1 秒失效——改完 Markdown 刷新即可看到，效果与关闭缓存一致。新增页面若引入未缓存的数据读取会构建失败，需放进 `use cache` 作用域。
+
+## ADR-017：`generateStaticParams` 在无已发布内容时返回占位参数
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：所有动态段统一通过 [`src/lib/routing.ts`](../src/lib/routing.ts) 的 `toStaticSlugParams()` 生成参数；内容为空时返回 `{ slug: "__placeholder__" }`。
+- 理由：Cache Components 要求 `generateStaticParams` 至少返回一个参数，空数组会让构建直接失败（`empty-generate-static-params`）。占位参数会走到 `notFound()`，既不伪造内容，也不让"刚初始化、还没写文章"的仓库无法构建。
+- 影响：空仓库首次构建会多出一个 404 静态条目；有内容后自然消失。分类/标签页同样复用该函数。
+
+## ADR-018：独立页面使用 `content/pages/<name>.md` 与可选 frontmatter
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：关于等固定页面的正文来自 `content/pages/<name>.md`，页面名只能是小写字母、数字与连字符（同时挡掉路径穿越）；frontmatter **可整体省略**，允许的字段只有 `title` / `description` / `updatedAt`，未知字段同样报错；文件缺失时 `notFound()`，不渲染空白页。
+- 理由：about 页需要有正文可编辑，但不应为此引入 CMS；与文章共用同一套 Markdown 安全渲染管线。页面比文章简单——没有 slug（由文件名决定）、没有发布状态，避免维护第二套"真相"。
+- 影响：新增独立页面只需加一个 md 文件并在页面里调用 `getPage(name)`；`npm run validate:content` 已把 `content/pages/` 纳入检查。
+
+## ADR-019：RSS 的 `pubDate` 以站点时区锚定到当日 00:00
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：`toRfc822Date()` 用文章日期 + `siteConfig.timeZoneOffset` 生成 RFC 822 时间，星期与月份用 UTC 分量计算；标题、描述、链接一律经过 `escapeXml()`。
+- 理由：文章 `date` 只表示"日历上的哪一天"（ADR-010），而 RSS 需要具体时刻；固定偏移而不是读取构建机时区，保证本机与 CI 产出完全一致。RFC 822 要求 `+HHMM`，因此配置里写便于阅读的 `+08:00`，输出前去掉冒号。
+- 影响：读者客户端按本地时区显示日期时，东八区以外可能显示为前一天——这是"只有日期没有时刻"的固有取舍。
+
+## ADR-020：语法高亮推迟到部署前，先做代码块排版
+
+- 日期：2026-10-23
+- 状态：已采纳
+- 决策：阶段 3 只提供代码块的排版样式（深底、横向滚动、保留 `language-xx` 类名），暂不引入 Shiki / rehype-pretty-code。
+- 理由：高亮需要新增依赖与构建期主题资源，属于阅读体验的装饰层；先把页面、目录、404、SEO 与可访问性闭环，收益更高。
+- 影响：代码块目前没有颜色区分；后续接入时只需在 `renderMarkdown` 的 rehype 链上加一个插件，配色可直接复用 `.prose pre` 的样式。
