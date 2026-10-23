@@ -17,17 +17,20 @@ npm run dev
 
 ## 常用命令
 
-| 命令                   | 说明                               |
-| ---------------------- | ---------------------------------- |
-| `npm run dev`          | 启动开发服务器（Turbopack）        |
-| `npm run build`        | 生产构建                           |
-| `npm run start`        | 启动生产服务器                     |
-| `npm run lint`         | ESLint 检查                        |
-| `npm run typecheck`    | 生成路由类型并执行 TypeScript 检查 |
-| `npm run test`         | Vitest 单元测试                    |
-| `npm run test:watch`   | Vitest 监听模式                    |
-| `npm run format`       | Prettier 格式化全部文件            |
-| `npm run format:check` | Prettier 格式检查（CI 使用）       |
+| 命令                       | 说明                               |
+| -------------------------- | ---------------------------------- |
+| `npm run dev`              | 启动开发服务器（Turbopack）        |
+| `npm run build`            | 校验内容并生产构建                 |
+| `npm run start`            | 启动生产服务器                     |
+| `npm run lint`             | ESLint 检查                        |
+| `npm run typecheck`        | 生成路由类型并执行 TypeScript 检查 |
+| `npm run test`             | Vitest 单元测试                    |
+| `npm run test:watch`       | Vitest 监听模式                    |
+| `npm run validate:content` | 校验文章 frontmatter 与正文        |
+| `npm run format`           | Prettier 格式化全部文件            |
+| `npm run format:check`     | Prettier 格式检查（CI 使用）       |
+
+写文章：在 `content/posts/` 新建 `<slug>.md`，按 [内容规范](docs/CONTENT_SCHEMA.md) 填写 frontmatter，然后运行 `npm run validate:content`。草稿（`published: false` 或 `draft: true`）不会出现在任何公开页面。
 
 ## 目录结构
 
@@ -52,12 +55,13 @@ npm run dev
 │  │  ├─ effects/
 │  │  └─ ui/
 │  ├─ lib/
-│  │  ├─ content/      # 内容读取与解析（阶段 2）
+│  │  ├─ content/      # 内容引擎（唯一入口 index.ts，带缓存）
 │  │  ├─ seo/
 │  │  └─ config.ts     # 站点配置唯一来源
 │  ├─ styles/
 │  │  └─ globals.css   # Tailwind 入口与设计 Token
 │  └─ types/
+├─ scripts/           # 内容校验等仓库级脚本
 ├─ tests/
 │  ├─ unit/
 │  └─ e2e/
@@ -77,7 +81,7 @@ npm run dev
 ## 开发阶段
 
 - [x] 阶段 1：项目骨架
-- [ ] 阶段 2：内容引擎
+- [x] 阶段 2：内容引擎
 - [ ] 阶段 3：前台页面
 - [ ] 阶段 4：部署与可观测性
 - [ ] 阶段 5：写作体验与增强功能

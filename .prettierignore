@@ -15,3 +15,7 @@ public/fonts
 
 # 参考规划文档，保持原样
 开发文档.md
+
+# 作者内容与故意写坏的测试 fixture，保持原样
+content
+tests/fixtures/content

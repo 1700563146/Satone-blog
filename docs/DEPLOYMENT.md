@@ -23,6 +23,8 @@ npm run test
 npm run build
 ```
 
+`npm run build` 会通过 `prebuild` 自动执行 `validate:content`；内容有 error 时不会产出部署产物。
+
 ## 待办（阶段 4）
 
 - [ ] 创建 GitHub 远程仓库并启用 CI
