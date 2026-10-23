@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   设计 Token —— 基线来自开发文档 §9.2
+   调整主题只改这里，不要在组件中散落颜色与圆角
+   ───────────────────────────────────────────── */
+@theme {
+  --color-bg: #f5f6f8;
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-text: #20242c;
+  --color-muted: #687080;
+  --color-border: rgba(30, 40, 60, 0.12);
+  --color-accent: #6478d3;
+
+  --radius-card: 18px;
+  --radius-control: 10px;
+  --content-width: 760px;
+  --page-width: 1120px;
+  --shadow-card: 0 8px 28px rgba(25, 35, 55, 0.08);
+
+  /* 中文优先的系统字体栈：不依赖 Google Fonts，构建与阅读均稳定 */
+  --font-sans:
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+/* 暗色主题（P1 阶段）：在此新增 @custom-variant dark 与 .dark { --color-*: … } 覆盖 */
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* 毛玻璃卡片：导航、摘要、浮层等半透明容器复用 */
+@utility glass-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

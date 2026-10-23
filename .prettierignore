@@ -1,0 +1,17 @@
+# 依赖与构建产物
+node_modules
+.next
+out
+build
+coverage
+
+# 自动生成 / 锁文件
+package-lock.json
+next-env.d.ts
+
+# 媒体资源
+public/images
+public/fonts
+
+# 参考规划文档，保持原样
+开发文档.md
