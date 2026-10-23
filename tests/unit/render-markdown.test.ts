@@ -43,10 +43,30 @@ describe("renderMarkdown", () => {
     expect(html).toContain("脚注内容");
   });
 
-  it("保留代码块语言标识", async () => {
+  it("代码块按语言高亮并保留语言标识", async () => {
     const { html } = await renderMarkdown("```ts\nconst answer = 42;\n```\n");
-    expect(html).toContain('class="language-ts"');
-    expect(html).toContain("const answer = 42;");
+
+    expect(html).toContain('data-language="ts"');
+    expect(html).toContain('data-theme="github-dark-default"');
+    // 着色结果是一层层带颜色的 span，行由 data-line 标记
+    expect(html).toMatch(/<span style="color:#[0-9A-Fa-f]{6}">/);
+    expect(html).toMatch(/<span data-line="">/);
+    expect(html).toContain("const");
+    expect(html).toContain("42");
+  });
+
+  it("没有语言标识的代码块退化为纯文本而不是报错", async () => {
+    const { html } = await renderMarkdown("```\n纯文本代码块\n```\n");
+
+    expect(html).toContain('data-language="text"');
+    expect(html).toContain("纯文本代码块");
+  });
+
+  it("行内代码不做高亮，保持轻量", async () => {
+    const { html } = await renderMarkdown("行内 `code` 示例\n");
+
+    expect(html).toContain("<code>code</code>");
+    expect(html).not.toContain("data-rehype-pretty-code-figure");
   });
 
   it("目录文本包含行内标记的纯文本", async () => {

@@ -31,7 +31,7 @@ Next.js 页面层（src/app，App Router + Cache Components）
     |-- read-posts：目录扫描、重复 slug 检查、公开索引、相邻文章
     |-- read-pages：独立页面读取（frontmatter 可省略）
     |-- parse-frontmatter：gray-matter + Zod 校验
-    |-- render-markdown：unified 渲染、目录提取、链接安全
+    |-- render-markdown：unified 渲染、目录提取、链接安全、Shiki 代码高亮
     |
     v
 content/posts + content/pages（唯一内容源）
@@ -103,4 +103,4 @@ Next 16 在把动态段交给页面代码前会执行一次 `encodeURIComponent`
 
 ## 技术栈
 
-Next.js 16（App Router、Turbopack、Cache Components、`ensureStatic`）、React 19、TypeScript strict、Tailwind CSS v4、Zod 4、unified/remark/rehype、Vitest。详见 [DECISIONS.md](DECISIONS.md)。
+Next.js 16（App Router、Turbopack、Cache Components、`ensureStatic`）、React 19、TypeScript strict、Tailwind CSS v4、Zod 4、unified/remark/rehype、Shiki（`rehype-pretty-code`）、Vitest。详见 [DECISIONS.md](DECISIONS.md)。

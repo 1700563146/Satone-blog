@@ -150,7 +150,15 @@
 ## ADR-020：语法高亮推迟到部署前，先做代码块排版
 
 - 日期：2026-10-23
-- 状态：已采纳
+- 状态：已被 ADR-021 取代（高亮已接入，见下一条）
 - 决策：阶段 3 只提供代码块的排版样式（深底、横向滚动、保留 `language-xx` 类名），暂不引入 Shiki / rehype-pretty-code。
 - 理由：高亮需要新增依赖与构建期主题资源，属于阅读体验的装饰层；先把页面、目录、404、SEO 与可访问性闭环，收益更高。
 - 影响：代码块目前没有颜色区分；后续接入时只需在 `renderMarkdown` 的 rehype 链上加一个插件，配色可直接复用 `.prose pre` 的样式。
+
+## ADR-021：代码高亮改用 Shiki + rehype-pretty-code，构建期着色
+
+- 日期：2026-10-23
+- 状态：已采纳（取代 ADR-020）
+- 决策：引入 `rehype-pretty-code` + `shiki`，在 `renderMarkdown` 的 rehype 链上着色；主题 `github-dark-default`，`keepBackground: false`（背景仍由 `.prose pre` 决定），`defaultLang: "text"`（未标语言的代码块按纯文本渲染），`bypassInlineCode: true`（行内代码不着色）。
+- 理由：页面、SEO、404 已经闭环，代码可读性是技术博客的核心阅读体验；Shiki 在构建期把代码渲染成纯 HTML + 行内颜色，不向客户端发送 JS（已核对产物：客户端 chunk 中不含 shiki/oniguruma）。`defaultLang` 避免"忘记写语言"导致构建失败，`bypassInlineCode` 避免给行内代码套一层无意义的 span。
+- 影响：HTML 体积随代码量增长（示例文章页约 26 KB）；主题升级可能改变配色，单元测试只断言结构与"存在行内颜色"，不断言具体色值。新增语法无需配置——Shiki 按需加载语言包。

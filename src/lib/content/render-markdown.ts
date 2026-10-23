@@ -1,5 +1,6 @@
 import type { Element, Root as HastRoot } from "hast";
 import type { Root as MdastRoot } from "mdast";
+import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkGfm from "remark-gfm";
@@ -184,6 +185,21 @@ function rehypeLinkAttributes(siteUrl: string): Plugin<[], HastRoot> {
 }
 
 /**
+ * 代码高亮配置（Shiki 主题 + rehype-pretty-code）。
+ *
+ * - `theme`：与 `.prose pre` 的深色底搭配；
+ * - `keepBackground: false`：背景色仍由 CSS 提供，样式来源只有一处；
+ * - `defaultLang: "text"`：没写语言的代码块按纯文本渲染，而不是让构建报错。
+ */
+const HIGHLIGHT_OPTIONS: PrettyCodeOptions = {
+  theme: "github-dark-default",
+  keepBackground: false,
+  defaultLang: "text",
+  // 行内 `code` 保持轻量：不需要着色，也不希望多包一层 span
+  bypassInlineCode: true,
+};
+
+/**
  * 把正文 Markdown 渲染为 HTML，并提取 h2/h3 目录。
  *
  * 安全策略：
@@ -191,6 +207,8 @@ function rehypeLinkAttributes(siteUrl: string): Plugin<[], HastRoot> {
  * - 危险链接/图片地址会直接抛出 ContentValidationError；
  * - 外部链接自动加 target="_blank" 与 rel="noopener noreferrer"；
  * - 图片默认懒加载。
+ *
+ * 代码块在构建期由 Shiki 着色，产物是纯 HTML + 行内颜色，客户端无需 JS。
  */
 export async function renderMarkdown(
   source: string,
@@ -206,6 +224,7 @@ export async function renderMarkdown(
     .use(remarkValidateMarkdown(sourcePath))
     .use(remarkRehype)
     .use(rehypeSlug)
+    .use(rehypePrettyCode, HIGHLIGHT_OPTIONS)
     .use(rehypeCollectToc(toc))
     .use(rehypeLinkAttributes(siteUrl))
     .use(rehypeStringify);

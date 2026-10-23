@@ -170,14 +170,30 @@ body {
   padding: 0.15em 0.35em;
 }
 
+/* 代码块：背景取 Shiki github-dark-default 的底色，颜色由构建期行内样式给出 */
 .prose pre {
-  background-color: #1f2430;
-  color: #e8ebf0;
+  background-color: #0d1117;
+  color: #e6edf3;
   border-radius: var(--radius-control);
   padding: 1rem 1.15rem;
   overflow-x: auto;
   font-size: 0.875rem;
   line-height: 1.7;
+}
+
+/* rehype-pretty-code 会把代码块包进 figure，去掉这一层的重复外边距 */
+.prose figure[data-rehype-pretty-code-figure] {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose figure[data-rehype-pretty-code-figure] pre {
+  margin: 0;
+}
+
+.prose pre:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .prose pre code {

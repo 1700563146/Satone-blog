@@ -71,7 +71,7 @@ describe("仓库中的真实内容", () => {
     ]);
     expect(toc.find((entry) => entry.text === "内容优先")?.depth).toBe(3);
 
-    expect(html).toContain('class="language-ts"');
+    expect(html).toContain('data-language="ts"');
     expect(html).toContain("<table>");
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('href="/about"');

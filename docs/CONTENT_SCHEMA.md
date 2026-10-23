@@ -106,7 +106,8 @@ date: "2026-10-23"
 - 链接与图片地址仅允许 `http` / `https` / `mailto` / `tel`、站内绝对路径与相对路径；`javascript:`、`data:`、`file:`、`//host` 等会被拒绝并导致构建失败。
 - 外部链接自动添加 `target="_blank"` 与 `rel="noopener noreferrer"`。
 - 图片必须有替代文本（alt），并默认使用 `loading="lazy"`、`decoding="async"`。
-- 代码块保留语言标识（`language-xx`）；语法高亮与增强在阶段 3 引入。
+- 代码块在**构建期**由 Shiki（主题 `github-dark-default`）着色，产物是纯 HTML + 行内颜色，不会给访客增加 JS。
+- 代码块建议标注语言（` ```ts `），未标注时按纯文本输出，不会让构建失败；行内代码不做着色。
 
 ## 校验
 
