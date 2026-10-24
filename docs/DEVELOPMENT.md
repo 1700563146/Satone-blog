@@ -58,6 +58,26 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 
 ## 写作流程
 
+推荐用**一键发布脚本**（ADR-029）：在任意 Markdown 编辑器里写完，保存成 `.md`，然后
+
+```bash
+npm run publish -- D:/写作/我的文章.md --category 开发记录 --tag Next.js
+```
+
+脚本会依次完成：
+
+1. **解析/补全**：没有 frontmatter 时，从正文推导标题（第一个 `#` 标题）、摘要（首段）、slug（文件名）、日期（按站点时区取今天）；正文开头与标题重复的一级标题会被移除。
+2. **规范化**：日期一律加引号；缺失的 `published` / `draft` 按默认补齐。
+3. **校验**：用与构建期完全相同的 schema + Markdown 检查（危险链接、图片 alt），再跑一次 `parsePostSource` 复核。
+4. **查重**：`slug` 已被占用（含草稿）就报错，换 `--slug` 或加 `--force`。
+5. **写入 + 提交 + 推送**：`content/posts/<slug>.md` → `git commit` → `git push`，CI 与部署自动执行，通常 1~3 分钟上线。
+
+常用选项：`--dry-run`（只看结果不写）、`--draft`（发成草稿）、`--no-commit` / `--no-push`、`--title` / `--slug` / `--description` / `--date`（命令行优先于文件里的 frontmatter）、`--force`。
+
+⚠️ 中文文件名推导不出 slug（slug 只接受小写字母/数字/连字符），这种情况用 `--slug` 指定，或者在编辑器里把文件命名成英文。
+
+手动流程（不用脚本时）：
+
 1. 在 `content/posts/` 新建 `<slug>.md`，按 [内容规范](CONTENT_SCHEMA.md) 填写 frontmatter。
 2. 草稿保持 `published: false` 或 `draft: true`，两种写法都会从公开数据中过滤。
 3. 运行 `npm run validate:content`，按提示修复所有 error。

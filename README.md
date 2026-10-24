@@ -30,6 +30,7 @@ npm run dev
 | `npm run test:watch`       | Vitest 监听模式                               |
 | `npm run test:e2e`         | Playwright 端到端测试（需先 `npm run build`） |
 | `npm run validate:content` | 校验文章 frontmatter 与正文                   |
+| `npm run publish`          | 一键发布 md：补全校验 + 提交 + 推送           |
 | `npm run cf:preview`       | 本地预览静态资源（`wrangler dev`）            |
 | `npm run cf:deploy`        | 部署 `out/` 到 Cloudflare（需 API Token）     |
 | `npm run format`           | Prettier 格式化全部文件                       |
@@ -115,4 +116,4 @@ npm run dev
 - [ ] 阶段 4：部署与可观测性（清单见 [部署指南](docs/DEPLOYMENT.md)）
 - [ ] 阶段 5：写作体验与增强功能
 
-测试：149 个单元/组件用例，12 个端到端用例（桌面与移动端两个 project）。P1 待做：友链、暗色主题。
+测试：165 个单元/组件用例，12 个端到端用例（桌面与移动端两个 project）。P1 待做：友链、暗色主题。

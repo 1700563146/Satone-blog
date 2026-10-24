@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
     "validate:content": "tsx scripts/validate-content.ts",
+    "publish": "tsx scripts/publish-post.ts",
     "cf:preview": "wrangler dev",
     "cf:deploy": "wrangler deploy",
     "format": "prettier --write .",
