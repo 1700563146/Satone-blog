@@ -48,9 +48,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run start -- -p ${PORT}`,
+    // 静态导出产物用极简静态服务器托管（scripts/serve-out.mjs），
+    // 行为与 Cloudflare/Vercel 的静态托管一致：找不到文件时返回 404.html。
+    command: "node scripts/serve-out.mjs",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: { PORT: String(PORT) },
   },
 });

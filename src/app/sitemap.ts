@@ -10,6 +10,9 @@ import { absoluteUrl } from "@/lib/seo/metadata";
  * 只包含公开内容：草稿与未发布文章在访问层就被过滤掉了（ADR-012），
  * 因此这里不需要再做一次状态判断。
  */
+// 纯静态导出下元数据路由必须显式声明为静态（ADR-027）
+export const dynamic = "force-static";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, categories, tags] = await Promise.all([
     getPosts(),

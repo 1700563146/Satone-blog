@@ -121,35 +121,42 @@ curl -sS "$BASE/robots.txt"
 - `preview`：Vercel 为每个 PR 生成预览部署；建议用非生产域名，且不要接入生产分析/密钥
 - `production`：正式站点，只有 `main` 合并后部署
 
-## 9. 部署到 Cloudflare Workers（OpenNext）
+## 9. 部署到 Cloudflare（静态资源）
 
-Workers 没有 Node 运行时，Next 的服务端产物要经 `@opennextjs/cloudflare` 转换。仓库里已提交好配置：
+站点是**纯静态导出**（`output: "export"`，见 [ADR-027](DECISIONS.md)）：`npm run build` 产出 `out/`，里面是 HTML、`_next/` 资源、`feed.xml`、`sitemap.xml`、`robots.txt` 与 `404.html`，**不需要任何服务端运行时**。因此不再使用 OpenNext（早期用 `@opennextjs/cloudflare` 部署时所有页面返回 1101，原因见 ADR-027）。
 
-| 文件/脚本                                     | 作用                                            |
-| --------------------------------------------- | ----------------------------------------------- |
-| [wrangler.jsonc](../wrangler.jsonc)           | Worker 名、静态资源绑定、自引用 service binding |
-| [open-next.config.ts](../open-next.config.ts) | 不启用 ISR 缓存（本站全静态）                   |
-| `npm run cf:build`                            | `next build` + 生成 `.open-next/worker.js`      |
-| `npm run cf:preview`                          | 本地用 workerd 预览                             |
-| `npm run cf:deploy`                           | 构建并部署（本地需要 `CLOUDFLARE_API_TOKEN`）   |
+仓库里已提交的配置：
+
+| 文件/脚本                           | 作用                                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| [wrangler.jsonc](../wrangler.jsonc) | Worker 名 + `assets.directory: ./out`，`not_found_handling: "404-page"` |
+| `npm run cf:preview`                | 本地用 `wrangler dev` 预览静态资源                                      |
+| `npm run cf:deploy`                 | `wrangler deploy`（本地需要 `CLOUDFLARE_API_TOKEN`）                    |
 
 **控制台设置**（Workers → 你的 Worker → Settings → Build）：
 
-- Build command：`npm run cf:build`
-- Deploy command：`npx opennextjs-cloudflare deploy`
-- 环境变量：`SITE_URL=https://<你的 workers.dev 或自定义域名>` —— **必须设置**。Cloudflare 不会像 Vercel 那样注入域名，缺了它 canonical/sitemap/RSS 会退回 `http://localhost:3000`（[ADR-025](DECISIONS.md)）
+- Build command：`npm run build`（`prebuild` 会先校验内容）
+- Deploy command：`npx wrangler deploy`
+- 环境变量：`SITE_URL=https://<workers.dev 或自定义域名>` —— **必须设置**。Cloudflare 不会像 Vercel 那样注入域名，缺了它 canonical / sitemap / RSS 会退回 `http://localhost:3000`（[ADR-025](DECISIONS.md)），构建日志里会出现提醒
 
-**四处名字必须完全一致**：`package.json` 的 `name`、`wrangler.jsonc` 的 `name`、`services[].service`、控制台里的 Worker 名。不一致的典型报错：
+**名字必须一致**：`package.json` 的 `name`、`wrangler.jsonc` 的 `name`、控制台里的 Worker 名。历史上不一致时的报错是：
 
 ```text
 Service binding 'WORKER_SELF_REFERENCE' references Worker 'sato-blog' which was not found. [code: 10143]
 ```
 
-这个 binding 由 `@opennextjs/cloudflare migrate` 生成，早期它取的是 `package.json` 的 name，而 Worker 叫 `satone-blog`，于是每次构建都在部署步骤失败。现在配置已提交，构建不再依赖自动 migrate。
+（那个 binding 属于 OpenNext 方案，静态导出后已不存在，但名字保持一致仍然必要。）
 
-**本地注意**：`npm run cf:build` 在 Windows 上需要符号链接权限（设置 → 系统 → 开发者选项 → 打开"开发人员模式"），否则会报 `EPERM: symlink`；Linux/CI 不受影响。
+**为什么不用 Cloudflare Pages 的 Next.js 预设**：Pages 的 Next 适配需要 Node 运行时/edge 函数，而本项目在构建期就把所有页面渲染好了；静态资源用 Workers Assets（或 Pages 的"直接上传静态文件"模式）即可，成本与故障面都最小。
 
-**已知兼容性风险**：`cacheComponents: true` 与 OpenNext 有未修复的兼容问题（[issue #1225](https://github.com/opennextjs/opennextjs-cloudflare/issues/1225)：只返回静态骨架、动态内容不流式输出，浏览器报 `Connection closed`）。部署后必须逐页验收；若出现该现象，改用静态导出方案（[ADR-026](DECISIONS.md) 的备选 B）。
+**本地预览生产产物**：
+
+```bash
+npm run build
+npm run start        # 用 scripts/serve-out.mjs 托管 out/，默认 3000 端口
+```
+
+这个服务器与静态托管行为一致：`/a/b` 会命中 `a/b.html`，找不到时返回 `out/404.html` 与 404 状态码。
 
 ## 10. 备选：自托管 Node
 

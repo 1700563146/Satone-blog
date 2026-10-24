@@ -1,13 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
-  // 文章与独立页面通过 fs 读取；显式声明需要进入部署产物的内容文件
-  outputFileTracingIncludes: {
-    "/**": ["./content/posts/**/*.md", "./content/pages/**/*.md"],
-  },
+  // 纯静态导出：构建产物是 out/ 下的静态文件，运行时不依赖 Node（见 ADR-027）。
+  // 因此不再启用 Cache Components / PPR，也不能部署到需要 Node 运行时的平台。
+  output: "export",
   turbopack: {
     rules: {
       "*.css": {

@@ -22,17 +22,16 @@ npm run dev
 | 命令                       | 说明                                          |
 | -------------------------- | --------------------------------------------- |
 | `npm run dev`              | 启动开发服务器（Turbopack）                   |
-| `npm run build`            | 校验内容并生产构建                            |
-| `npm run start`            | 启动生产服务器                                |
+| `npm run build`            | 校验内容并静态导出到 `out/`                   |
+| `npm run start`            | 托管 `out/`（本地预览生产产物）               |
 | `npm run lint`             | ESLint 检查                                   |
 | `npm run typecheck`        | 生成路由类型并执行 TypeScript 检查            |
 | `npm run test`             | Vitest 单元测试 + 组件测试（jsdom）           |
 | `npm run test:watch`       | Vitest 监听模式                               |
 | `npm run test:e2e`         | Playwright 端到端测试（需先 `npm run build`） |
 | `npm run validate:content` | 校验文章 frontmatter 与正文                   |
-| `npm run cf:build`         | 生成 Cloudflare Worker 产物（OpenNext）       |
-| `npm run cf:preview`       | 本地用 workerd 预览 Worker                    |
-| `npm run cf:deploy`        | 构建并部署到 Cloudflare（需 API Token）       |
+| `npm run cf:preview`       | 本地预览静态资源（`wrangler dev`）            |
+| `npm run cf:deploy`        | 部署 `out/` 到 Cloudflare（需 API Token）     |
 | `npm run format`           | Prettier 格式化全部文件                       |
 | `npm run format:check`     | Prettier 格式检查（CI 使用）                  |
 
@@ -95,7 +94,7 @@ npm run dev
 | `/feed.xml`                   | RSS 2.0 订阅                              |
 | `/sitemap.xml`、`/robots.txt` | 搜索引擎用文件                            |
 
-草稿、未发布文章与不存在的 slug 统一返回真正的 404 状态码（见 [ADR-016](docs/DECISIONS.md)）。
+站点是**纯静态导出**（`npm run build` 产出 `out/`），可部署到任意静态托管：Cloudflare Workers Assets、Vercel、对象存储。草稿与不存在的 slug 不会出现在产物里，访问时由托管平台返回 `404.html` 与 404 状态码（见 [ADR-027](docs/DECISIONS.md)）。
 
 ## 文档
 

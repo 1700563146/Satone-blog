@@ -48,7 +48,7 @@
 ## ADR-007：保持 Next 16 默认的 Cache Components 配置
 
 - 日期：2026-10-23
-- 状态：已采纳
+- 状态：已被 ADR-027 取代（改为纯静态导出，不再使用 Cache Components）
 - 决策：保留模板默认的 `cacheComponents: true` 与 `partialPrefetching: true`。
 - 理由：跟随框架默认能力；动态路由的 `params` 按官方指引在 `<Suspense>` 内 await，保证静态外壳可预渲染。阶段 2/3 实现内容读取后如遇缓存语义问题，在此记录调整。
 
@@ -118,7 +118,7 @@
 ## ADR-016：前台整站要求静态产出，未列出的动态参数返回真正的 404
 
 - 日期：2026-10-23
-- 状态：已采纳
+- 状态：已被 ADR-027 取代（静态导出后由托管平台返回 404.html，不再需要 ensureStatic）
 - 决策：在 [`src/app/(site)/layout.tsx`](<../src/app/(site)/layout.tsx>) 导出 `ensureStatic = "navigation"`；同时把 `use cache` 作用域的开发期配置从 `revalidate: 0` 改为 `{ revalidate: 1, stale: 30 }`。
 - 理由：Cache Components 下 `dynamicParams` 被禁用（构建直接报错），未在 `generateStaticParams` 中列出的参数会先用 App Shell 响应——页面里的 `notFound()` 在流式渲染中已经来不及改状态码，实测第一次请求返回 **200 的软 404**，第二次请求又变成 Next 内置错误页。`ensureStatic = 'navigation'` 要求"未列出的参数等待完整静态结果生成后再响应"，`notFound()` 因此返回真正的 404；同时它在构建期校验"完整路由不得包含未缓存读取或请求期 API"，可防止后续改动悄悄把静态页变成动态页。
 - 影响：`revalidate: 0` 会与 `ensureStatic` 冲突（构建/开发均校验失败），开发期改用 1 秒失效——改完 Markdown 刷新即可看到，效果与关闭缓存一致。新增页面若引入未缓存的数据读取会构建失败，需放进 `use cache` 作用域。
@@ -198,7 +198,7 @@
 ## ADR-026：Cloudflare Workers 部署走 OpenNext，配置提交进仓库
 
 - 日期：2026-10-24
-- 状态：已采纳
+- 状态：已被 ADR-027 取代（OpenNext + `cacheComponents` 在 workerd 上全部路由 1101，改回静态资源部署）
 - 决策：
   1. 采用 `@opennextjs/cloudflare` + `wrangler`，把 `wrangler.jsonc`、`open-next.config.ts` 与 `cf:build` / `cf:preview` / `cf:deploy` 脚本提交进仓库，不再依赖 Cloudflare 构建时的自动 migrate。
   2. 把 `package.json` 的 `name` 改为 `satone-blog`，与 Worker 名一致。
@@ -208,3 +208,21 @@
 - 理由：首次部署失败的报错是 `Service binding 'WORKER_SELF_REFERENCE' references Worker 'sato-blog' which was not found [code: 10143]`。根因是 Cloudflare 构建时自动运行的 `@opennextjs/cloudflare migrate` 用 `package.json` 的 name 生成了自引用 binding，而 Worker 叫 `satone-blog`；且该 migrate 每次都重写配置，只在构建容器里生效，导致"改一次、下次又错"。把配置写进仓库后，构建可复现，本地与 CI 看到的是同一份配置。
 - 影响：Cloudflare 侧只需要在控制台设置 Build/Deploy 命令与 `SITE_URL`，配置改动随代码评审。**已知风险**：`cacheComponents: true` 与 OpenNext 存在未修复的兼容问题（[issue #1225](https://github.com/opennextjs/opennextjs-cloudflare/issues/1225)），部署后必须逐页验收；若出现"只有静态骨架 / Connection closed"，备选方案是改为纯静态导出（`output: "export"` + Cloudflare Pages）：去掉 `cacheComponents`、`'use cache'`、`ensureStatic`，`/feed.xml` 仍可作为静态 Route Handler 产出，e2e 的 webServer 换成静态文件服务器。该方案与当前架构差异较大，故作为兜底而非默认。
 - 附注：本机 Windows 上运行 `cf:build` 需要开启"开发人员模式"（符号链接权限），否则 OpenNext 复制 traced files 时报 `EPERM: symlink`；Linux/CI 环境不受影响。
+
+## ADR-027：改为纯静态导出，取代 Cache Components
+
+- 日期：2026-10-24
+- 状态：已采纳（取代 ADR-007 的 Cache Components 配置、ADR-016 的 `ensureStatic` 约束、ADR-026 的 OpenNext 部署）
+- 决策：
+  1. `next.config.ts` 改为 `output: "export"`，移除 `cacheComponents`、`partialPrefetching`、`outputFileTracingIncludes`。
+  2. 内容访问层去掉 `'use cache'` / `cacheLife`（[index.ts](../src/lib/content/index.ts)），改为构建期的普通异步函数。
+  3. 移除 `(site)/layout.tsx` 的 `ensureStatic = "navigation"`。
+  4. `sitemap` / `robots` / `feed.xml` 显式 `export const dynamic = "force-static"`（静态导出下元数据路由与 Route Handler 需要声明）。
+  5. Cloudflare 侧改为**静态资源部署**：`wrangler.jsonc` 只保留 `assets.directory: ./out` 与 `not_found_handling: "404-page"`，移除 `@opennextjs/cloudflare` 与 `open-next.config.ts`。
+  6. 本地生产预览与 e2e 使用 `scripts/serve-out.mjs`（无依赖的 60 行静态服务器，行为对齐静态托管：命中 `x.html`，缺失返回 `404.html` 与 404 状态码）。
+- 理由：用 OpenNext 部署到 Workers 后，静态资源（`/favicon.ico`、`/BUILD_ID`）返回 200，但**所有页面路由返回 500 / `error code: 1101`**（Worker 抛异常）。构建日志里的 `Incremental cache does not need populating` 说明 `cacheComponents` 产出的预渲染结果没有被适配层消费，页面只能在请求时执行；而内容层用 `node:fs` 读 Markdown、Shiki 在渲染时要读语法文件，workerd 里没有这些能力。OpenNext 对 `cacheComponents` 的兼容问题仍未修复（[issue #1225](https://github.com/opennextjs/opennextjs-cloudflare/issues/1225)）。本站的每一条路由本来就在构建期渲染，去掉 Cache Components 不损失功能，反而消除了 PPR 动态洞、`ensureStatic` 约束与运行时文件系统依赖。
+- 影响：
+  - 失去 PPR / ISR / `'use cache'` 语义；内容更新依赖重新构建（与 Markdown + Git 的工作流一致），Vercel 与 Cloudflare 都部署同一份 `out/`。
+  - 未知路径不再由页面内 `notFound()` 返回 404，而由托管平台返回 `out/404.html`（Cloudflare 用 `not_found_handling`，本地用脚本内置的 404 分支）。
+  - 静态托管按扩展名给 Content-Type，`/feed.xml` 可能是 `application/xml`（不再是 `application/rss+xml`），RSS 阅读器仍可解析；e2e 断言已放宽为匹配 `xml`。
+  - `SITE_URL` 在 Cloudflare 上必须显式配置（没有 Vercel 的域名注入），`npm run validate:content` 会在缺失时打印提醒。

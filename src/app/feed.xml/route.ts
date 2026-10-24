@@ -4,9 +4,12 @@ import { RSS_CONTENT_TYPE, buildRssFeed } from "@/lib/seo/rss";
 /**
  * RSS 2.0 订阅源：`/feed.xml`。
  *
- * 只读取带缓存的访问层，因此本路由在构建时即可预渲染（不访问任何请求期 API）；
- * 文章更新后重新构建即可刷新。
+ * 纯静态导出下这一路由在构建时执行一次，产出 out/feed.xml（ADR-027）。
+ * 注意：静态托管通常按扩展名给 Content-Type（application/xml），
+ * 因此订阅器实际收到的不一定是 application/rss+xml，这不影响解析。
  */
+export const dynamic = "force-static";
+
 export async function GET() {
   const posts = await getPosts();
 

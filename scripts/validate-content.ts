@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { resolveSiteUrl } from "../src/lib/config";
 import { collectPosts } from "../src/lib/content/read-posts";
 import { readPage, PAGES_DIR } from "../src/lib/content/read-pages";
 import { analyzeMarkdown } from "../src/lib/content/render-markdown";
@@ -84,6 +85,14 @@ async function main(): Promise<void> {
   }
 
   issues.sort(compareIssues);
+
+  // 站点地址检查：部署到不注入域名的平台（Cloudflare 等）时，忘记设置 SITE_URL
+  // 会让 canonical / sitemap / RSS 写成本地地址。这里只提醒一次（构建日志里更干净）。
+  if (resolveSiteUrl(process.env) === "http://localhost:3000") {
+    console.warn(
+      "[siteConfig] 未设置 SITE_URL（也没有 Vercel 注入的域名）：canonical / sitemap / RSS 将使用 http://localhost:3000。部署时请在平台环境变量里设置 SITE_URL。",
+    );
+  }
 
   const errors = issues.filter((issue) => issue.severity === "error");
   const warnings = issues.filter((issue) => issue.severity === "warning");

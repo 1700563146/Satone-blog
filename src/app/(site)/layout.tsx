@@ -3,15 +3,11 @@ import type { ReactNode } from "react";
 import { Navbar } from "@/components/navigation/navbar";
 
 /**
- * 前台整体要求"完整路由在构建期静态产出"：
- * - 未在 `generateStaticParams` 中列出的动态参数，第一次请求会**等待**静态结果生成，
- *   因此页面里的 `notFound()` 能返回真正的 404 状态码，而不是先返回 200 的软 404。
- * - 一旦有页面引入未缓存的读取或请求期 API，构建直接失败，避免悄悄退化。
+ * 前台布局。
  *
- * 这条约束要求 `use cache` 作用域不要使用 revalidate: 0（见 lib/content/index.ts）。
+ * 站点采用纯静态导出（`output: "export"`，见 ADR-027）：所有页面在构建期渲染成
+ * HTML，因此不需要 `ensureStatic` 之类的静态约束，也没有请求期渲染。
  */
-export const ensureStatic = "navigation";
-
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-(--page-width) flex-1 flex-col px-4 sm:px-6">

@@ -77,7 +77,8 @@ test.describe("订阅与搜索引擎文件", () => {
     const response = await request.get("/feed.xml");
 
     expect(response.status()).toBe(200);
-    expect(response.headers()["content-type"]).toContain("application/rss+xml");
+    // 纯静态托管按扩展名给类型（application/xml），本地预览服务器给 rss+xml，两者都可接受
+    expect(response.headers()["content-type"]).toMatch(/xml/);
     const body = await response.text();
     expect(body).toContain('<rss version="2.0">');
     expect(body).toContain(PUBLISHED.title);

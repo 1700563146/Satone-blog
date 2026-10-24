@@ -28,7 +28,7 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 | -------------------------- | ------------------------------- |
 | `npm run dev`              | 开发服务器（Turbopack）         |
 | `npm run build`            | 生产构建                        |
-| `npm run start`            | 启动生产服务器                  |
+| `npm run start`            | 托管静态产物（`out/`）          |
 | `npm run lint`             | ESLint（flat config）           |
 | `npm run typecheck`        | `next typegen` + `tsc --noEmit` |
 | `npm run test`             | Vitest 单元测试（tests/unit）   |
@@ -101,7 +101,7 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 - 组件测试用 Testing Library + `tests/setup.tsx` 里的全局桩：`next/link` 被替换成普通 `<a href>`，并拦截 `<a>` 的默认跳转（jsdom 不支持导航）。断言优先用可访问名称（`getByRole`），不要依赖类名。
 - 端到端测试覆盖：首页 → 文章详情（含目录锚点）、列表与归档页、草稿返回 404 且不泄漏正文、RSS/sitemap/robots、移动端折叠菜单。桌面与移动端由 `playwright.config.ts` 的两个 project 分别跑。
 - 端到端需要浏览器二进制：`npx playwright install chromium`；若网络下载不到，可临时借用本机浏览器 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
-- 本地跑 e2e 前必须先 `npm run build`：`webServer` 只启动 `next start`，不会替你构建。
+- 本地跑 e2e 前必须先 `npm run build`：`webServer` 只托管 `out/`，不会替你构建。
 - CI 门槛：format:check → lint → typecheck → test → build（`checks` job），随后 e2e（`e2e` job，含构建与浏览器安装）。
 
 ## CI
@@ -115,9 +115,9 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 
 ## 阶段边界
 
-当前处于阶段 3（前台页面完成）：首页、文章列表、详情页（正文 + 目录 + 上一篇/下一篇）、分类与标签归档、关于页、404、SEO（canonical / Open Graph）、sitemap、robots 与 RSS 已完成，全部路由在构建期静态产出。
+阶段 3 已全部完成（页面、目录、上一篇/下一篇、404、SEO、RSS、sitemap、代码高亮、移动端折叠菜单、组件测试与端到端测试）。
 
-阶段 3 已全部完成（含代码高亮、移动端折叠菜单、组件测试与端到端测试）。下一阶段（阶段 4）按 [DEPLOYMENT.md](DEPLOYMENT.md) 的清单部署与观测。
+阶段 4 已改为**纯静态导出 + 静态托管**（[ADR-027](DECISIONS.md)）：Cloudflare Workers Assets 与 Vercel 部署同一份 `out/`。部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)，可观测性与 P1 功能按开发文档路线推进。
 
 ## 页面开发
 
@@ -133,14 +133,16 @@ export default async function PostsPage() {
 规则：
 
 - 页面不能直接 `import` `read-posts` / `parse-frontmatter`（ESLint 会拦截），否则会绕过缓存与草稿隔离。
-- 动态段必须导出 `generateStaticParams`，参数用 `toStaticSlugParams()` 包装（处理空内容的情况）；`generateMetadata` 与页面本体可以各自调用访问层函数（都有缓存）。
-- 参数解析失败或内容不存在时调用 `notFound()`，不要渲染空白页。
+- 动态段必须导出 `generateStaticParams`（静态导出下这是硬性要求），参数用 `toStaticSlugParams()` 包装（处理空内容的情况）。
+- 参数解析失败或内容不存在时调用 `notFound()`，不要渲染空白页；构建期未生成的路径由托管平台返回 `out/404.html`。
 - 新增独立页面：在 `content/pages/` 加 `<name>.md`，页面里调用 `getPage("<name>")`。
 - 样式只使用 `@theme` 里的设计 Token（`text-muted`、`glass-card`、`max-w-(--content-width)` 等），不要在组件里写死颜色。
 
-### 不要破坏整站静态产出
+### 不要破坏静态导出
 
-`(site)/layout.tsx` 导出了 `ensureStatic = "navigation"`，构建会校验"完整路由不包含未缓存读取或请求期 API"。因此：
+站点用 `output: "export"`（[ADR-027](DECISIONS.md)），构建产物 `out/` 必须能纯静态托管。因此：
 
-- 新增数据读取时放进 `use cache` 作用域（`src/lib/content/index.ts`），或明确接受该路由重新变成动态渲染（需要同步调整 `ensureStatic` 并记录 ADR）。
-- `use cache` 作用域里不要用 `revalidate: 0`，否则校验失败；开发期用 `{ revalidate: 1, stale: 30 }`。
+- **不能引入请求期能力**：`cookies()` / `headers()` / `searchParams` / `draftMode()` 会让静态导出失败。需要按请求变化的内容，请在构建期算好。
+- 元数据路由与 Route Handler（`sitemap.ts`、`robots.ts`、`feed.xml/route.ts`）必须显式 `export const dynamic = "force-static"`。
+- 内容只在构建期读取（`src/lib/content/index.ts`），不要在组件里直接 `fs`。
+- 本地验证：`npm run build && npm run start`（`start` 用 `scripts/serve-out.mjs` 托管 `out/`，行为对齐线上静态托管）。
