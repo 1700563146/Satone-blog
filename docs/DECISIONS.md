@@ -193,4 +193,18 @@
 - 状态：已采纳
 - 决策：新增 `resolveSiteUrl(env)`，优先级为 `SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → `http://localhost:3000`；结果统一去掉结尾斜杠。`siteConfig.url` 由它计算。
 - 理由：首次部署到 Vercel 时忘记配 `SITE_URL`，实测整站 canonical、sitemap、RSS 全部写成了 `http://localhost:3000`——这会让搜索引擎认为正式地址在别处，是最容易发生、后果又最严重的一类配置事故。Vercel 本身会把域名注入构建环境，直接读取它就能开箱即用；显式 `SITE_URL` 仍作为覆盖项保留，用于绑定自定义域名后统一 Preview 与 Production。
-- 影响：本地开发（无这些变量）仍落到 `http://localhost:3000`；换域名只需在平台侧改域名（或设 `SITE_URL`）后重新部署，无需改代码。逻辑是纯函数并有单元测试覆盖五种输入组合。
+- 影响：本地开发（无这些变量）仍落到 `http://localhost:3000`；换域名只需在平台侧改域名（或设 `SITE_URL`）后重新部署，无需改代码。逻辑是纯函数并有单元测试覆盖五种输入组合。构建阶段若在生产环境既没有 `SITE_URL` 也没有 Vercel 注入的域名，会打印一条警告，避免再次静默退化。
+
+## ADR-026：Cloudflare Workers 部署走 OpenNext，配置提交进仓库
+
+- 日期：2026-10-24
+- 状态：已采纳
+- 决策：
+  1. 采用 `@opennextjs/cloudflare` + `wrangler`，把 `wrangler.jsonc`、`open-next.config.ts` 与 `cf:build` / `cf:preview` / `cf:deploy` 脚本提交进仓库，不再依赖 Cloudflare 构建时的自动 migrate。
+  2. 把 `package.json` 的 `name` 改为 `satone-blog`，与 Worker 名一致。
+  3. `WORKER_SELF_REFERENCE` 的 `service` 显式指向 `satone-blog`。
+  4. Cloudflare 上没有 Vercel 那种域名注入，必须在 Worker 环境变量里显式设置 `SITE_URL`。
+  5. 不配置 R2 增量缓存与 Images binding：本站全静态产出，也没有使用 `next/image`。
+- 理由：首次部署失败的报错是 `Service binding 'WORKER_SELF_REFERENCE' references Worker 'sato-blog' which was not found [code: 10143]`。根因是 Cloudflare 构建时自动运行的 `@opennextjs/cloudflare migrate` 用 `package.json` 的 name 生成了自引用 binding，而 Worker 叫 `satone-blog`；且该 migrate 每次都重写配置，只在构建容器里生效，导致"改一次、下次又错"。把配置写进仓库后，构建可复现，本地与 CI 看到的是同一份配置。
+- 影响：Cloudflare 侧只需要在控制台设置 Build/Deploy 命令与 `SITE_URL`，配置改动随代码评审。**已知风险**：`cacheComponents: true` 与 OpenNext 存在未修复的兼容问题（[issue #1225](https://github.com/opennextjs/opennextjs-cloudflare/issues/1225)），部署后必须逐页验收；若出现"只有静态骨架 / Connection closed"，备选方案是改为纯静态导出（`output: "export"` + Cloudflare Pages）：去掉 `cacheComponents`、`'use cache'`、`ensureStatic`，`/feed.xml` 仍可作为静态 Route Handler 产出，e2e 的 webServer 换成静态文件服务器。该方案与当前架构差异较大，故作为兜底而非默认。
+- 附注：本机 Windows 上运行 `cf:build` 需要开启"开发人员模式"（符号链接权限），否则 OpenNext 复制 traced files 时报 `EPERM: symlink`；Linux/CI 环境不受影响。

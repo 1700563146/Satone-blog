@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "coverage/**",
+    // Cloudflare / OpenNext 构建产物
+    ".open-next/**",
+    ".wrangler/**",
   ]),
   // 页面与组件只能通过带缓存的访问层读取内容，避免绕过草稿隔离
   {

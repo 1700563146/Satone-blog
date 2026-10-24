@@ -30,6 +30,9 @@ npm run dev
 | `npm run test:watch`       | Vitest 监听模式                               |
 | `npm run test:e2e`         | Playwright 端到端测试（需先 `npm run build`） |
 | `npm run validate:content` | 校验文章 frontmatter 与正文                   |
+| `npm run cf:build`         | 生成 Cloudflare Worker 产物（OpenNext）       |
+| `npm run cf:preview`       | 本地用 workerd 预览 Worker                    |
+| `npm run cf:deploy`        | 构建并部署到 Cloudflare（需 API Token）       |
 | `npm run format`           | Prettier 格式化全部文件                       |
 | `npm run format:check`     | Prettier 格式检查（CI 使用）                  |
 

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "satone-blog",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      // 自引用 service binding：service 必须与上面的 name、以及 Cloudflare 控制台里的
+      // Worker 名完全一致，否则部署会报 [code: 10143] Worker not found（见 ADR-026）。
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "satone-blog",
+    },
+  ],
+  "observability": {
+    "enabled": true,
+  },
+}

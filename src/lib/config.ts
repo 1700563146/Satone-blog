@@ -60,6 +60,19 @@ export const siteConfig = {
 /** RSS 订阅地址；同时用于页面 <link rel="alternate"> 自动发现。 */
 export const RSS_PATH = "/feed.xml";
 
+// 部署到不会注入域名的平台（例如 Cloudflare Workers）时，忘记设置 SITE_URL
+// 会让 canonical / sitemap / RSS 全部写成本地地址；在构建阶段就把问题暴露出来。
+if (
+  process.env.NODE_ENV === "production" &&
+  (process.env.SITE_URL ?? "").trim().length === 0 &&
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "").trim().length === 0 &&
+  (process.env.VERCEL_URL ?? "").trim().length === 0
+) {
+  console.warn(
+    "[siteConfig] 未设置 SITE_URL：canonical / sitemap / RSS 将使用 http://localhost:3000。请在部署平台设置 SITE_URL 为站点正式地址。",
+  );
+}
+
 /** 主导航条目 */
 export const navItems = [
   { label: "首页", href: "/" },
