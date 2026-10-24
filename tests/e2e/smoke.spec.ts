@@ -101,6 +101,71 @@ test.describe("订阅与搜索引擎文件", () => {
   });
 });
 
+test.describe("站内搜索", () => {
+  test("导航里能进入搜索页，输入关键词命中文章并打开", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/");
+
+    // 桌面端导航横排可见；移动端要先展开折叠菜单
+    if (isMobile) {
+      await page.getByRole("button", { name: "打开导航菜单" }).click();
+      await page
+        .locator('ul[aria-label="折叠导航条目"]')
+        .getByRole("link", { name: "搜索" })
+        .click();
+    } else {
+      await page
+        .getByRole("navigation", { name: "主导航" })
+        .getByRole("link", { name: "搜索" })
+        .click();
+    }
+
+    await expect(page).toHaveURL(/\/search$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("搜索");
+
+    const input = page.getByRole("searchbox", { name: "搜索文章" });
+    await input.fill("世界");
+
+    const result = page.getByRole("link", {
+      name: `${PUBLISHED.title}，2026 年 10 月 23 日`,
+    });
+    await expect(result).toBeVisible();
+    await result.click();
+
+    await expect(page).toHaveURL(new RegExp(`/posts/${PUBLISHED.slug}$`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      PUBLISHED.title,
+    );
+  });
+
+  test("没有命中时给出空结果提示，Escape 可清空", async ({ page }) => {
+    await page.goto("/search");
+
+    const input = page.getByRole("searchbox", { name: "搜索文章" });
+    await input.fill("不存在的关键词");
+
+    await expect(
+      page.getByText("没有匹配「不存在的关键词」的文章"),
+    ).toBeVisible();
+
+    await input.press("Escape");
+    await expect(input).toHaveValue("");
+    await expect(page.getByText(/输入关键词开始搜索/)).toBeVisible();
+  });
+
+  test("Ctrl+K 聚焦搜索框", async ({ page }) => {
+    await page.goto("/search");
+
+    const input = page.getByRole("searchbox", { name: "搜索文章" });
+    await expect(input).not.toBeFocused();
+
+    await page.keyboard.press("Control+k");
+    await expect(input).toBeFocused();
+  });
+});
+
 test.describe("移动端导航", () => {
   test.skip(({ isMobile }) => !isMobile, "折叠菜单只在移动端视口验证");
 

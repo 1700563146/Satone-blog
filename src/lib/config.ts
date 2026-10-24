@@ -64,6 +64,7 @@ export const RSS_PATH = "/feed.xml";
 export const navItems = [
   { label: "首页", href: "/" },
   { label: "文章", href: "/posts" },
+  { label: "搜索", href: "/search" },
   { label: "关于", href: "/about" },
   { label: "友链", href: "/friends" },
 ] as const;

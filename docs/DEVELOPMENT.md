@@ -45,11 +45,12 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 - `content/`：只存放内容（Markdown），不存放业务代码；`posts/` 是文章，`pages/` 是独立页面。
 - `public/`：只放可公开访问的静态资源，不得放密钥、私密备份或草稿。
 - `src/app/`：路由与页面组合。前台页面统一放在 `(site)` 路由组内；`sitemap.ts`、`robots.ts`、`feed.xml/` 也在这一层。
-- `src/components/`：可复用展示组件（`post/`、`navigation/`、`layout/`）；`ui/` 预留给基础组件。
-- `src/lib/content/`：内容引擎。`index.ts` 是对外唯一入口（带缓存），其余模块保持纯函数以便单测；`read-pages.ts` 负责独立页面。
+- `src/components/`：可复用展示组件（`post/`、`navigation/`、`layout/`、`search/`）；`ui/` 预留给基础组件。
+- `src/lib/content/`：内容引擎。`index.ts` 是对外唯一入口（构建期执行），其余模块保持纯函数以便单测；`read-pages.ts` 负责独立页面。
+- `src/lib/search.ts`：站内搜索的索引构建与过滤/排序/高亮纯函数（ADR-028）。
 - `src/lib/seo/`：元数据与 RSS 构建，纯函数，可直接单测。
 - `src/lib/routing.ts`：`generateStaticParams` 的参数辅助。
-- `scripts/`：仓库级脚本；目前只有内容校验（文章 + 独立页面）。
+- `scripts/`：仓库级脚本（内容校验、静态产物预览）。
 - `src/lib/config.ts`：站点配置唯一来源，不要在组件中重复写死。
 - `docs/`：架构决策、内容规范、部署流程。
 - `tests/unit/`：单元测试；`tests/fixtures/content/` 与 `tests/fixtures/pages/` 是测试夹具。
