@@ -7,11 +7,15 @@ import { getPosts } from "@/lib/content";
 import { buildSearchIndex } from "@/lib/search";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "搜索",
-  description: `在 ${siteConfig.name} 中搜索文章标题、摘要、分类与标签。`,
-  path: "/search",
-});
+export const metadata: Metadata = {
+  ...buildPageMetadata({
+    title: "搜索",
+    description: `在 ${siteConfig.name} 中搜索文章标题、摘要、分类与标签。`,
+    path: "/search",
+  }),
+  // 搜索结果页是薄内容，不参与索引（但保留 follow，链接权重仍会传递）
+  robots: { index: false, follow: true },
+};
 
 /**
  * 站内搜索页。
