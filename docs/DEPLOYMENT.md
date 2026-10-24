@@ -115,11 +115,20 @@ curl -sS "$BASE/robots.txt"
 - 图片：`public/images/` 随仓库备份；若后续改用图床，保留一份文件清单
 - **恢复演练（至少做一次）**：clone 到临时目录 → `npm ci && npm run build`，确认能独立构建出完整站点
 
-## 8. 环境区分
+## 8. 环境区分与双平台策略
 
 - `development`：本地 `npm run dev`，`SITE_URL` 默认 `http://localhost:3000`
-- `preview`：Vercel 为每个 PR 生成预览部署；建议用非生产域名，且不要接入生产分析/密钥
-- `production`：正式站点，只有 `main` 合并后部署
+- `preview`：Vercel 为每个 PR 生成预览部署；不接入生产密钥与统计
+- `production`：**Cloudflare**（`satone-blog.<子域>.workers.dev`，之后绑自定义域名）
+
+**主站是 Cloudflare，Vercel 只做备份/预览**，目的是避免同一份内容出现两个"正式地址"：
+
+| 平台       | 角色      | `SITE_URL`                                    | 索引                                                                   |
+| ---------- | --------- | --------------------------------------------- | ---------------------------------------------------------------------- |
+| Cloudflare | 主站      | 主站域名（canonical/sitemap/RSS 都用它）      | 允许收录                                                               |
+| Vercel     | 备份/预览 | **设成主站域名**，让它的 canonical 也指向主站 | [vercel.json](../vercel.json) 给全站 `X-Robots-Tag: noindex, nofollow` |
+
+换主域名（例如绑自定义域名）时要同时改两处 `SITE_URL` 并重新部署，否则两份产物的 canonical 会重新分叉。
 
 ## 9. 部署到 Cloudflare（静态资源）
 
