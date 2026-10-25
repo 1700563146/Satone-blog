@@ -1,125 +1,56 @@
-# Sato Blog
+﻿# Sato Blog
 
-个人博客系统。Next.js App Router + TypeScript + Tailwind CSS，文章以 Markdown 保存在仓库中（content/ 是内容的唯一来源）。
+基于 [Astro 7](https://astro.build) + [Firefly](https://github.com/CuteLeaf/Firefly) 主题的个人博客，纯静态产出，部署在 Cloudflare Workers（静态资源）。
 
-> 仓库：<https://github.com/1700563146/Satone-blog>（旧版 Astro 站点已存档到 `astro-archive` 分支，历史可从那里取回）
+- 站点：<https://blog.satone.cc.cd>
+- 备站（noindex）：<https://satone-blog.vercel.app>
 
-## 快速开始
+## 技术栈
 
-环境要求：Node.js >= 20.9（推荐 24，见 [.nvmrc](.nvmrc)）。
-
-```bash
-npm install
-npm run dev
-```
-
-打开 <http://localhost:3000>。
-
-可选：复制 [.env.example](.env.example) 为 `.env.local`，本地覆盖站点地址。
+| 层次 | 选择 |
+| --- | --- |
+| 框架 | Astro 7（静态站点生成） |
+| 主题 | Firefly（基于 Fuwari），Svelte 5 交互组件 |
+| 样式 | Tailwind CSS v4 |
+| 内容 | Markdown + Astro Content Collections |
+| 搜索 | Pagefind（构建期生成索引） |
+| 部署 | Cloudflare Workers 静态资源 + GitHub Actions |
 
 ## 常用命令
 
-| 命令                       | 说明                                          |
-| -------------------------- | --------------------------------------------- |
-| `npm run dev`              | 启动开发服务器（Turbopack）                   |
-| `npm run build`            | 校验内容并静态导出到 `out/`                   |
-| `npm run start`            | 托管 `out/`（本地预览生产产物）               |
-| `npm run lint`             | ESLint 检查                                   |
-| `npm run typecheck`        | 生成路由类型并执行 TypeScript 检查            |
-| `npm run test`             | Vitest 单元测试 + 组件测试（jsdom）           |
-| `npm run test:watch`       | Vitest 监听模式                               |
-| `npm run test:e2e`         | Playwright 端到端测试（需先 `npm run build`） |
-| `npm run validate:content` | 校验文章 frontmatter 与正文                   |
-| `npm run publish`          | 一键发布 md：补全校验 + 提交 + 推送           |
-| `npm run cf:preview`       | 本地预览静态资源（`wrangler dev`）            |
-| `npm run cf:deploy`        | 部署 `out/` 到 Cloudflare（需 API Token）     |
-| `npm run format`           | Prettier 格式化全部文件                       |
-| `npm run format:check`     | Prettier 格式检查（CI 使用）                  |
-
-端到端测试默认使用 Playwright 自带的 Chromium（`npx playwright install chromium`）；网络受限时可用本机浏览器：`PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
-
-写文章有两种方式，都会自动补全并校验 frontmatter：
-
-- **浏览器上传**：打开 `/admin/publish`，把 `.md` 拖进去 → 检查 → 提交到仓库（需要一次配置 fine-grained PAT，仅 `Contents: Read and write`）
-- **本地一键脚本**：`npm run publish -- D:/写作/我的文章.md --category 开发记录`
-
-两种方式都是"写进 Git 再由 CI 构建"，草稿（`published: false` / `draft: true`）不会出现在任何公开页面。细节见 [开发指南](docs/DEVELOPMENT.md)。
-
-## 目录结构
-
-```text
-├─ content/            # 文章与页面内容（Markdown，唯一内容源）
-│  ├─ posts/           # 文章（顶层 .md，URL 由 frontmatter 的 slug 决定）
-│  └─ pages/           # 独立页面，如 about.md → /about
-├─ docs/               # 架构、开发、内容与部署文档
-├─ public/             # 可公开访问的静态资源
-│  ├─ images/
-│  ├─ fonts/
-│  └─ favicon.ico
-├─ src/
-│  ├─ app/
-│  │  ├─ (site)/       # 前台路由组：首页、文章、分类、标签、关于、友链 + 404
-│  │  ├─ layout.tsx    # 根布局（zh-CN、站点元数据、RSS 自动发现）
-│  │  ├─ not-found.tsx # 未匹配路径的 404
-│  │  ├─ sitemap.ts    # /sitemap.xml（只含公开内容）
-│  │  ├─ robots.ts     # /robots.txt
-│  │  └─ feed.xml/     # /feed.xml（RSS 2.0，构建时预渲染）
-│  ├─ components/
-│  │  ├─ layout/       # 标题区、空状态、占位页
-│  │  ├─ navigation/   # 导航栏、分类/标签链接与总览
-│  │  ├─ post/         # 文章卡片、列表、目录、上一篇/下一篇
-│  │  ├─ effects/      # 预留（视觉增强）
-│  │  └─ ui/           # 预留（基础组件）
-│  ├─ lib/
-│  │  ├─ content/      # 内容引擎（唯一入口 index.ts，带缓存）+ 独立页面读取
-│  │  ├─ seo/          # 元数据与 RSS 构建（纯函数，可单测）
-│  │  ├─ routing.ts    # generateStaticParams 辅助
-│  │  └─ config.ts     # 站点配置唯一来源
-│  ├─ styles/
-│  │  └─ globals.css   # Tailwind 入口、设计 Token 与正文排版
-│  └─ types/
-├─ scripts/           # 内容校验等仓库级脚本
-├─ tests/
-│  ├─ unit/
-│  ├─ fixtures/       # 文章与页面的测试夹具
-│  └─ e2e/
-└─ .github/workflows/ci.yml
+```bash
+pnpm install          # 安装依赖（只支持 pnpm）
+pnpm dev              # 本地开发 http://localhost:4321
+pnpm build            # 生产构建 → dist/（含图标、LQIP、字体子集、Pagefind 索引）
+pnpm preview          # 预览构建产物
+pnpm check            # Astro 诊断
+pnpm type-check       # TypeScript 检查
+pnpm new-post <slug>  # 新建一篇空文章
 ```
 
-## 路由
+## 写文章
 
-| 路由                          | 说明                                      |
-| ----------------------------- | ----------------------------------------- |
-| `/`                           | 首页：站点介绍、精选、最新文章、分类入口  |
-| `/posts`                      | 全部已发布文章 + 分类/标签总览            |
-| `/posts/[slug]`               | 文章详情：正文、目录、上一篇/下一篇       |
-| `/categories/[slug]`          | 分类归档（中文名称即 URL 段）             |
-| `/tags/[slug]`                | 标签归档                                  |
-| `/search`                     | 站内搜索（构建期索引 + 客户端过滤）       |
-| `/about`                      | 关于页，正文来自 `content/pages/about.md` |
-| `/friends`                    | 友链（P1，暂为占位）                      |
-| `/feed.xml`                   | RSS 2.0 订阅                              |
-| `/sitemap.xml`、`/robots.txt` | 搜索引擎用文件                            |
-| `/admin/publish`              | 上传发布工具（不索引、不进导航）          |
+两种方式，都写进 `src/content/posts/<slug>.md`，然后由 CI 构建部署：
 
-站点是**纯静态导出**（`npm run build` 产出 `out/`），可部署到任意静态托管：Cloudflare Workers Assets、Vercel、对象存储。草稿与不存在的 slug 不会出现在产物里，访问时由托管平台返回 `404.html` 与 404 状态码（见 [ADR-027](docs/DECISIONS.md)）。
+1. **浏览器上传**：打开 `/admin/publish/`，拖入 Markdown（可同时传图片），检查后一键提交到仓库。
+2. **本地文件**：直接用编辑器写 `src/content/posts/<slug>.md`，`git push` 即可。
 
-## 文档
+frontmatter 必填 `title` 与 `published`（写成未加引号的 YYYY-MM-DD），其余见 [内容规范](docs/CONTENT.md)。
 
-- 总规划：[开发文档.md](开发文档.md)
-- 开发指南：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-- 架构说明：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 内容规范：[docs/CONTENT_SCHEMA.md](docs/CONTENT_SCHEMA.md)
-- 部署指南：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- 产品范围：[docs/PRODUCT_SCOPE.md](docs/PRODUCT_SCOPE.md)
-- 技术决策：[docs/DECISIONS.md](docs/DECISIONS.md)
+## 部署
 
-## 开发阶段
+`git push` 到 `main` → GitHub Actions 跑 `pnpm check` / `type-check` / `build` → `wrangler deploy` 上传 `dist/`。详见 [部署说明](docs/DEPLOYMENT.md)。
 
-- [x] 阶段 1：项目骨架
-- [x] 阶段 2：内容引擎
-- [x] 阶段 3：前台页面（首页、列表、详情、分类、标签、关于、404、SEO、RSS、sitemap、代码高亮、移动端折叠导航）
-- [ ] 阶段 4：部署与可观测性（清单见 [部署指南](docs/DEPLOYMENT.md)）
-- [ ] 阶段 5：写作体验与增强功能
+## 目录速览
 
-测试：193 个单元/组件用例，13 个端到端用例（桌面与移动端两个 project）。P1 待做：友链、暗色主题。
+```
+src/config/          站点配置（标题、导航、侧边栏、评论、字体……）
+src/content/posts/   文章
+src/content/spec/    关于等特殊页面
+src/pages/           路由
+public/admin/publish/ 上传发布工具（纯 HTML + JS，不依赖框架）
+public/images/posts/ 文章图片
+scripts/             构建期脚本（LQIP、字体子集、Pagefind 等）
+```
+
+主题本身的完整文档见 [Firefly 使用文档](https://docs-firefly.cuteleaf.cn/)。
