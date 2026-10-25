@@ -152,12 +152,18 @@ curl -sS "$BASE/robots.txt"
 
 **方式 B：GitHub Actions 部署**（推荐，和 CI 同一入口，状态可见）
 
-1. Cloudflare → My Profile → API Tokens → 创建 token：权限 `Workers Scripts: Edit` + `Account Settings: Read`，资源限制到自己的账户
-2. GitHub → Settings → Secrets and variables → Actions：
+1. Cloudflare → My Profile → **API Tokens** → Create Token：权限 `Workers Scripts: Edit` + `Account Settings: Read`，Account Resources 限制到自己的账户
+2. Cloudflare 侧栏 Workers & Pages 概览里可以拿到 **Account ID**
+3. GitHub → Settings → Secrets and variables → Actions：
    - Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`
-   - Variables：`SITE_URL = https://<你的域名>`
-3. 设好 `SITE_URL` 之后，`ci.yml` 的 `deploy (Cloudflare)` job 会在每次 push 到 `main` 且 `checks` 通过后自动构建并 `wrangler deploy`；没设这个变量时该 job 自动跳过（CI 不会变红）
-4. 启用方式 B 后，去 Cloudflare 控制台把方式 A 的 Git 构建**断开**（Settings → Build），避免两边同时部署互相覆盖
+   - Variables：`SITE_URL = https://<你的域名>`（这个变量同时是**启用开关**）
+4. 之后每次 push 到 `main`：`checks` → `e2e` → `deploy (Cloudflare)`（`npm run build` + `wrangler deploy`）
+   - `deploy-cf` 依赖 `[checks, e2e]`：**e2e 不通过就不部署**，线上停在上一个版本
+   - 部署完成后自动冒烟：`/`、`/posts`、`/admin/publish`、`/feed.xml`、`/sitemap.xml`、`/robots.txt` 必须都是 200，且首页 canonical 必须指向 `SITE_URL`（失败会让 job 变红，不必手动点开页面确认）
+   - 想不提交代码就重新部署：Actions → `CI` → **Run workflow**（选中 `main`）
+5. 启用方式 B 后，去 Cloudflare 控制台把方式 A 的 Git 构建**断开**（Settings → Build），避免两边同时部署互相覆盖
+
+> 没设置 `vars.SITE_URL` 时 `deploy-cf` 会自动跳过，CI 不会变红——所以可以先把 secret 配好、最后再设 `SITE_URL` 触发首次部署。
 
 **名字必须一致**：`package.json` 的 `name`、`wrangler.jsonc` 的 `name`、控制台里的 Worker 名。历史上不一致时的报错是：
 
