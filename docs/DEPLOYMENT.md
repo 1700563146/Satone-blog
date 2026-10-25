@@ -142,11 +142,22 @@ curl -sS "$BASE/robots.txt"
 | `npm run cf:preview`                | 本地用 `wrangler dev` 预览静态资源                                      |
 | `npm run cf:deploy`                 | `wrangler deploy`（本地需要 `CLOUDFLARE_API_TOKEN`）                    |
 
-**控制台设置**（Workers → 你的 Worker → Settings → Build）：
+**两种部署方式（二选一，别同时开）**：
 
-- Build command：`npm run build`（`prebuild` 会先校验内容）
+**方式 A：Cloudflare 自己的 Git 构建**（控制台 Workers → 你的 Worker → Settings → Build）
+
+- Build command：`npm run build`（**不能是 `npm run cf:build`**——该脚本在静态导出改造时已删除，用它会 40 秒内失败）
 - Deploy command：`npx wrangler deploy`
 - 环境变量：`SITE_URL=https://<workers.dev 或自定义域名>` —— **必须设置**。Cloudflare 不会像 Vercel 那样注入域名，缺了它 canonical / sitemap / RSS 会退回 `http://localhost:3000`（[ADR-025](DECISIONS.md)），构建日志里会出现提醒
+
+**方式 B：GitHub Actions 部署**（推荐，和 CI 同一入口，状态可见）
+
+1. Cloudflare → My Profile → API Tokens → 创建 token：权限 `Workers Scripts: Edit` + `Account Settings: Read`，资源限制到自己的账户
+2. GitHub → Settings → Secrets and variables → Actions：
+   - Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`
+   - Variables：`SITE_URL = https://<你的域名>`
+3. 设好 `SITE_URL` 之后，`ci.yml` 的 `deploy (Cloudflare)` job 会在每次 push 到 `main` 且 `checks` 通过后自动构建并 `wrangler deploy`；没设这个变量时该 job 自动跳过（CI 不会变红）
+4. 启用方式 B 后，去 Cloudflare 控制台把方式 A 的 Git 构建**断开**（Settings → Build），避免两边同时部署互相覆盖
 
 **名字必须一致**：`package.json` 的 `name`、`wrangler.jsonc` 的 `name`、控制台里的 Worker 名。历史上不一致时的报错是：
 
