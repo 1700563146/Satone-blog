@@ -94,26 +94,48 @@ jobs:
       - run: npm run build
       # 部署 out/ 到 Workers Assets（wrangler.jsonc 里配置）
       - run: npx wrangler deploy
-      # 部署后自检：关键页面可访问，且 canonical 指向 SITE_URL
+      # 部署后自检。
+      #
+      # 注意：Cloudflare 的 Bot Fight Mode / 托管挑战会把数据中心 IP（Actions runner）
+      # 拦成 403。这不代表部署失败，所以 403/429 只记 warning，5xx 与连接失败才算失败。
       - name: Smoke test deployment
         run: |
-          fetch() {
-            for attempt in 1 2 3 4 5; do
-              code=$(curl -s -o /tmp/body.html -w "%{http_code}" --max-time 20 "$SITE_URL$1" || true)
-              [ "$code" = "200" ] && return 0
-              echo "  第 $attempt 次: $1 -> $code，5 秒后重试"
-              sleep 5
-            done
-            return 1
-          }
+          set -u
+          failed=0
 
           for path in / /posts /admin/publish /feed.xml /sitemap.xml /robots.txt; do
-            if fetch "$path"; then echo "OK   $path"; else echo "::error ::$path 不是 200"; exit 1; fi
+            code=""
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL$path" || true)
+              [ "$code" = "200" ] && break
+              case "$code" in 403|429) break ;; esac
+              echo "  第 $attempt 次: $path -> $code，5 秒后重试"
+              sleep 5
+            done
+
+            case "$code" in
+              200) echo "OK   $path" ;;
+              403|429)
+                echo "::warning ::$path 返回 $code —— Cloudflare 安全策略拦住了 CI 出口 IP（浏览器访问不受影响），跳过"
+                ;;
+              *)
+                echo "::error ::$path 返回 $code"
+                failed=1
+                ;;
+            esac
           done
 
-          canonical=$(curl -s --max-time 20 "$SITE_URL/" | grep -o 'rel="canonical" href="[^"]*"' | head -1)
-          echo "canonical: $canonical"
-          case "$canonical" in
-            *"$SITE_URL"*) echo "canonical 指向 SITE_URL ✓" ;;
-            *) echo "::error ::canonical 未指向 SITE_URL（检查 SITE_URL 是否配置正确）"; exit 1 ;;
-          esac
+          # canonical 校验只在能取到页面时进行（被安全策略拦截时跳过）
+          home_code=$(curl -s -o /tmp/home.html -w "%{http_code}" --max-time 20 "$SITE_URL/" || true)
+          if [ "$home_code" = "200" ]; then
+            canonical=$(grep -o 'rel="canonical" href="[^"]*"' /tmp/home.html | head -1)
+            echo "canonical: $canonical"
+            case "$canonical" in
+              *"$SITE_URL"*) echo "canonical 指向 SITE_URL ✓" ;;
+              *) echo "::error ::canonical 未指向 SITE_URL（检查 SITE_URL 是否配置正确）"; failed=1 ;;
+            esac
+          else
+            echo "::warning ::首页返回 $home_code，跳过 canonical 校验"
+          fi
+
+          exit "$failed"

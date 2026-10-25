@@ -159,8 +159,10 @@ curl -sS "$BASE/robots.txt"
    - Variables：`SITE_URL = https://<你的域名>`（这个变量同时是**启用开关**）
 4. 之后每次 push 到 `main`：`checks` → `e2e` → `deploy (Cloudflare)`（`npm run build` + `wrangler deploy`）
    - `deploy-cf` 依赖 `[checks, e2e]`：**e2e 不通过就不部署**，线上停在上一个版本
-   - 部署完成后自动冒烟：`/`、`/posts`、`/admin/publish`、`/feed.xml`、`/sitemap.xml`、`/robots.txt` 必须都是 200，且首页 canonical 必须指向 `SITE_URL`（失败会让 job 变红，不必手动点开页面确认）
-   - 想不提交代码就重新部署：Actions → `CI` → **Run workflow**（选中 `main`）
+   - 部署完成后自动冒烟：`/`、`/posts`、`/admin/publish`、`/feed.xml`、`/sitemap.xml`、`/robots.txt` 期望 200，且首页 canonical 必须指向 `SITE_URL`
+     - **403 / 429 只记 warning**：Cloudflare 的 Bot Fight Mode / 托管挑战会把数据中心 IP（Actions runner）当机器人拦掉，这不代表部署失败；出现 warning 时跳过该路径与 canonical 校验
+     - 5xx 与连接失败仍会让 job 变红
+     - 想不提交代码就重新部署：Actions → `CI` → **Run workflow**（选中 `main`）
 5. 启用方式 B 后，去 Cloudflare 控制台把方式 A 的 Git 构建**断开**（Settings → Build），避免两边同时部署互相覆盖
 
 > 没设置 `vars.SITE_URL` 时 `deploy-cf` 会自动跳过，CI 不会变红——所以可以先把 secret 配好、最后再设 `SITE_URL` 触发首次部署。
