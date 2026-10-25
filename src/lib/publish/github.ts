@@ -116,11 +116,10 @@ export interface CommitResult {
   commitSha: string;
 }
 
-/** 创建或更新文件（更新时传 sha）。 */
-export async function putFile(
+async function putContents(
   token: string,
   target: Pick<PublishTarget, "owner" | "repo" | "branch">,
-  input: { path: string; content: string; message: string; sha?: string },
+  input: { path: string; base64: string; message: string; sha?: string },
 ): Promise<CommitResult> {
   const url = `${API}/repos/${target.owner}/${target.repo}/contents/${encodeURI(input.path)}`;
   const response = await fetch(url, {
@@ -128,7 +127,7 @@ export async function putFile(
     headers: { ...headers(token), "Content-Type": "application/json" },
     body: JSON.stringify({
       message: input.message,
-      content: toBase64Utf8(input.content),
+      content: input.base64,
       branch: target.branch,
       ...(input.sha === undefined ? {} : { sha: input.sha }),
     }),
@@ -148,4 +147,27 @@ export async function putFile(
     commitUrl: data.commit?.html_url ?? "",
     commitSha: data.commit?.sha ?? "",
   };
+}
+
+/** 创建或更新文本文件（更新时传 sha）。 */
+export async function putFile(
+  token: string,
+  target: Pick<PublishTarget, "owner" | "repo" | "branch">,
+  input: { path: string; content: string; message: string; sha?: string },
+): Promise<CommitResult> {
+  return putContents(token, target, {
+    path: input.path,
+    base64: toBase64Utf8(input.content),
+    message: input.message,
+    sha: input.sha,
+  });
+}
+
+/** 创建或更新二进制文件（图片）：内容以 base64 提交。 */
+export async function putBinaryFile(
+  token: string,
+  target: Pick<PublishTarget, "owner" | "repo" | "branch">,
+  input: { path: string; base64: string; message: string; sha?: string },
+): Promise<CommitResult> {
+  return putContents(token, target, input);
 }

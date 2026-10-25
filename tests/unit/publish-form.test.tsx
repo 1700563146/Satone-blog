@@ -188,4 +188,99 @@ describe("PublishForm", () => {
     const [, putInit] = fetchMock.mock.calls[2] as [string, { body: string }];
     expect((JSON.parse(putInit.body) as { sha?: string }).sha).toBe("old-sha");
   });
+
+  it("上传图片：先查是否存在，再 PUT 到 public/images/posts", async () => {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, "ghp_test");
+    const fetchMock = stubFetch([
+      jsonResponse({ message: "Not Found" }, 404),
+      jsonResponse({
+        commit: { html_url: "https://github.com/o/r/commit/img", sha: "img" },
+      }),
+    ]);
+
+    const { container } = render(<PublishForm />);
+    await uploadMarkdown(container);
+    const user = userEvent.setup();
+
+    const png = new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47])],
+      "Cover.PNG",
+      {
+        type: "image/png",
+      },
+    );
+    const imageInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+    await user.upload(imageInput, png);
+
+    // 文件名带文章 slug 前缀（my-post）；文件名与片段里都会出现，取第一个即可
+    expect(
+      (await screen.findAllByText(/my-post-cover\.png/)).length,
+    ).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "上传图片" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/已上传（/)).toBeInTheDocument(),
+    );
+
+    const [putUrl, putInit] = fetchMock.mock.calls[1] as [
+      string,
+      { method: string; body: string },
+    ];
+    expect(putInit.method).toBe("PUT");
+    expect(
+      putUrl.endsWith("/contents/public/images/posts/my-post-cover.png"),
+    ).toBe(true);
+
+    const body = JSON.parse(putInit.body) as {
+      content: string;
+      message: string;
+    };
+    expect(body.message).toContain("上传图片");
+    expect(atob(body.content)).toBe(
+      String.fromCharCode(0x89, 0x50, 0x4e, 0x47),
+    );
+  });
+
+  it("插入正文：图片片段追加到 Markdown 末尾", async () => {
+    const { container } = render(<PublishForm />);
+    await uploadMarkdown(container);
+    const user = userEvent.setup();
+
+    const png = new File([new Uint8Array([1, 2, 3])], "shot.png", {
+      type: "image/png",
+    });
+    const imageInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+    await user.upload(imageInput, png);
+
+    await user.click(screen.getByRole("button", { name: "插入正文" }));
+
+    const textarea = screen.getByLabelText(
+      "正文（Markdown）",
+    ) as HTMLTextAreaElement;
+    expect(textarea.value).toContain("![shot](/images/posts/my-post-shot.png)");
+    expect(textarea.value.startsWith("第一段摘要。")).toBe(true);
+  });
+
+  it("不支持的图片格式给出错误并且不入列表", async () => {
+    const { container } = render(<PublishForm />);
+    await uploadMarkdown(container);
+    const user = userEvent.setup();
+
+    // bmp 能满足 accept="image/*"，但不在我们的扩展名白名单里
+    const bmp = new File([new Uint8Array([1])], "photo.bmp", {
+      type: "image/bmp",
+    });
+    const imageInput = container.querySelectorAll(
+      'input[type="file"]',
+    )[1] as HTMLInputElement;
+    await user.upload(imageInput, bmp);
+
+    expect(await screen.findByText(/不支持的图片类型/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "上传图片" })).toBeNull();
+  });
 });

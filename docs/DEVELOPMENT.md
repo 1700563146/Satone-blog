@@ -66,8 +66,9 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 
 1. 首次使用粘贴一个 **fine-grained PAT**（仅本仓库、仅 `Contents: Read and write`），点"保存"。token 只存在本浏览器 localStorage。
 2. 把 `.md` 拖进页面 → 自动填好标题、slug、日期、摘要、分类、标签 → 按需修改。
-3. 看"正文检查"里的红色/黄色条目（危险链接、图片缺 alt、原始 HTML 警告）。
-4. 点"提交到仓库"→ GitHub 自动构建部署，1~3 分钟上线；页面会给出提交记录链接。
+3. 需要配图时把图片拖进"正文与图片"区块 → 点"上传图片"提交到 `public/images/posts/`（文件名自动加 `<slug>-` 前缀）→ 点"插入正文"把 `![](...)` 追加到末尾。
+4. 看"正文检查"里的红色/黄色条目（危险链接、图片缺 alt、原始 HTML 警告）。
+5. 点"提交到仓库"→ GitHub Actions 跑 checks + e2e + 部署，约 4~6 分钟上线；页面会给出提交记录链接。
 
 限制：不支持图片上传、没有 HTML 预览、同名文章需要显式勾选覆盖。
 

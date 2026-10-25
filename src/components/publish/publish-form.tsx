@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
@@ -17,7 +17,20 @@ import {
   type PostFrontmatter,
 } from "@/lib/content/schema";
 import { PUBLISH_TARGET } from "@/lib/publish/config";
-import { GithubError, getFile, putFile } from "@/lib/publish/github";
+import {
+  GithubError,
+  getFile,
+  putBinaryFile,
+  putFile,
+} from "@/lib/publish/github";
+import {
+  appendSnippet,
+  buildImagePlan,
+  formatBytes,
+  toBase64Bytes,
+  MAX_IMAGE_LABEL,
+  type ImagePlan,
+} from "@/lib/publish/image";
 import {
   formatPreflightIssue,
   hasBlockingIssue,
@@ -138,6 +151,14 @@ function prepareFromText(
   }
 }
 
+interface ImageItem {
+  id: number;
+  file: File;
+  plan: ImagePlan;
+  status: "pending" | "uploading" | "done" | "error";
+  message?: string;
+}
+
 export function PublishForm() {
   const token = useSyncExternalStore(
     subscribeToken,
@@ -155,8 +176,13 @@ export function PublishForm() {
   const [dragging, setDragging] = useState(false);
   const [needsOverwrite, setNeedsOverwrite] = useState(false);
   const [overwrite, setOverwrite] = useState(false);
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [draggingImage, setDraggingImage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageSeq = useRef(0);
   const titleId = useId();
   const slugId = useId();
   const descriptionId = useId();
@@ -164,6 +190,7 @@ export function PublishForm() {
   const categoriesId = useId();
   const tagsId = useId();
   const draftId = useId();
+  const bodyId = useId();
 
   const preflight = useMemo(() => preflightMarkdown(body), [body]);
   const parsed = useMemo(
@@ -202,6 +229,129 @@ export function PublishForm() {
     setStatus(null);
     setNeedsOverwrite(false);
     setOverwrite(false);
+  }
+
+  function addImages(files: FileList | File[]): void {
+    if (fields === null || parsed.data === null) {
+      setStatus({ kind: "error", text: "先载入文章：图片会按文章 slug 命名" });
+      return;
+    }
+
+    const slug = parsed.data.slug;
+    const added: ImageItem[] = [];
+    const errors: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const result = buildImagePlan(slug, file);
+      if (!result.ok) {
+        errors.push(result.error);
+        continue;
+      }
+      imageSeq.current += 1;
+      added.push({
+        id: imageSeq.current,
+        file,
+        plan: result.plan,
+        status: "pending",
+      });
+    }
+
+    if (added.length > 0) setImages((prev) => [...prev, ...added]);
+
+    if (errors.length > 0) {
+      setStatus({ kind: "error", text: errors.join("；") });
+    } else if (added.length > 0) {
+      setStatus({
+        kind: "info",
+        text: `已加入 ${added.length} 张图片，点「上传图片」提交到仓库`,
+      });
+    }
+  }
+
+  async function uploadImages(): Promise<void> {
+    if (token.length === 0) {
+      setStatus({ kind: "error", text: "先填入并保存 GitHub Token" });
+      return;
+    }
+
+    const pending = images.filter(
+      (item) => item.status === "pending" || item.status === "error",
+    );
+    if (pending.length === 0) return;
+
+    setUploadingImages(true);
+    let uploaded = 0;
+
+    for (const item of pending) {
+      setImages((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id ? { ...entry, status: "uploading" } : entry,
+        ),
+      );
+
+      try {
+        const bytes = new Uint8Array(await item.file.arrayBuffer());
+        // 同名图片直接覆盖：替换素材/重新压缩是常态，不需要额外确认
+        const remote = await getFile(token, PUBLISH_TARGET, item.plan.repoPath);
+        await putBinaryFile(token, PUBLISH_TARGET, {
+          path: item.plan.repoPath,
+          base64: toBase64Bytes(bytes),
+          message: `post(${parsed.data?.slug ?? "post"}): 上传图片 ${item.plan.repoFileName}`,
+          sha: remote?.sha,
+        });
+
+        uploaded += 1;
+        setImages((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  status: "done",
+                  message: formatBytes(item.file.size),
+                }
+              : entry,
+          ),
+        );
+      } catch (error) {
+        const message =
+          error instanceof GithubError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        setImages((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, status: "error", message }
+              : entry,
+          ),
+        );
+      }
+    }
+
+    setUploadingImages(false);
+    setStatus(
+      uploaded > 0
+        ? {
+            kind: "success",
+            text: `已上传 ${uploaded} 张图片，可以「插入正文」或复制引用`,
+          }
+        : { kind: "error", text: "图片上传失败，见下方每张图的提示" },
+    );
+  }
+
+  async function copyText(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus({ kind: "info", text: "已复制到剪贴板" });
+    } catch {
+      setStatus({ kind: "error", text: "复制失败，请手动选中复制" });
+    }
+  }
+
+  function insertImage(item: ImageItem): void {
+    setBody((prev) => appendSnippet(prev, item.plan.snippet));
+    setStatus({ kind: "info", text: "已追加到正文末尾，别忘了提交文章" });
   }
 
   async function handleSubmit(): Promise<void> {
@@ -516,7 +666,154 @@ export function PublishForm() {
       </section>
 
       <section className="glass-card px-5 py-5">
-        <h2 className="text-sm font-semibold">4. 正文检查</h2>
+        <h2 className="text-sm font-semibold">4. 正文与图片</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          图片会提交到 <code>public/images/posts/</code>，文件名自动带文章 slug
+          前缀； 单张上限 {MAX_IMAGE_LABEL}，同名图片直接覆盖。
+        </p>
+
+        {fields === null ? (
+          <p className="mt-2 text-xs text-muted">
+            载入文章后可编辑正文并上传图片。
+          </p>
+        ) : (
+          <>
+            <label
+              htmlFor={bodyId}
+              className="mt-4 block text-xs font-medium text-muted"
+            >
+              正文（Markdown）
+            </label>
+            <textarea
+              id={bodyId}
+              value={body}
+              rows={12}
+              spellCheck={false}
+              onChange={(event) => setBody(event.target.value)}
+              className="mt-1 w-full rounded-control border border-border bg-surface px-3 py-2 font-mono text-xs leading-relaxed focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            />
+
+            <div
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDraggingImage(true);
+              }}
+              onDragLeave={() => setDraggingImage(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDraggingImage(false);
+                if (event.dataTransfer.files.length > 0)
+                  addImages(event.dataTransfer.files);
+              }}
+              className={`mt-4 rounded-control border border-dashed px-4 py-6 text-center transition-colors ${
+                draggingImage ? "border-accent bg-surface" : "border-border"
+              }`}
+            >
+              <p className="text-xs text-muted">把图片拖到这里，或</p>
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="mt-2 rounded-control border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-accent"
+              >
+                选择图片
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  if (
+                    event.target.files !== null &&
+                    event.target.files.length > 0
+                  ) {
+                    addImages(event.target.files);
+                  }
+                  event.target.value = "";
+                }}
+              />
+            </div>
+
+            {images.length === 0 ? null : (
+              <>
+                <ul className="mt-4 flex flex-col gap-2">
+                  {images.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-control border border-border px-3 py-2 text-xs"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono break-all">
+                          {item.plan.repoFileName}
+                        </span>
+                        <span className="text-muted">
+                          {formatBytes(item.file.size)}
+                        </span>
+                      </div>
+                      <code className="mt-1 block break-all text-muted">
+                        {item.plan.snippet}
+                      </code>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void copyText(item.plan.snippet)}
+                          className="rounded-control border border-border px-2 py-1 text-muted transition-colors hover:text-accent"
+                        >
+                          复制引用
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertImage(item)}
+                          className="rounded-control border border-border px-2 py-1 text-muted transition-colors hover:text-accent"
+                        >
+                          插入正文
+                        </button>
+                        <span
+                          className={
+                            item.status === "error"
+                              ? "text-red-600"
+                              : item.status === "done"
+                                ? "text-emerald-700"
+                                : "text-muted"
+                          }
+                        >
+                          {item.status === "uploading"
+                            ? "上传中…"
+                            : item.status === "done"
+                              ? `已上传（${item.message ?? ""}）`
+                              : item.status === "error"
+                                ? `失败：${item.message ?? ""}`
+                                : "待上传"}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void uploadImages()}
+                    disabled={uploadingImages || token.length === 0}
+                    className="rounded-control bg-accent-strong px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {uploadingImages ? "上传中…" : "上传图片"}
+                  </button>
+                  {token.length === 0 ? (
+                    <span className="text-xs text-muted">
+                      需要先保存 token 才能上传图片
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="glass-card px-5 py-5">
+        <h2 className="text-sm font-semibold">5. 正文检查</h2>
         <p className="mt-1 text-xs text-muted">
           {preflight.stats.characters} 字 · {preflight.stats.headings} 个标题 ·{" "}
           {preflight.stats.images} 张图片 · {preflight.stats.links} 个链接 ·{" "}
@@ -543,7 +840,7 @@ export function PublishForm() {
       </section>
 
       <section className="glass-card px-5 py-5">
-        <h2 className="text-sm font-semibold">5. 提交</h2>
+        <h2 className="text-sm font-semibold">6. 提交</h2>
         {needsOverwrite ? (
           <label className="mt-3 flex items-center gap-2 text-xs text-muted">
             <input

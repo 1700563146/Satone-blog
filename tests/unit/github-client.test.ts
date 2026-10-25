@@ -6,6 +6,7 @@ import {
   getFile,
   GithubError,
   listFiles,
+  putBinaryFile,
   putFile,
   toBase64Utf8,
 } from "@/lib/publish/github";
@@ -203,5 +204,35 @@ describe("mock 调用形态", () => {
 
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url.startsWith("https://api.github.com/repos/")).toBe(true);
+  });
+});
+
+describe("putBinaryFile", () => {
+  it("按 base64 原样提交二进制内容，并在更新时带 sha", async () => {
+    const fetchMock = stubFetch(
+      mockResponse({ commit: { html_url: "u", sha: "s" } }),
+    );
+
+    const result = await putBinaryFile("t", target, {
+      path: "public/images/posts/hello-cover.png",
+      base64: "iVBORw0KGgo=",
+      message: "post(hello): 上传图片",
+      sha: "old-sha",
+    });
+
+    expect(result).toEqual({ commitUrl: "u", commitSha: "s" });
+
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string,
+      { method: string; body: string },
+    ];
+    expect(init.method).toBe("PUT");
+    expect(url.endsWith("/contents/public/images/posts/hello-cover.png")).toBe(
+      true,
+    );
+
+    const body = JSON.parse(init.body) as { content: string; sha?: string };
+    expect(body.content).toBe("iVBORw0KGgo=");
+    expect(body.sha).toBe("old-sha");
   });
 });
