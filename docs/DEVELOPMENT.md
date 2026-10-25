@@ -58,7 +58,22 @@ Vercel 会把 `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` 注入到构建环�
 
 ## 写作流程
 
-推荐用**一键发布脚本**（ADR-029）：在任意 Markdown 编辑器里写完，保存成 `.md`，然后
+有两条发布路径，都复用同一套校验（`preparePost` → 生产 schema → Markdown 检查）：
+
+### 路线 A：浏览器上传（推荐给"写完就想发"的场景，ADR-030）
+
+打开 `/admin/publish`：
+
+1. 首次使用粘贴一个 **fine-grained PAT**（仅本仓库、仅 `Contents: Read and write`），点"保存"。token 只存在本浏览器 localStorage。
+2. 把 `.md` 拖进页面 → 自动填好标题、slug、日期、摘要、分类、标签 → 按需修改。
+3. 看"正文检查"里的红色/黄色条目（危险链接、图片缺 alt、原始 HTML 警告）。
+4. 点"提交到仓库"→ GitHub 自动构建部署，1~3 分钟上线；页面会给出提交记录链接。
+
+限制：不支持图片上传、没有 HTML 预览、同名文章需要显式勾选覆盖。
+
+### 路线 B：本地一键脚本（ADR-029）
+
+在任意 Markdown 编辑器里写完，保存成 `.md`，然后
 
 ```bash
 npm run publish -- D:/写作/我的文章.md --category 开发记录 --tag Next.js

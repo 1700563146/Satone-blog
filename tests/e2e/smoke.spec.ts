@@ -101,6 +101,46 @@ test.describe("订阅与搜索引擎文件", () => {
   });
 });
 
+test.describe("上传发布页", () => {
+  test("页面不索引，且拖入 md 后自动填好元信息（不提交）", async ({ page }) => {
+    await page.goto("/admin/publish");
+
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/,
+    );
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "发布文章",
+    );
+
+    const content = [
+      "# 端到端标题",
+      "",
+      "第一段摘要。",
+      "",
+      "## 小节",
+      "",
+      "正文内容。",
+    ].join("\n");
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "e2e-post.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(content, "utf8"),
+    });
+
+    await expect(page.getByLabel("标题")).toHaveValue("端到端标题");
+    await expect(page.getByLabel(/slug/)).toHaveValue("e2e-post");
+    await expect(page.getByLabel(/摘要/)).toHaveValue("第一段摘要。");
+
+    // 没有 token 时不允许提交
+    await expect(
+      page.getByRole("button", { name: "提交到仓库" }),
+    ).toBeDisabled();
+    await expect(page.getByText("状态：未设置")).toBeVisible();
+  });
+});
+
 test.describe("站内搜索", () => {
   test("导航里能进入搜索页，输入关键词命中文章并打开", async ({
     page,

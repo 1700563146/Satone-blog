@@ -254,3 +254,23 @@
   - 发布延迟是"构建时间"（1~3 分钟），不是即时；草稿（`--draft`）不会出现在线上，预览只能本地 `npm run dev` 或走分支预览。
   - 脚本会执行 `git commit` 与 `git push`，因此在有未提交改动时需要先处理干净；`--no-commit` / `--no-push` / `--dry-run` 覆盖各种半自动场景。
   - 第二阶段的浏览器上传页（拖 md/图片 → 校验 → 直连 GitHub Contents API 提交）可以复用同样的 `preparePost` 逻辑，只是把执行端从 Node 换到浏览器；PAT 权限限定单仓库 `contents: write`，页面 `noindex` 且不进导航。
+
+## ADR-030：浏览器上传页直连 GitHub Contents API
+
+- 日期：2026-10-24
+- 状态：已采纳（ADR-029 的第二阶段）
+- 决策：
+  1. 新增 `/admin/publish`（`noindex, nofollow`，不出现在导航与 sitemap）：拖入 `.md` → 复用 `preparePost` 补全/校验 → 表单可编辑（标题/slug/日期/摘要/分类/标签/草稿）→ 提交。
+  2. 提交走 **GitHub Contents API**（浏览器直接调用）：先 `GET` 判断是否已存在并取 `sha`，再 `PUT` 创建或更新；提交后由 GitHub 事件触发 Cloudflare / Vercel 构建，1~3 分钟上线。
+  3. Token 用 **fine-grained PAT**：仅选本仓库、仅 `Contents: Read and write`；保存在浏览器 `localStorage`，用 `useSyncExternalStore` 读取（避免挂载后 setState 造成的水合不一致）。
+  4. 浏览器侧只做**轻量预检**（危险链接、图片缺 alt、原始 HTML 警告），不引入 unified/remark；构建期管线仍是权威。
+- 理由：
+  - 静态导出没有服务端可写入口（ADR-027），所以"上传"本质是"帮我把文件写进仓库并触发构建"；Contents API 正好是这件事的最小实现，且支持浏览器 CORS。
+  - 新增服务端中继（Worker + Access）能更好地藏 token，但需要额外配置与维护，当前单人使用不划算；页面上已写明风险与最小权限。
+  - 预检若复用 `analyzeMarkdown` 会把 unified/remark 打入客户端包（几百 KB），与"一个工具页"的收益不成比例；已核对产物：客户端 chunk 里没有 shiki/unified。
+- 影响 / 已知限制：
+  - 只接受 `.md` / `.markdown`；**不支持图片上传**（图片仍走 `public/images/` 与 Git）。
+  - 没有 HTML 预览，只展示元信息、字数/标题/图片/代码块统计与问题列表；最终排版要等构建完成。
+  - 提交后 1~3 分钟才上线；勾选"存为草稿"时不会出现在线上页面、RSS 与 sitemap。
+  - 同名文章默认阻止覆盖，需要勾选"覆盖仓库里的同名文章"（会带上 `sha` 走更新）。
+  - Token 存在浏览器里，页面若被 XSS 波及即可能泄露；建议定期轮换，换机器时用"清除"。

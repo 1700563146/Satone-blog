@@ -38,7 +38,12 @@ npm run dev
 
 端到端测试默认使用 Playwright 自带的 Chromium（`npx playwright install chromium`）；网络受限时可用本机浏览器：`PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
 
-写文章：在 `content/posts/` 新建 `<slug>.md`，按 [内容规范](docs/CONTENT_SCHEMA.md) 填写 frontmatter，然后运行 `npm run validate:content`。草稿（`published: false` 或 `draft: true`）不会出现在任何公开页面。
+写文章有两种方式，都会自动补全并校验 frontmatter：
+
+- **浏览器上传**：打开 `/admin/publish`，把 `.md` 拖进去 → 检查 → 提交到仓库（需要一次配置 fine-grained PAT，仅 `Contents: Read and write`）
+- **本地一键脚本**：`npm run publish -- D:/写作/我的文章.md --category 开发记录`
+
+两种方式都是"写进 Git 再由 CI 构建"，草稿（`published: false` / `draft: true`）不会出现在任何公开页面。细节见 [开发指南](docs/DEVELOPMENT.md)。
 
 ## 目录结构
 
@@ -95,6 +100,7 @@ npm run dev
 | `/friends`                    | 友链（P1，暂为占位）                      |
 | `/feed.xml`                   | RSS 2.0 订阅                              |
 | `/sitemap.xml`、`/robots.txt` | 搜索引擎用文件                            |
+| `/admin/publish`              | 上传发布工具（不索引、不进导航）          |
 
 站点是**纯静态导出**（`npm run build` 产出 `out/`），可部署到任意静态托管：Cloudflare Workers Assets、Vercel、对象存储。草稿与不存在的 slug 不会出现在产物里，访问时由托管平台返回 `404.html` 与 404 状态码（见 [ADR-027](docs/DECISIONS.md)）。
 
@@ -116,4 +122,4 @@ npm run dev
 - [ ] 阶段 4：部署与可观测性（清单见 [部署指南](docs/DEPLOYMENT.md)）
 - [ ] 阶段 5：写作体验与增强功能
 
-测试：165 个单元/组件用例，12 个端到端用例（桌面与移动端两个 project）。P1 待做：友链、暗色主题。
+测试：193 个单元/组件用例，13 个端到端用例（桌面与移动端两个 project）。P1 待做：友链、暗色主题。
