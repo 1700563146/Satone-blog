@@ -328,12 +328,18 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
 
 /* ============================================
  * 猫头品牌标（navbar.logo.type = "cat"）
- * 黑药丸本身就是猫头，耳朵由同色三角从药丸上沿探出，
- * 因此这里只需要：深色药丸 + 绝对定位的猫脸 SVG + 白色标题
+ * 药丸本身就是猫头，耳朵由同色三角从药丸上沿探出；
+ * 亮色主题 = 黑药丸 + 白字，暗色主题 = 米白药丸 + 深字（同一套图形，只换三支颜色）
+ * 尾巴独立成 SVG，固定在药丸右下角，周期摆动 + 躲光标；碰到身体/尾巴会「炸毛」
  * ============================================ */
 .cat-brand {
-    --cat-ink: #141414;
-    --cat-pink: #f2a08c;
+    --cat-ink: #141414; /* 药丸 / 耳朵 / 尾巴 */
+    --cat-pink: #f2a08c; /* 耳内 */
+    --cat-mouth: #f2a08c; /* 小嘴 */
+    --cat-eye: #ffffff; /* 眼白 */
+    --cat-pupil: #141414; /* 瞳孔 */
+    --cat-eye-rim: transparent; /* 眼白描边（暗色下才需要） */
+    --cat-title: #ffffff;
     /* 猫脸 SVG 的高度：药丸高 + 耳朵探出的部分（viewBox 48×58） */
     --cat-h: 52px;
 
@@ -341,12 +347,29 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
     box-shadow:
         0 8px 20px -10px rgba(0, 0, 0, 0.55),
         inset 0 1px 0 rgba(255, 255, 255, 0.16);
-    /* 耳朵要探出药丸上沿，药丸本身不能裁切 */
+    /* 耳朵要探出药丸上沿、炸毛的刺要长到药丸外面，所以不能裁切 */
     overflow: visible;
+    /* 让炸毛的 ::after 能落在药丸背景之下（只露出边缘一圈） */
+    isolation: isolate;
+}
+
+/* 暗色主题：米白药丸 + 深色字，眼睛加一圈极淡的描边才立得住 */
+:root.dark .cat-brand {
+    --cat-ink: #f3ece0;
+    --cat-pink: #e99078;
+    --cat-mouth: #e99078;
+    --cat-eye: #ffffff;
+    --cat-pupil: #1b1815;
+    --cat-eye-rim: rgba(27, 24, 21, 0.14);
+    --cat-title: #1b1815;
+
+    box-shadow:
+        0 8px 22px -12px rgba(0, 0, 0, 0.75),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .cat-brand-title {
-    color: #fff;
+    color: var(--cat-title);
     letter-spacing: 0.01em;
     line-height: 1;
 }
@@ -368,8 +391,102 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
         inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-.cat-brand:hover .cat-brand-title {
-    color: #fff;
+/* ── 尾巴 ─────────────────────────────────────────────── */
+.cat-tail {
+    position: absolute;
+    right: -15px;
+    bottom: 5px;
+    width: 34px;
+    height: 44px;
+    overflow: visible;
+    pointer-events: none;
+    /* 根部固定在药丸右下角：躲光标时整条尾巴绕根转 */
+    transform-origin: 10% 94%;
+    transform: rotate(var(--tail-dodge, 0deg));
+    transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cat-tail-sway {
+    transform-box: fill-box;
+    transform-origin: 50% 92%;
+    animation: cat-tail-sway 4.4s ease-in-out infinite;
+}
+
+@keyframes cat-tail-sway {
+    0%,
+    100% {
+        transform: rotate(-7deg);
+    }
+    35% {
+        transform: rotate(6deg);
+    }
+    70% {
+        transform: rotate(-3deg);
+    }
+}
+
+/* ── 炸毛：药丸外圈长出一圈「毛刺」 ────────────────────── */
+.cat-brand::after {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: inherit;
+    z-index: -1;
+    /* 放射状楔形 = 竖起来的毛（楔子宽一点、短一点才像毛，不像海胆） */
+    background: repeating-conic-gradient(
+        from -90deg,
+        var(--cat-ink) 0deg 5.2deg,
+        transparent 5.2deg 13deg
+    );
+    opacity: 0;
+    transform: scale(0.9);
+    transform-origin: 50% 50%;
+    transition:
+        opacity 140ms ease-out,
+        transform 300ms cubic-bezier(0.2, 1.5, 0.4, 1);
+    pointer-events: none;
+}
+
+.cat-brand.is-puffed::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 炸毛瞬间本体也抖一下 */
+.cat-brand.is-puffed {
+    animation: cat-puff-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes cat-puff-shake {
+    0% {
+        transform: translateY(0) rotate(0);
+    }
+    20% {
+        transform: translateY(-1.5px) rotate(-1.2deg) scale(1.04);
+    }
+    45% {
+        transform: translateY(0.5px) rotate(1deg) scale(1.02);
+    }
+    70% {
+        transform: translateY(-0.5px) rotate(-0.5deg) scale(1.01);
+    }
+    100% {
+        transform: translateY(0) rotate(0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cat-tail-sway {
+        animation: none;
+    }
+
+    .cat-tail {
+        transition: none;
+    }
+
+    .cat-brand.is-puffed {
+        animation: none;
+    }
 }
 
 @media (max-width: 767px) {
@@ -379,5 +496,12 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
 
     .cat-brand-logo {
         left: 3px;
+    }
+
+    .cat-tail {
+        right: -12px;
+        bottom: 4px;
+        width: 28px;
+        height: 36px;
     }
 }

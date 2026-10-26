@@ -23,6 +23,11 @@ const wallpaperPosition = state.isFullscreenMode
 	? (backgroundWallpaper.fullscreen?.position ??
 		backgroundWallpaper.banner?.position)
 	: backgroundWallpaper.banner?.position;
+
+// 横幅动态背景（按主题切换）：只覆盖首屏横幅，波浪与页面下方不受影响
+const bannerVideo = backgroundWallpaper.common?.bannerVideo;
+const bannerVideoEnabled =
+	bannerVideo?.enable === true && Boolean(bannerVideo.light || bannerVideo.dark);
 ---
 
 <!-- Wallpaper - 如果允许切换则始终渲染，否则只渲染当前模式 -->
@@ -185,6 +190,27 @@ const wallpaperPosition = state.isFullscreenMode
             )}
         </noscript>
     </div>
+    )}
+
+    <!-- 横幅动态背景（按主题切换；图片作为加载前/降级时的底图，视频压在它上面） -->
+    {bannerVideoEnabled && (
+        <>
+            <video
+                id="banner-theme-video"
+                class="banner-theme-video"
+                data-src-light={bannerVideo?.light || bannerVideo?.dark}
+                data-src-dark={bannerVideo?.dark || bannerVideo?.light}
+                style={`object-position: ${bannerVideo?.position ?? "50% 50%"}`}
+                muted
+                loop
+                playsinline
+                preload="none"
+                aria-hidden="true"
+                tabindex="-1"></video>
+            {/* 中间那道压暗：视频比原壁纸亮，标题/副标题/链接需要一层薄底才读得清；
+                只压中间带，顶部与底部保持通透，不破坏画面 */}
+            <div class="banner-video-scrim" aria-hidden="true" />
+        </>
     )}
 
     <!-- 壁纸轮播脚本（基于 CSS transition） -->
@@ -633,3 +659,142 @@ const wallpaperPosition = state.isFullscreenMode
     <div id="banner-dim-container" class="hidden"></div>
 </>
 )}
+
+{bannerVideoEnabled && (
+<script is:inline data-swup-ignore-script>
+    // 横幅动态背景：按主题只加载对应的一条视频，切主题时换源
+    //
+    // 层级：#wallpaper-wrapper 内 图片(自动) < 视频(z-6) < 遮罩(z-10) / 波浪(z-15) / 标题(z-20)
+    // 所以视频只影响「Sato Blog」背后的整块横幅，页面下方完全不变。
+    // prefers-reduced-motion 与 saveData 下不加载视频，保留静态壁纸。
+    (function initBannerThemeVideo() {
+        var video = document.getElementById('banner-theme-video');
+        if (!video) return;
+
+        var reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        var conn = navigator.connection || {};
+        var currentSrc = null;
+
+        function wantedSrc() {
+            var isDark = document.documentElement.classList.contains('dark');
+            return isDark ? video.dataset.srcDark : video.dataset.srcLight;
+        }
+
+        function shouldPlay() {
+            return !reduceQuery.matches && !conn.saveData;
+        }
+
+        function play() {
+            var p = video.play();
+            if (p && p.catch) p.catch(function () { });
+        }
+
+        function sync() {
+            var src = wantedSrc();
+
+            if (!src || !shouldPlay()) {
+                if (currentSrc) {
+                    video.pause();
+                    video.removeAttribute('src');
+                    video.load();
+                    currentSrc = null;
+                    video.classList.remove('is-ready');
+                }
+                return;
+            }
+
+            if (src === currentSrc) {
+                if (video.paused && !document.hidden) play();
+                return;
+            }
+
+            currentSrc = src;
+            video.classList.remove('is-ready');
+            video.src = src;
+            video.load();
+            if (!document.hidden) play();
+        }
+
+        video.addEventListener('canplay', function () {
+            video.classList.add('is-ready');
+        });
+        video.addEventListener('error', function () {
+            video.classList.remove('is-ready');
+        });
+
+        sync();
+
+        // 主题切换（html class 变化）与系统动效偏好变化都重新判断
+        new MutationObserver(sync).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+        if (reduceQuery.addEventListener) reduceQuery.addEventListener('change', sync);
+
+        // 切到后台暂停，回来继续
+        document.addEventListener('visibilitychange', function () {
+            if (!currentSrc) return;
+            if (document.hidden) video.pause();
+            else if (shouldPlay() && video.paused) play();
+        });
+    })();
+</script>
+)}
+
+<style>
+    /* 横幅视频：压在壁纸图片之上、遮罩/波浪/标题之下；loading 前保持透明，露出原壁纸 */
+    #banner-theme-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 6;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 800ms ease;
+        background: transparent;
+    }
+
+    #banner-theme-video.is-ready {
+        opacity: 1;
+    }
+
+    /* 中间带的压暗层：亮色视频更亮，需要的底更重；暗色视频本身够暗，给一点点就够 */
+    .banner-video-scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 7;
+        pointer-events: none;
+        --banner-scrim: 0.5;
+        background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, calc(var(--banner-scrim) * 0.72)) 26%,
+            rgba(0, 0, 0, var(--banner-scrim)) 52%,
+            rgba(0, 0, 0, calc(var(--banner-scrim) * 0.68)) 76%,
+            rgba(0, 0, 0, 0) 100%
+        );
+        opacity: 0;
+        transition: opacity 800ms ease;
+    }
+
+    /* 视频就绪后压暗层才出现，避免视频没到时候先把静态壁纸压暗 */
+    #banner-theme-video.is-ready + .banner-video-scrim {
+        opacity: 1;
+    }
+
+    :global(:root.dark) .banner-video-scrim {
+        --banner-scrim: 0.3;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        #banner-theme-video {
+            display: none;
+        }
+
+        .banner-video-scrim {
+            display: none;
+        }
+    }
+</style>

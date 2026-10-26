@@ -1,10 +1,12 @@
 ---
-// 导航栏「猫头」品牌标：黑药丸 + 猫脸（耳朵/眼睛/小嘴）
+// 导航栏「猫头」品牌标：药丸 + 猫脸（耳朵/眼睛/小嘴）
 //
-// 造型来源：黑底圆角药丸本身就是猫头，耳朵由同色三角从药丸上沿探出来，
-// 所以这里不画头部轮廓，只画耳朵、眼白、瞳孔和一张小嘴 —— 药丸提供黑色。
-// 眼睛：瞳孔跟随指针（限制在眼白内），并每隔几秒眨一次眼。
-// 亮/暗主题都成立：药丸恒为深色，眼白为白，文字为白。
+// 造型来源：药丸本身就是猫头，耳朵由同色三角从药丸上沿探出来，
+// 所以这里不画头部轮廓，只画耳朵、眼白、瞳孔和一张小嘴 —— 药丸提供底色。
+// 颜色全部走 CSS 变量（在 navbar.css 里按主题定义）：
+//   亮色主题 = 黑药丸 + 白眼睛 + 白字
+//   暗色主题 = 米白药丸 + 白眼睛（带暗描边）+ 深色字
+// 行为：瞳孔跟随指针、随机眨眼、尾巴摆动与躲光标、被碰到时炸毛（见下方脚本与 navbar.css）
 interface Props {
 	class?: string;
 }
@@ -28,23 +30,37 @@ const { class: className } = Astro.props;
 
 	<!-- 左眼 -->
 	<g data-cat-eye>
-		<ellipse cx="16.4" cy="33" rx="7" ry="7.8" fill="#ffffff"></ellipse>
+		<ellipse
+			cx="16.4"
+			cy="33"
+			rx="7"
+			ry="7.8"
+			fill="var(--cat-eye, #ffffff)"
+			stroke="var(--cat-eye-rim, transparent)"
+			stroke-width="0.9"></ellipse>
 		<g data-cat-pupil>
-			<circle cx="16.4" cy="33.2" r="3.2" fill="#141414"></circle>
-			<circle cx="15.4" cy="32" r="1.15" fill="#ffffff"></circle>
+			<circle cx="16.4" cy="33.2" r="3.2" fill="var(--cat-pupil, #141414)"></circle>
+			<circle cx="15.4" cy="32" r="1.15" fill="var(--cat-eye, #ffffff)"></circle>
 		</g>
 	</g>
 	<!-- 右眼 -->
 	<g data-cat-eye>
-		<ellipse cx="31.6" cy="33" rx="7" ry="7.8" fill="#ffffff"></ellipse>
+		<ellipse
+			cx="31.6"
+			cy="33"
+			rx="7"
+			ry="7.8"
+			fill="var(--cat-eye, #ffffff)"
+			stroke="var(--cat-eye-rim, transparent)"
+			stroke-width="0.9"></ellipse>
 		<g data-cat-pupil>
-			<circle cx="31.6" cy="33.2" r="3.2" fill="#141414"></circle>
-			<circle cx="30.6" cy="32" r="1.15" fill="#ffffff"></circle>
+			<circle cx="31.6" cy="33.2" r="3.2" fill="var(--cat-pupil, #141414)"></circle>
+			<circle cx="30.6" cy="32" r="1.15" fill="var(--cat-eye, #ffffff)"></circle>
 		</g>
 	</g>
 
 	<!-- 小嘴 -->
-	<ellipse cx="24" cy="47.4" rx="2.3" ry="1.6" fill="var(--cat-pink, #f2a08c)"></ellipse>
+	<ellipse cx="24" cy="47.4" rx="2.3" ry="1.6" fill="var(--cat-mouth, #f2a08c)"></ellipse>
 </svg>
 
 <style>
@@ -77,7 +93,7 @@ const { class: className } = Astro.props;
 </style>
 
 <script>
-	(function setupCatEyes() {
+	(function setupCatPill() {
 		// 幂等：Swup 切页会重跑脚本
 		if (window.__catLogoReady) return;
 		window.__catLogoReady = true;
@@ -89,19 +105,40 @@ const { class: className } = Astro.props;
 
 		const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 		const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+		const brand = document.querySelector<HTMLElement>(".cat-brand");
+		const tail = brand?.querySelector<SVGElement>("[data-cat-tail]") ?? null;
 
 		// ── 瞳孔跟随 ────────────────────────────────────────────
 		// 眼白 rx 7 / ry 7.8，瞳孔 r 3.2 → 水平可移动 3.8、垂直 4.6，取 3.3 保守值
 		const MAX_OFFSET = 3.3;
 		const FAR = 220;
 
+		// ── 尾巴躲光标 / 炸毛 ───────────────────────────────────
+		const TAIL_NEAR = 120; // 指针离尾尖多近开始躲
+		const TAIL_COOLDOWN = 800; // 两次躲之间至少间隔（避免每帧都甩）
+		const PUFF_COOLDOWN = 1300; // 两次炸毛之间的冷却
+		const PUFF_MS = 780; // 炸毛持续时长
+
 		let pointerX = Number.NaN;
 		let pointerY = Number.NaN;
 		let rafId: number | null = null;
 
+		let tailDodge = 0;
+		let lastDodgeAt = 0;
+		let lastPuffAt = 0;
+		let puffTimer = 0;
+
+		const insideRect = (rect: DOMRect, x: number, y: number, pad: number) =>
+			x >= rect.left - pad &&
+			x <= rect.right + pad &&
+			y >= rect.top - pad &&
+			y <= rect.bottom + pad;
+
 		const apply = () => {
 			rafId = null;
 			if (Number.isNaN(pointerX) || reduceMotion.matches) return;
+
+			// 1) 瞳孔
 			for (const svg of logos) {
 				const rect = svg.getBoundingClientRect();
 				if (!rect.width) continue;
@@ -116,6 +153,50 @@ const { class: className } = Astro.props;
 				)) {
 					pupil.style.transform = `translate(${ox.toFixed(2)}px, ${oy.toFixed(2)}px)`;
 				}
+			}
+
+			if (!brand) return;
+			const now = performance.now();
+
+			// 2) 尾巴躲光标：指针靠近尾尖时，偶尔甩向反方向
+			if (tail) {
+				const tr = tail.getBoundingClientRect();
+				// 尾尖大致在 SVG 的右上区域
+				const tipX = tr.right - tr.width * 0.3;
+				const tipY = tr.top + tr.height * 0.16;
+				const near = Math.hypot(pointerX - tipX, pointerY - tipY) < TAIL_NEAR;
+
+				if (near) {
+					if (now - lastDodgeAt > TAIL_COOLDOWN && Math.random() < 0.6) {
+						lastDodgeAt = now;
+						// 指针在尾尖左侧就向右甩，反之向左
+						const dir = pointerX < tipX ? 1 : -1;
+						tailDodge = dir * (11 + Math.random() * 7);
+						brand.style.setProperty("--tail-dodge", `${tailDodge.toFixed(1)}deg`);
+					}
+				} else if (tailDodge !== 0 && now - lastDodgeAt > 320) {
+					tailDodge = 0;
+					brand.style.setProperty("--tail-dodge", "0deg");
+				}
+			}
+
+			// 3) 炸毛：碰到身体（药丸）或尾巴
+			const pillRect = brand.getBoundingClientRect();
+			const touchedPill = insideRect(pillRect, pointerX, pointerY, 2);
+			const touchedTail = tail
+				? insideRect(tail.getBoundingClientRect(), pointerX, pointerY, 4)
+				: false;
+
+			if (
+				(touchedPill || touchedTail) &&
+				now - lastPuffAt > PUFF_COOLDOWN
+			) {
+				lastPuffAt = now;
+				brand.classList.add("is-puffed");
+				window.clearTimeout(puffTimer);
+				puffTimer = window.setTimeout(() => {
+					brand.classList.remove("is-puffed");
+				}, PUFF_MS);
 			}
 		};
 

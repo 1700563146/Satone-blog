@@ -177,6 +177,17 @@ const logoVariants = await Promise.all(
                     <span class="cat-brand-title text-base md:text-lg font-bold whitespace-nowrap">
                         {navbarTitle}
                     </span>
+                    {/* 尾巴：根部固定在药丸右下角，周期性小幅摆动；指针靠近时偶尔甩开 */}
+                    <svg class="cat-tail" viewBox="0 0 44 56" aria-hidden="true" focusable="false" data-cat-tail>
+                        <g class="cat-tail-sway">
+                            <path
+                                d="M13 52 C 10 34, 17 15, 35 6"
+                                fill="none"
+                                stroke="var(--cat-ink, #141414)"
+                                stroke-width="6.5"
+                                stroke-linecap="round"></path>
+                        </g>
+                    </svg>
                 </a>
             ) : (
                 <a href={url('/')} class="btn-plain scale-animation rounded-lg h-13 px-3 md:px-5 font-bold active:scale-95">

@@ -54,6 +54,19 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 		dimOpacity: 0.2,
 		// 多视频播放模式："order" 顺序循环，"random" 随机切换（仅当 playerUrl 为数组时生效）
 		playerMode: "random",
+		// ── 横幅动态背景（按主题切换） ────────────────────────────
+		// 只覆盖「Sato Blog」文字背后的横幅区域；波浪、星空、页面底色保持原样。
+		// 视频放在 public/assets/videos/ 下（public 不参与构建优化，靠 URL 直接播放）。
+		// 置为 enable: false 可退回原来的静态壁纸图。
+		bannerVideo: {
+			enable: true,
+			// 亮色主题背景
+			light: "/assets/videos/lemon.mp4",
+			// 暗色主题背景
+			dark: "/assets/videos/chill-cat-coffee.mp4",
+			// 视频裁切位置（object-position），想让画面偏上/偏下就改这里
+			position: "50% 45%",
+		},
 		// 主页横幅文字
 		homeText: {
 			// 是否启用主页横幅文字

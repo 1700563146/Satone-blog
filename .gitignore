@@ -47,3 +47,7 @@ package/
 .codex*
 .claude
 .mimocode
+
+# 横幅视频原始文件（只用于转码，网页用的是 public/assets/videos/ 下的压缩版）
+/lemon.mp4
+/Chill Cat Coffe.mp4

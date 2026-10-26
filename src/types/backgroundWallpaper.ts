@@ -15,6 +15,14 @@ export type BackgroundWallpaperConfig = {
 	common?: {
 		dimOpacity?: number; // 横幅文字遮罩暗度，0-1之间，值越大越暗，默认0.15
 		playerMode?: "order" | "random"; // 多视频播放模式："order" 顺序循环（默认），"random" 随机切换
+		// 横幅（首屏）动态背景视频：按主题切换。只覆盖 Sato Blog 文字背后的横幅区域，
+		// 页面下方的波浪 / 星空 / 底色不受影响；原壁纸图作为加载前的占位
+		bannerVideo?: {
+			enable?: boolean; // 是否启用，默认 false
+			light?: string; // 亮色主题使用的视频（public 目录路径，如 "/assets/videos/lemon.mp4"）
+			dark?: string; // 暗色主题使用的视频
+			position?: string; // object-position，默认 "50% 50%"
+		};
 		homeText?: {
 			enable: boolean; // 是否在首页显示自定义文字（全局开关）
 			title?: string; // 主标题

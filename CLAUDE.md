@@ -39,6 +39,7 @@ All features are toggled/configured via TypeScript files in `src/config/`, expor
 - `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering)
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
+- `backgroundWallpaper.common.bannerVideo` — theme-switched hero background video (`light` / `dark` paths under `public/assets/videos/`). It only covers the banner behind the home title: the layers are wallpaper image → video (`z-6`) → scrim (`z-7`) → dim (`z-10`) → waves (`z-15`) → banner text (`z-20`), so the starfield/page background below the waves is untouched. Skipped under `prefers-reduced-motion` and `saveData`.
 
 ### Interactive Effects
 
