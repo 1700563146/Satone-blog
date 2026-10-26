@@ -101,6 +101,8 @@ declare global {
 		__catLogoReady?: boolean;
 		/** 星空开关按钮初始化守卫,确保 Swup 切页不重复注册监听器 */
 		__starfieldToggleReady?: boolean;
+		/** 「写文章」悬浮入口初始化守卫,确保 Swup 切页不重复注册监听器 */
+		__adminEntryReady?: boolean;
 	}
 
 	interface MediaQueryList {

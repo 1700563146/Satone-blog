@@ -13,11 +13,14 @@
 
 ## 一、站内 `/admin/publish/`
 
-地址：`https://<你的域名>/admin/publish/index.html`
+地址：`/admin/publish/`（页面在 `src/pages/admin/publish.astro`，用的是站点自己的布局，
+所以导航栏、明暗主题、字体、卡片样式都是站内的那一套）
 
-> 带上 `index.html` 最稳：Astro 的 `dev` server 和 `preview` 都不做目录索引（`/admin/publish/` 会 404）。
-> 线上（Vercel / Cloudflare Workers）会把 `/admin/publish/` 解析到 index.html，短地址也能用，
-> 但两种环境都认的写法是显式带 `index.html`。
+三种进法，哪个顺手用哪个：
+
+1. **右下角「写文章」按钮** —— 打开过一次发布页就会自动出现（也可以在页面顶部关掉）；
+2. **快捷键 `Ctrl`/`⌘ + Shift + P`** —— 任何页面直接跳转，不用先开入口；
+3. 直接敲地址。`/admin/publish/index.html` 同样可用。
 
 ### 1. 准备 token（一次）
 

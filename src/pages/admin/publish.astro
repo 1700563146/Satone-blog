@@ -1,0 +1,1151 @@
+---
+// 站内发布页：把原来的 public/admin/publish/index.html 搬进站点外壳
+// （导航栏、主题、字体、Swup 都由 MainGridLayout 提供）
+//
+// 它依然是一个纯静态页面：没有后端、没有密钥，所有提交都是浏览器拿着作者自己粘的
+// GitHub token 直连 GitHub Contents API 完成的。
+// 搜索引擎层面对它有三重拒绝：本页的 meta robots、robots.txt 的 Disallow: /admin/、
+// vercel.json 对 /admin/(.*) 的 X-Robots-Tag。
+import WidgetLayout from "@/components/common/WidgetLayout.astro";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+const title = "发布文章";
+const description = "站内发布工具：拖入 Markdown，提交成 post/<slug> 分支，看预览再合并。";
+---
+
+<MainGridLayout title={title} description={description}>
+	<meta slot="head" name="robots" content="noindex, nofollow, noarchive" />
+
+	<div class="admin-publish flex flex-col gap-4 text-neutral-900 dark:text-neutral-100">
+		<WidgetLayout id="pub-intro" name="发布文章">
+			<p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+				拖入 Markdown → 检查自动补全的元信息 → 提交成 <code>post/&lt;slug&gt;</code> 分支。
+				点开页面给出的链接开 PR，就能在 Vercel 预览里看到真实效果，确认后再合并上线。
+			</p>
+			<div class="mt-4 flex flex-col gap-2 text-sm">
+				<label class="ap-check">
+					<input id="admin-entry-toggle" type="checkbox" />
+					<span>在站点右下角显示「写文章」快捷入口</span>
+				</label>
+				<label class="ap-check">
+					<input id="remember-token" type="checkbox" />
+					<span>记住 token（存进 localStorage；不勾则只存在本次会话）</span>
+				</label>
+			</div>
+			<p class="mt-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+				快捷键 <kbd class="ap-kbd">Ctrl</kbd>/<kbd class="ap-kbd">⌘</kbd> +
+				<kbd class="ap-kbd">Shift</kbd> + <kbd class="ap-kbd">P</kbd> 可以在任何页面直接打开这里。
+			</p>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-token" name="1. GitHub Token">
+			<p class="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+				需要 fine-grained token：只选
+				<code id="repo-name">Satone-blog</code>，权限只给 Contents: Read and write
+				（建分支、提交、传图都在这一个权限内）。
+			</p>
+			<div class="mt-3 flex flex-wrap gap-2">
+				<input
+					id="token"
+					class="ap-input flex-1 min-w-[220px]"
+					type="password"
+					placeholder="github_pat_…"
+					autocomplete="off"
+				/>
+				<button id="save-token" class="ap-btn" type="button">保存</button>
+				<button id="clear-token" class="ap-btn-ghost" type="button">清除</button>
+			</div>
+			<p class="status" id="token-status">状态：未设置</p>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-md" name="2. 选择 Markdown 文件">
+			<div class="ap-drop" id="md-drop">
+				<p id="md-name">把 .md 文件拖到这里</p>
+				<button id="pick-md" class="ap-btn-ghost" type="button">选择文件</button>
+				<input id="md-input" class="hidden" type="file" accept=".md,.markdown,text/markdown" />
+			</div>
+			<ul id="warnings" class="ap-issues"></ul>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-fields" name="3. 文章信息">
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+				<div class="sm:col-span-2">
+					<label class="ap-label" for="f-title">标题</label>
+					<input id="f-title" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-slug">slug（URL 段）</label>
+					<input id="f-slug" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-date">日期</label>
+					<input id="f-date" class="ap-input" type="date" />
+				</div>
+				<div class="sm:col-span-2">
+					<label class="ap-label" for="f-desc">摘要</label>
+					<textarea id="f-desc" class="ap-input" rows="2"></textarea>
+				</div>
+				<div>
+					<label class="ap-label" for="f-category">分类（单个）</label>
+					<input id="f-category" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-tags">标签（逗号分隔）</label>
+					<input id="f-tags" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-cover">封面图（留空则不设）</label>
+					<input id="f-cover" class="ap-input" type="text" placeholder="images/cover.jpg" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-series">系列名（留空则不设）</label>
+					<input id="f-series" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-series-order">系列序号</label>
+					<input id="f-series-order" class="ap-input" type="number" min="1" step="1" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-password">阅读密码（留空则不加密）</label>
+					<input id="f-password" class="ap-input" type="text" />
+				</div>
+				<div>
+					<label class="ap-label" for="f-password-hint">密码提示</label>
+					<input id="f-password-hint" class="ap-input" type="text" />
+				</div>
+			</div>
+			<div class="mt-3 flex flex-col gap-2">
+				<label class="ap-check"><input id="f-pinned" type="checkbox" /><span>置顶</span></label>
+				<label class="ap-check"><input id="f-comment" type="checkbox" checked /><span>开启评论</span></label>
+				<label class="ap-check"
+					><input id="f-draft" type="checkbox" /><span
+						>存为草稿（不会出现在列表、RSS 与 sitemap）</span
+					></label
+				>
+			</div>
+			<ul id="field-issues" class="ap-issues"></ul>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-body" name="4. 正文与图片">
+			<p class="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+				图片提交到 <code>src/content/posts/images/</code>（会走 Astro 图片优化：webp +
+				宽高占位 + 懒加载），正文里写成 <code>./images/xxx.png</code>；文件名自动加 slug 前缀，单张上限 8 MB。
+			</p>
+			<label class="ap-label mt-3" for="f-body">正文（Markdown）</label>
+			<textarea id="f-body" class="ap-input font-mono text-[13px]" rows="16" spellcheck="false"></textarea>
+			<div class="ap-drop mt-3" id="img-drop">
+				<p>把图片拖到这里，或</p>
+				<button id="pick-img" class="ap-btn-ghost" type="button">选择图片</button>
+				<input id="img-input" class="hidden" type="file" accept="image/*" multiple />
+			</div>
+			<div id="img-list" class="mt-3 flex flex-col gap-2"></div>
+			<div class="mt-3 flex flex-wrap items-center gap-3" id="img-actions" style="display: none">
+				<button id="upload-images" class="ap-btn" type="button">上传图片</button>
+				<span class="text-xs text-neutral-500 dark:text-neutral-400" id="img-hint"></span>
+			</div>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-check" name="5. 检查">
+			<p class="text-xs text-neutral-500 dark:text-neutral-400" id="stats"></p>
+			<ul id="preflight" class="ap-issues"></ul>
+		</WidgetLayout>
+
+		<WidgetLayout id="pub-submit" name="6. 提交">
+			<div class="flex flex-col gap-2">
+				<label class="ap-check"
+					><input id="submit-via-branch" type="checkbox" checked /><span
+						>提交到新分支 <code>post/&lt;slug&gt;</code> 并给出 PR 链接（推荐：先看预览再合并）</span
+					></label
+				>
+				<label id="overwrite-wrap" class="ap-check hidden"
+					><input id="allow-overwrite" type="checkbox" /><span>覆盖仓库里的同名文章</span></label
+				>
+			</div>
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				<button id="submit" class="ap-btn" type="button">提交到仓库</button>
+			</div>
+			<p class="status" id="submit-status"></p>
+			<p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400" id="preview-url"></p>
+		</WidgetLayout>
+	</div>
+</MainGridLayout>
+
+<style>
+	/* 工具页：把首屏横幅压成一条 13rem 的封面带。
+	   --banner-height-non-home 同时驱动横幅高度（layout-styles）与 --content-top
+	   （layout-base），改这一个变量，横幅和内容起点一起收上去。
+	   Layout 是用 define:vars 把它写成 <html> 的**内联样式**的，所以这里只能 !important
+	   才能压过内联值；本规则只在这个页面的样式表里，不会影响其它页面。 */
+	:global(html:root) {
+		--banner-height-non-home: 13rem !important;
+	}
+
+	/* 表单控件的皮肤：跟主题同一套 token（半透明卡片色 + 发丝线 + 主色焦点环） */
+	.ap-label {
+		display: block;
+		margin-bottom: 0.375rem;
+		font-size: 0.75rem;
+		color: color-mix(in oklch, currentColor 62%, transparent);
+	}
+
+	.ap-input {
+		width: 100%;
+		border-radius: 0.75rem;
+		border: 1px solid var(--card-border);
+		background-color: color-mix(in oklch, var(--card-bg) 70%, transparent);
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		color: inherit;
+		transition:
+			border-color 150ms ease,
+			box-shadow 150ms ease,
+			background-color 150ms ease;
+	}
+
+	.ap-input::placeholder {
+		color: color-mix(in oklch, currentColor 45%, transparent);
+	}
+
+	.ap-input:focus {
+		outline: none;
+		border-color: var(--primary);
+		box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 18%, transparent);
+	}
+
+	.ap-input[type="number"] {
+		max-width: 8rem;
+	}
+
+	.ap-btn,
+	.ap-btn-ghost {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 2.25rem;
+		padding: 0 1rem;
+		border-radius: 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		white-space: nowrap;
+		transition:
+			background-color 150ms ease,
+			color 150ms ease,
+			transform 150ms ease,
+			opacity 150ms ease;
+	}
+
+	.ap-btn {
+		background-color: var(--primary);
+		color: var(--on-primary);
+	}
+
+	.ap-btn:hover:not(:disabled) {
+		background-color: var(--primary-hover);
+	}
+
+	.ap-btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
+	.ap-btn-ghost {
+		background-color: var(--btn-regular-bg);
+		color: var(--btn-content);
+	}
+
+	.ap-btn-ghost:hover:not(:disabled) {
+		background-color: var(--btn-regular-bg-hover);
+	}
+
+	.ap-btn:active:not(:disabled),
+	.ap-btn-ghost:active:not(:disabled) {
+		transform: scale(0.97);
+	}
+
+	.ap-check {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		cursor: pointer;
+	}
+
+	.ap-check input {
+		margin-top: 0.15rem;
+		accent-color: var(--primary);
+	}
+
+	.ap-drop {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1.25rem;
+		border-radius: 0.875rem;
+		border: 1.5px dashed var(--card-border);
+		font-size: 0.8125rem;
+		color: color-mix(in oklch, currentColor 70%, transparent);
+		transition:
+			border-color 150ms ease,
+			background-color 150ms ease;
+	}
+
+	.ap-drop.hot {
+		border-color: var(--primary);
+		background-color: color-mix(in oklch, var(--primary) 8%, transparent);
+	}
+
+	.ap-kbd {
+		display: inline-block;
+		padding: 0 0.3rem;
+		border-radius: 0.3rem;
+		border: 1px solid var(--card-border);
+		font-size: 0.7rem;
+		line-height: 1.4;
+	}
+
+	.ap-issues {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		margin: 0.75rem 0 0;
+		padding: 0;
+		list-style: none;
+		font-size: 0.75rem;
+	}
+
+	.ap-issues li.error {
+		color: #dc2626;
+	}
+
+	.ap-issues li.warn {
+		color: #b45309;
+	}
+
+	.ap-issues li.ok {
+		color: var(--primary);
+	}
+
+	.ap-issues li::before {
+		content: "· ";
+	}
+
+	/* 单张图片行 */
+	.admin-publish :global(.ap-img-item) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.75rem;
+		border: 1px solid var(--card-border);
+		font-size: 0.75rem;
+	}
+
+	.admin-publish :global(.ap-img-item .tools) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.admin-publish :global(.ap-img-item button) {
+		height: 1.75rem;
+		padding: 0 0.6rem;
+		border-radius: 0.5rem;
+		font-size: 0.7rem;
+		background-color: var(--btn-regular-bg);
+		color: var(--btn-content);
+	}
+
+	.admin-publish :global(.ap-img-item button:hover) {
+		background-color: var(--btn-regular-bg-hover);
+	}
+
+	.admin-publish :global(.ap-snippet code) {
+		word-break: break-all;
+		color: color-mix(in oklch, currentColor 62%, transparent);
+	}
+
+	/* 状态文字（成功/失败） */
+	.status {
+		margin-top: 0.75rem;
+		font-size: 0.75rem;
+		line-height: 1.6;
+		word-break: break-all;
+	}
+
+	.status.ok {
+		color: var(--primary);
+	}
+
+	.status.error {
+		color: #dc2626;
+	}
+
+	.status a {
+		color: var(--primary);
+		text-decoration: underline;
+	}
+</style>
+
+<script>
+	// @ts-nocheck —— 这段逻辑是从独立页面原样搬过来的，作者自用的工具页，
+	// 用 DOM 直接操作比给每个元素补类型划算；构建期不会因为它失败（build 只做语法与打包）
+	(function setupPublishPage() {
+		let initialized = false;
+
+		const init = () => {
+			if (initialized) return;
+			const submitBtn = document.getElementById("submit");
+			if (!submitBtn) return;
+			initialized = true;
+
+			const TARGET = {
+				owner: "1700563146",
+				repo: "Satone-blog",
+				branch: "main",
+				// 正文图片放在内容目录下：Astro 会做 webp 转换 + 宽高占位 + 懒加载，
+				// 放 public/ 的话这些优化全部没有（原图直出）
+				postsDir: "src/content/posts",
+				imageDir: "src/content/posts/images",
+				imageUrlPrefix: "./images",
+				branchPrefix: "post/",
+				tokenKey: "satoneBlog:githubToken",
+				entryKey: "adminEntry",
+				// 图片进 Git，体积要控制；Astro 会转 webp，源图给到 8MB 足够
+				maxImageBytes: 8 * 1024 * 1024,
+				allowedImageExt: ["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"],
+			};
+			const API = "https://api.github.com";
+
+			const $ = (id) => document.getElementById(id);
+			const state = {
+				token: "",
+				fileName: "",
+				body: "",
+				images: [],
+				branch: "",
+				branchFor: "",
+			};
+
+			// ── 工具 ──────────────────────────────────────────────
+			const b64utf8 = (text) => {
+				const bytes = new TextEncoder().encode(text);
+				let binary = "";
+				for (const byte of bytes) binary += String.fromCharCode(byte);
+				return btoa(binary);
+			};
+
+			const b64bytes = (bytes) => {
+				let binary = "";
+				for (const byte of bytes) binary += String.fromCharCode(byte);
+				return btoa(binary);
+			};
+
+			const setStatus = (el, text, kind) => {
+				el.textContent = text || "";
+				el.className = `status${kind ? ` ${kind}` : ""}`;
+			};
+
+			const listIssues = (el, items) => {
+				el.innerHTML = "";
+				for (const item of items) {
+					const li = document.createElement("li");
+					li.className = item.kind || "";
+					li.textContent = item.text;
+					el.appendChild(li);
+				}
+			};
+
+			const todayInShanghai = () => {
+				const now = new Date();
+				const shifted = new Date(now.getTime() + 8 * 3600 * 1000);
+				return shifted.toISOString().slice(0, 10);
+			};
+
+			const slugify = (name) =>
+				name
+					.replace(/\.[^.]+$/, "")
+					.toLowerCase()
+					.normalize("NFC")
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-+|-+$/g, "")
+					.slice(0, 80);
+
+			const splitList = (value) =>
+				value
+					.split(/[,，]/)
+					.map((item) => item.trim())
+					.filter(Boolean);
+
+			const isSafeUrl = (raw) => {
+				const url = String(raw).trim();
+				if (!url) return true;
+				if (/^(\/|#|\.\.?\/|\.\/)/.test(url)) return true;
+				const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+				if (!scheme) return true;
+				return ["http", "https", "mailto", "tel"].includes(scheme[1].toLowerCase());
+			};
+
+			// ── GitHub API ────────────────────────────────────────
+			const ghHeaders = () => ({
+				Accept: "application/vnd.github+json",
+				Authorization: `Bearer ${state.token}`,
+				"X-GitHub-Api-Version": "2022-11-28",
+			});
+
+			const readError = async (response) => {
+				try {
+					const data = await response.json();
+					return data.message || response.statusText;
+				} catch {
+					return response.statusText;
+				}
+			};
+
+			const getFile = async (path, ref) => {
+				const branch = ref || TARGET.branch;
+				const url = `${API}/repos/${TARGET.owner}/${TARGET.repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(branch)}`;
+				const response = await fetch(url, { headers: ghHeaders() });
+				if (response.status === 404) return null;
+				if (!response.ok) throw new Error(`读取 ${path} 失败：${await readError(response)}`);
+				const data = await response.json();
+				return { sha: data.sha || "", content: data.content || "" };
+			};
+
+			const putFile = async (path, base64, message, sha, ref) => {
+				const url = `${API}/repos/${TARGET.owner}/${TARGET.repo}/contents/${encodeURI(path)}`;
+				const response = await fetch(url, {
+					method: "PUT",
+					headers: { ...ghHeaders(), "Content-Type": "application/json" },
+					body: JSON.stringify({
+						message,
+						content: base64,
+						branch: ref || TARGET.branch,
+						...(sha ? { sha } : {}),
+					}),
+				});
+				if (!response.ok) throw new Error(`提交 ${path} 失败：${await readError(response)}`);
+				return response.json();
+			};
+
+			const getRefSha = async (branch) => {
+				const url = `${API}/repos/${TARGET.owner}/${TARGET.repo}/git/ref/heads/${encodeURIComponent(branch)}`;
+				const response = await fetch(url, { headers: ghHeaders() });
+				if (!response.ok) throw new Error(`读取分支 ${branch} 失败：${await readError(response)}`);
+				const data = await response.json();
+				return data.object?.sha || "";
+			};
+
+			// 分支已存在时（422）直接复用，方便同一篇反复更新同一个 PR
+			const createBranch = async (branch, fromSha) => {
+				const url = `${API}/repos/${TARGET.owner}/${TARGET.repo}/git/refs`;
+				const response = await fetch(url, {
+					method: "POST",
+					headers: { ...ghHeaders(), "Content-Type": "application/json" },
+					body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: fromSha }),
+				});
+				if (response.status === 422) return;
+				if (!response.ok) throw new Error(`创建分支失败：${await readError(response)}`);
+			};
+
+			const useBranchMode = () => $("submit-via-branch").checked;
+
+			const compareUrl = (branch) =>
+				`https://github.com/${TARGET.owner}/${TARGET.repo}/compare/${TARGET.branch}...${branch}?expand=1`;
+
+			const ensureBranch = async (slug) => {
+				if (!useBranchMode()) return TARGET.branch;
+				if (state.branch && state.branchFor === slug) return state.branch;
+				const branch = `${TARGET.branchPrefix}${slug}`;
+				const sha = await getRefSha(TARGET.branch);
+				await createBranch(branch, sha);
+				state.branch = branch;
+				state.branchFor = slug;
+				return branch;
+			};
+
+			// ── Markdown 解析 ─────────────────────────────────────
+			const parseSource = (text, fileName) => {
+				const normalized = text.replace(/\r\n/g, "\n");
+				const warnings = [];
+				let frontmatter = "";
+				let body = normalized;
+
+				const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(normalized);
+				if (match) {
+					frontmatter = match[1];
+					body = match[2];
+				} else {
+					warnings.push("没有 frontmatter，已从正文推导标题、摘要与日期");
+				}
+
+				const get = (key) => {
+					const found = new RegExp(`^${key}:\\s*(.*)$`, "m").exec(frontmatter);
+					return found ? found[1].replace(/^["']|["']$/g, "").trim() : "";
+				};
+
+				const list = (key) => {
+					const block = new RegExp(`^${key}:\\s*\\n((?:\\s+-\\s*.*\\n?)*)`, "m").exec(frontmatter);
+					if (block) {
+						return block[1]
+							.split("\n")
+							.map((line) => line.replace(/^\s*-\s*/, "").replace(/^["']|["']$/g, "").trim())
+							.filter(Boolean);
+					}
+					const inline = new RegExp(`^${key}:\\s*\\[(.*)\\]$`, "m").exec(frontmatter);
+					if (inline) {
+						return inline[1]
+							.split(",")
+							.map((item) => item.trim().replace(/^["']|["']$/g, ""))
+							.filter(Boolean);
+					}
+					return [];
+				};
+
+				const heading = /^#\s+(.+)$/m.exec(body);
+				const firstParagraph =
+					body
+						.split("\n")
+						.map((line) => line.trim())
+						.find((line) => line && !line.startsWith("#") && !line.startsWith("!") && !line.startsWith("```")) || "";
+
+				const baseName = fileName.replace(/\.[^.]+$/, "");
+				const title = get("title") || (heading ? heading[1].trim() : baseName);
+				let slug = get("slug") || get("permalink") || slugify(baseName);
+				if (!slug) {
+					slug = `post-${todayInShanghai()}`;
+					warnings.push("文件名无法生成 slug，已临时使用 post-<日期>，请确认或修改");
+				}
+
+				const dateRaw = get("date") || get("published");
+				const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : todayInShanghai();
+				if (!dateRaw) warnings.push(`没有写日期，已使用 ${date}`);
+
+				const description = get("description") || get("summary") || firstParagraph.replace(/[*_`>#-]/g, "").slice(0, 120);
+
+				return {
+					warnings,
+					body: body.replace(/^\n+/, "").replace(/\s+$/, "") + "\n",
+					fields: {
+						title: title || slug,
+						slug,
+						date,
+						description,
+						category: get("category") || list("categories")[0] || "",
+						tags: (list("tags").length > 0 ? list("tags") : list("categories").slice(1)).join(", "),
+						cover: get("image"),
+						series: get("series"),
+						seriesOrder: get("seriesOrder"),
+						password: get("password"),
+						passwordHint: get("passwordHint"),
+						pinned: get("pinned") === "true",
+						comment: get("comment") !== "false",
+						draft: get("draft") === "true" || get("published") === "false",
+					},
+				};
+			};
+
+			// ── 表单读写 ──────────────────────────────────────────
+			const normalizeCover = (value) => {
+				if (!value) return "";
+				if (/^(https?:)?\/\//.test(value)) return value;
+				const trimmed = value.replace(/^\.?\//, "");
+				return trimmed.startsWith("images/") ? trimmed : `images/${trimmed}`;
+			};
+
+			const readFields = () => ({
+				title: $("f-title").value.trim(),
+				slug: $("f-slug").value.trim(),
+				date: $("f-date").value,
+				description: $("f-desc").value.trim(),
+				category: $("f-category").value.trim(),
+				tags: splitList($("f-tags").value),
+				cover: normalizeCover($("f-cover").value.trim()),
+				series: $("f-series").value.trim(),
+				seriesOrder: $("f-series-order").value.trim(),
+				password: $("f-password").value.trim(),
+				passwordHint: $("f-password-hint").value.trim(),
+				pinned: $("f-pinned").checked,
+				comment: $("f-comment").checked,
+				draft: $("f-draft").checked,
+			});
+
+			const validateFields = (fields) => {
+				const issues = [];
+				if (!fields.title) issues.push({ kind: "error", text: "标题不能为空" });
+				if (!/^[a-z0-9][a-z0-9-]*$/.test(fields.slug)) {
+					issues.push({ kind: "error", text: "slug 只能包含小写字母、数字和连字符" });
+				}
+				if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.date)) {
+					issues.push({ kind: "error", text: "日期格式应为 YYYY-MM-DD" });
+				}
+				if (fields.tags.length > 20) issues.push({ kind: "error", text: "标签最多 20 个" });
+				if (fields.series && !fields.seriesOrder) {
+					issues.push({ kind: "warn", text: "填了系列名但没有序号，系列内排序会按日期走" });
+				}
+				if (fields.seriesOrder && Number.isNaN(Number(fields.seriesOrder))) {
+					issues.push({ kind: "error", text: "系列序号要是数字" });
+				}
+				if (fields.password && !fields.passwordHint) {
+					issues.push({ kind: "warn", text: "设置了阅读密码但没写提示，读者会不知道密码从哪来" });
+				}
+				return { fields, issues };
+			};
+
+			const buildMarkdown = (fields, body) => {
+				const lines = ["---", `title: ${JSON.stringify(fields.title)}`, `published: ${fields.date}`];
+				if (fields.description) lines.push(`description: ${JSON.stringify(fields.description)}`);
+				if (fields.tags.length > 0) {
+					lines.push(`tags: [${fields.tags.map((tag) => JSON.stringify(tag)).join(", ")}]`);
+				}
+				if (fields.category) lines.push(`category: ${JSON.stringify(fields.category)}`);
+				if (fields.cover) lines.push(`image: ${JSON.stringify(fields.cover)}`);
+				if (fields.pinned) lines.push("pinned: true");
+				if (fields.series) {
+					lines.push(`series: ${JSON.stringify(fields.series)}`);
+					if (fields.seriesOrder) lines.push(`seriesOrder: ${Number(fields.seriesOrder)}`);
+				}
+				if (fields.password) {
+					lines.push(`password: ${JSON.stringify(fields.password)}`);
+					if (fields.passwordHint) lines.push(`passwordHint: ${JSON.stringify(fields.passwordHint)}`);
+				}
+				if (!fields.comment) lines.push("comment: false");
+				if (fields.draft) lines.push("draft: true");
+				lines.push("---", "", body.replace(/\s+$/, ""), "");
+				return lines.join("\n");
+			};
+
+			// ── 预检 ─────────────────────────────────────────────
+			const preflight = (body) => {
+				const issues = [];
+				let inCode = false;
+				body.split("\n").forEach((text, index) => {
+					const line = index + 1;
+					if (/^\s*```/.test(text)) {
+						inCode = !inCode;
+						return;
+					}
+					if (inCode) return;
+					const image = /!\[[^\]]*\]\(([^)\s]+)/.exec(text);
+					if (image && !isSafeUrl(image[1])) {
+						issues.push({ kind: "error", text: `第 ${line} 行：图片地址协议不被允许` });
+					}
+					const link = /(?<!!)\[[^\]]*\]\(([^)\s]+)/.exec(text);
+					if (link && !isSafeUrl(link[1])) {
+						issues.push({ kind: "warn", text: `第 ${line} 行：链接协议可疑，构建时可能被过滤` });
+					}
+				});
+				if (inCode) issues.push({ kind: "error", text: "代码块没有闭合（```）" });
+
+				const stats = {
+					characters: body.replace(/\s/g, "").length,
+					headings: (body.match(/^#{1,6}\s/gm) || []).length,
+					images: (body.match(/!\[[^\]]*\]\(/g) || []).length,
+					links: (body.match(/(?<!!)\[[^\]]*\]\(/g) || []).length,
+					codeBlocks: Math.floor((body.match(/^\s*```/gm) || []).length / 2),
+				};
+				return { issues, stats };
+			};
+
+			// ── 渲染 ─────────────────────────────────────────────
+			const refresh = () => {
+				const fields = readFields();
+				state.body = $("f-body").value;
+				const { issues: fieldIssues } = validateFields(fields);
+				listIssues($("field-issues"), fieldIssues);
+
+				const { issues, stats } = preflight(state.body);
+				$("stats").textContent = `${stats.characters} 字 · ${stats.headings} 个标题 · ${stats.images} 张图片 · ${stats.links} 个链接 · ${stats.codeBlocks} 个代码块`;
+				listIssues(
+					$("preflight"),
+					issues.length > 0 ? issues : [{ kind: "ok", text: "没有发现明显问题（构建时会再检查一次）" }],
+				);
+
+				const blocking =
+					fieldIssues.some((issue) => issue.kind === "error") ||
+					issues.some((issue) => issue.kind === "error");
+				$("submit").disabled = blocking || state.token === "" || !state.body.trim();
+				$("preview-url").textContent = fields.slug
+					? useBranchMode()
+						? `会提交到分支 ${TARGET.branchPrefix}${fields.slug}；打开 PR 链接即可看到 Vercel 预览地址`
+						: `直接提交到 main，约 5~7 分钟后上线：${location.origin}/posts/${fields.slug}/`
+					: "";
+			};
+
+			// ── 图片 ─────────────────────────────────────────────
+			const addImages = (files) => {
+				const { fields } = validateFields(readFields());
+				const slug = fields.slug || "post";
+				for (const file of files) {
+					const extension = (file.name.split(".").pop() || "").toLowerCase();
+					if (!TARGET.allowedImageExt.includes(extension)) {
+						setStatus($("submit-status"), `${file.name}：不支持的图片类型`, "error");
+						continue;
+					}
+					if (file.size > TARGET.maxImageBytes) {
+						setStatus($("submit-status"), `${file.name}：超过 8 MB，请压缩后重试`, "error");
+						continue;
+					}
+					const safeBase =
+						file.name
+							.replace(/\.[^.]+$/, "")
+							.toLowerCase()
+							.replace(/[^a-z0-9]+/g, "-")
+							.replace(/^-+|-+$/g, "")
+							.slice(0, 60) || "image";
+					const repoFileName = safeBase.startsWith(`${slug}-`)
+						? `${safeBase}.${extension}`
+						: `${slug}-${safeBase}.${extension}`;
+					state.images.push({
+						file,
+						repoPath: `${TARGET.imageDir}/${repoFileName}`,
+						url: `${TARGET.imageUrlPrefix}/${repoFileName}`,
+						status: "pending",
+					});
+				}
+				renderImages();
+			};
+
+			const renderImages = () => {
+				const list = $("img-list");
+				list.innerHTML = "";
+				state.images.forEach((item, index) => {
+					const wrapper = document.createElement("div");
+					wrapper.className = "ap-img-item";
+					const snippet = `![${item.file.name.replace(/\.[^.]+$/, "")}](${item.url})`;
+					wrapper.innerHTML = `<div><code>${item.repoPath}</code></div><span class="ap-snippet"><code>${snippet}</code></span><div class="tools"></div>`;
+
+					const tools = wrapper.querySelector(".tools");
+					const copy = document.createElement("button");
+					copy.type = "button";
+					copy.textContent = "复制引用";
+					copy.onclick = async () => {
+						try {
+							await navigator.clipboard.writeText(snippet);
+							setStatus($("submit-status"), "已复制到剪贴板", "ok");
+						} catch {
+							setStatus($("submit-status"), "复制失败，请手动选中复制", "error");
+						}
+					};
+
+					const insert = document.createElement("button");
+					insert.type = "button";
+					insert.textContent = "插入正文";
+					insert.onclick = () => {
+						const body = $("f-body").value.replace(/\s+$/, "");
+						$("f-body").value = `${body}${body ? "\n\n" : ""}${snippet}\n`;
+						refresh();
+						setStatus($("submit-status"), "已追加到正文末尾", "ok");
+					};
+
+					const useCover = document.createElement("button");
+					useCover.type = "button";
+					useCover.textContent = "设为封面";
+					useCover.onclick = () => {
+						$("f-cover").value = item.url.replace(/^\.\//, "");
+						refresh();
+						setStatus($("submit-status"), "已设为封面（frontmatter image）", "ok");
+					};
+
+					const status = document.createElement("span");
+					status.className = "text-neutral-500 dark:text-neutral-400";
+					status.textContent =
+						item.status === "done"
+							? "已上传"
+							: item.status === "error"
+								? `失败：${item.error || ""}`
+								: item.status === "uploading"
+									? "上传中…"
+									: "待上传";
+
+					tools.append(copy, insert, useCover, status);
+					list.appendChild(wrapper);
+				});
+
+				const pending = state.images.filter((item) => item.status !== "done").length;
+				$("img-actions").style.display = state.images.length > 0 ? "flex" : "none";
+				$("upload-images").textContent = pending > 0 ? `上传 ${pending} 张图片` : "全部已上传";
+				$("upload-images").disabled = pending === 0 || state.token === "";
+				$("img-hint").textContent = state.token === "" ? "需要先保存 token 才能上传图片" : "";
+			};
+
+			const uploadImages = async () => {
+				const pending = state.images.filter((item) => item.status !== "done");
+				if (pending.length === 0) return;
+				if (!state.token) {
+					setStatus($("submit-status"), "先填入并保存 GitHub Token", "error");
+					return;
+				}
+				let uploaded = 0;
+				try {
+					const slug = readFields().slug || "post";
+					// 图片和文章要落在同一个分支上，否则 PR 里只有 md 没有图
+					const branch = await ensureBranch(slug);
+					for (const item of pending) {
+						item.status = "uploading";
+						renderImages();
+						try {
+							const bytes = new Uint8Array(await item.file.arrayBuffer());
+							const remote = await getFile(item.repoPath, branch);
+							await putFile(
+								item.repoPath,
+								b64bytes(bytes),
+								`post(${slug}): 上传图片 ${item.repoPath.split("/").pop()}`,
+								remote ? remote.sha : undefined,
+								branch,
+							);
+							item.status = "done";
+							uploaded += 1;
+						} catch (error) {
+							item.status = "error";
+							item.error = error.message;
+						}
+						renderImages();
+					}
+				} catch (error) {
+					setStatus($("submit-status"), error.message, "error");
+				}
+				setStatus(
+					$("submit-status"),
+					uploaded > 0
+						? `已上传 ${uploaded} 张图片${useBranchMode() ? `（分支 ${state.branch}）` : ""}`
+						: "图片上传失败",
+					uploaded > 0 ? "ok" : "error",
+				);
+				renderImages();
+			};
+
+			// ── 提交 ─────────────────────────────────────────────
+			const submit = async () => {
+				const { fields, issues } = validateFields(readFields());
+				if (issues.some((issue) => issue.kind === "error")) {
+					setStatus($("submit-status"), "先修正元信息里的问题", "error");
+					return;
+				}
+				if (!state.token) {
+					setStatus($("submit-status"), "先填入并保存 GitHub Token", "error");
+					return;
+				}
+
+				const path = `${TARGET.postsDir}/${fields.slug}.md`;
+				const content = buildMarkdown(fields, $("f-body").value);
+				const branchMode = useBranchMode();
+
+				$("submit").disabled = true;
+				setStatus($("submit-status"), branchMode ? "正在创建分支并提交…" : "正在提交到 main…", "");
+
+				try {
+					const branch = await ensureBranch(fields.slug);
+					const remote = await getFile(path, branch);
+					// 走分支时覆盖是常态（同一个 PR 反复改），直接覆盖；直提 main 才需要确认
+					if (remote && !branchMode && !$("allow-overwrite").checked) {
+						$("overwrite-wrap").classList.remove("hidden");
+						setStatus($("submit-status"), `仓库里已经有 ${path}。确认覆盖请勾选上方选项后重新提交。`, "");
+						return;
+					}
+					await putFile(
+						path,
+						b64utf8(content),
+						remote ? `post(${fields.slug}): 更新《${fields.title}》` : `post(${fields.slug}): 添加《${fields.title}》`,
+						remote ? remote.sha : undefined,
+						branch,
+					);
+					$("overwrite-wrap").classList.add("hidden");
+
+					if (branchMode) {
+						const link = compareUrl(branch);
+						$("submit-status").innerHTML = "";
+						const text = document.createElement("span");
+						text.textContent = `已提交到分支 ${branch}。点这里开 PR：`;
+						const anchor = document.createElement("a");
+						anchor.href = link;
+						anchor.target = "_blank";
+						anchor.rel = "noreferrer";
+						anchor.textContent = link;
+						$("submit-status").append(text, anchor);
+						$("submit-status").className = "status ok";
+					} else {
+						setStatus($("submit-status"), "已提交到 main，约 5~7 分钟后上线", "ok");
+					}
+				} catch (error) {
+					setStatus($("submit-status"), error.message, "error");
+				} finally {
+					$("submit").disabled = false;
+					refresh();
+				}
+			};
+
+			// ── token 存储：默认 sessionStorage ───────────────────
+			const readToken = () =>
+				sessionStorage.getItem(TARGET.tokenKey) || localStorage.getItem(TARGET.tokenKey) || "";
+
+			const writeToken = (value) => {
+				if ($("remember-token").checked) {
+					localStorage.setItem(TARGET.tokenKey, value);
+					sessionStorage.removeItem(TARGET.tokenKey);
+				} else {
+					sessionStorage.setItem(TARGET.tokenKey, value);
+					localStorage.removeItem(TARGET.tokenKey);
+				}
+			};
+
+			const applyToken = () => {
+				const remembered = localStorage.getItem(TARGET.tokenKey) !== null;
+				$("remember-token").checked = remembered;
+				$("token-status").textContent = state.token
+					? remembered
+						? "状态：已保存（记住，存在 localStorage）"
+						: "状态：已保存（仅本次会话）"
+					: "状态：未设置";
+				$("clear-token").disabled = !state.token;
+				$("token").placeholder = state.token ? "已保存（粘贴新 token 可覆盖）" : "github_pat_…";
+				renderImages();
+				refresh();
+			};
+
+			// ── 快捷入口开关 ─────────────────────────────────────
+			const applyEntryToggle = () => {
+				// 第一次打开这个页面时默认开启快捷入口，省得用户还得找一圈
+				if (localStorage.getItem(TARGET.entryKey) === null) {
+					localStorage.setItem(TARGET.entryKey, "1");
+				}
+				const enabled = localStorage.getItem(TARGET.entryKey) === "1";
+				$("admin-entry-toggle").checked = enabled;
+			};
+
+			$("admin-entry-toggle").onchange = () => {
+				localStorage.setItem(TARGET.entryKey, $("admin-entry-toggle").checked ? "1" : "0");
+				window.dispatchEvent(new Event("adminEntryChange"));
+				setStatus(
+					$("submit-status"),
+					$("admin-entry-toggle").checked ? "已开启右下角快捷入口" : "已关闭右下角快捷入口",
+					"ok",
+				);
+			};
+
+			// ── 事件绑定 ─────────────────────────────────────────
+			$("save-token").onclick = () => {
+				const value = $("token").value.trim();
+				if (!value) return;
+				state.token = value;
+				writeToken(value);
+				$("token").value = "";
+				applyToken();
+				setStatus(
+					$("submit-status"),
+					$("remember-token").checked ? "token 已记住（localStorage）" : "token 已保存到本次会话（sessionStorage）",
+					"ok",
+				);
+			};
+
+			$("clear-token").onclick = () => {
+				sessionStorage.removeItem(TARGET.tokenKey);
+				localStorage.removeItem(TARGET.tokenKey);
+				state.token = "";
+				state.branch = "";
+				state.branchFor = "";
+				applyToken();
+				setStatus($("submit-status"), "已清除保存的 token", "");
+			};
+
+			$("remember-token").onchange = () => {
+				if (state.token) writeToken(state.token);
+				applyToken();
+			};
+
+			const loadMd = async (file) => {
+				if (!/\.(md|markdown)$/i.test(file.name)) {
+					setStatus($("submit-status"), "只支持 .md / .markdown 文件", "error");
+					return;
+				}
+				const parsed = parseSource(await file.text(), file.name);
+				state.fileName = file.name;
+				$("md-name").textContent = `已载入：${file.name}`;
+				$("f-title").value = parsed.fields.title;
+				$("f-slug").value = parsed.fields.slug;
+				$("f-date").value = parsed.fields.date;
+				$("f-desc").value = parsed.fields.description;
+				$("f-category").value = parsed.fields.category;
+				$("f-tags").value = parsed.fields.tags;
+				$("f-cover").value = parsed.fields.cover || "";
+				$("f-series").value = parsed.fields.series || "";
+				$("f-series-order").value = parsed.fields.seriesOrder || "";
+				$("f-password").value = parsed.fields.password || "";
+				$("f-password-hint").value = parsed.fields.passwordHint || "";
+				$("f-pinned").checked = Boolean(parsed.fields.pinned);
+				$("f-comment").checked = parsed.fields.comment !== false;
+				$("f-draft").checked = parsed.fields.draft;
+				$("f-body").value = parsed.body;
+				listIssues(
+					$("warnings"),
+					parsed.warnings.map((text) => ({ kind: "", text: `· ${text}` })),
+				);
+				setStatus($("submit-status"), "", "");
+				refresh();
+			};
+
+			const wireDrop = (element, input, handler) => {
+				element.addEventListener("dragover", (event) => {
+					event.preventDefault();
+					element.classList.add("hot");
+				});
+				element.addEventListener("dragleave", () => element.classList.remove("hot"));
+				element.addEventListener("drop", (event) => {
+					event.preventDefault();
+					element.classList.remove("hot");
+					if (event.dataTransfer.files.length > 0) handler(event.dataTransfer.files);
+				});
+				input.addEventListener("change", () => {
+					if (input.files && input.files.length > 0) handler(input.files);
+					input.value = "";
+				});
+			};
+
+			$("pick-md").onclick = () => $("md-input").click();
+			$("pick-img").onclick = () => $("img-input").click();
+			wireDrop($("md-drop"), $("md-input"), (files) => loadMd(files[0]));
+			wireDrop($("img-drop"), $("img-input"), (files) => addImages(files));
+			$("upload-images").onclick = () => uploadImages();
+			$("submit").onclick = () => submit();
+			$("submit-via-branch").onchange = () => {
+				state.branch = "";
+				state.branchFor = "";
+				refresh();
+			};
+
+			for (const id of [
+				"f-title",
+				"f-slug",
+				"f-date",
+				"f-desc",
+				"f-category",
+				"f-tags",
+				"f-cover",
+				"f-series",
+				"f-series-order",
+				"f-password",
+				"f-password-hint",
+				"f-pinned",
+				"f-comment",
+				"f-draft",
+				"f-body",
+			]) {
+				$(id).addEventListener("input", refresh);
+				$(id).addEventListener("change", refresh);
+			}
+
+			// 初始化
+			state.token = readToken();
+			$("repo-name").textContent = TARGET.repo;
+			applyEntryToggle();
+			applyToken();
+		};
+
+		init();
+		// Swup 切页后（如果有人从站内点到这个地址）容器内容会被替换，脚本已经跑过了，这里兜一次
+		document.addEventListener("astro:page-load", init);
+	})();
+</script>

@@ -1,0 +1,101 @@
+---
+// 「写文章」快捷入口：悬浮在右下角，点一下去 /admin/publish/
+//
+// 默认不显示 —— 只有开过一次（或打开过 /admin/publish/ 后手动开启）才会出现，
+// 以免公开站点上挂一个"管理后台"的入口。开关存在 localStorage 的 adminEntry。
+// 另外提供 Ctrl/⌘ + Shift + P 快捷键，任何页面都能直接跳转（不用先开入口）。
+---
+
+<div id="admin-entry" class="admin-entry" hidden>
+	<a
+		id="admin-entry-link"
+		href="/admin/publish/"
+		data-no-swup
+		class="admin-entry-btn"
+		title="发布文章（Ctrl/⌘ + Shift + P）"
+		aria-label="发布文章"
+	>
+		<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+			<path
+				d="M4 20h4.2L19 9.2a2.1 2.1 0 0 0 0-3L17.8 5a2.1 2.1 0 0 0-3 0L4 15.8V20Z"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linejoin="round"></path>
+			<path d="M13.6 6.2 17.8 10.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+			></path>
+		</svg>
+	</a>
+</div>
+
+<style>
+	.admin-entry {
+		/* 跟着 floating-controls 这一列走：和其它悬浮按钮同宽同圆角 */
+		pointer-events: auto;
+	}
+
+	.admin-entry-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 3rem;
+		height: 3rem;
+		border-radius: 1rem;
+		color: var(--primary);
+		background-color: color-mix(in oklch, var(--card-bg) calc(var(--card-alpha, 1) * 100%), transparent);
+		border: 1px solid var(--card-border);
+		box-shadow: var(--shadow-card);
+		backdrop-filter: blur(12px);
+		transition:
+			color 150ms ease,
+			transform 150ms ease,
+			box-shadow 150ms ease;
+	}
+
+	.admin-entry-btn:hover {
+		transform: translateY(-1px);
+		box-shadow: var(--shadow-card-hover);
+	}
+
+	.admin-entry-btn:active {
+		transform: translateY(0) scale(0.96);
+	}
+</style>
+
+<script>
+	(function setupAdminEntry() {
+		// 幂等：Swup 切页会重跑脚本
+		if (window.__adminEntryReady) return;
+		window.__adminEntryReady = true;
+
+		const KEY = "adminEntry";
+		const box = document.getElementById("admin-entry");
+
+		const sync = () => {
+			if (!box) return;
+			const enabled = localStorage.getItem(KEY) === "1";
+			// 已经在发布页上就没必要再显示入口
+			const onAdminPage = location.pathname.startsWith("/admin/");
+			box.hidden = !enabled || onAdminPage;
+		};
+
+		// 页面里的开关改了之后（dispatch adminEntryChange）立即同步，不用刷新
+		window.addEventListener("adminEntryChange", sync);
+		window.addEventListener("storage", sync);
+		sync();
+
+		// Ctrl/⌘ + Shift + P：任何页面直接去发布页
+		window.addEventListener("keydown", (event) => {
+			const hotkey =
+				(event.ctrlKey || event.metaKey) &&
+				event.shiftKey &&
+				(event.key === "p" || event.key === "P");
+			if (!hotkey) return;
+			// 不抢浏览器「无痕窗口」等原生快捷键之外的分支，也不和输入框冲突
+			const target = event.target as HTMLElement | null;
+			if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+			event.preventDefault();
+			location.href = "/admin/publish/";
+		});
+	})();
+</script>

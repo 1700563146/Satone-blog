@@ -46,7 +46,7 @@ pinned: false
 
 三种方式，产物都是同一个目录里的 `.md`，提交后由 CI 构建部署：
 
-1. **浏览器（站内自带）**：`/admin/publish/index.html` → 拖入 Markdown（可同时拖图片）→ 检查元信息 → 提交成 `post/<slug>` 分支 → 打开 PR 链接看 Vercel 预览 → 合并上线；
+1. **浏览器（站内自带）**：`/admin/publish/`（或右下角「写文章」按钮 / `Ctrl+Shift+P`）→ 拖入 Markdown（可同时拖图片）→ 检查元信息 → 提交成 `post/<slug>` 分支 → 打开 PR 链接看 Vercel 预览 → 合并上线；
 2. **浏览器（Pages CMS）**：<https://app.pagescms.org> 里选仓库直接编辑，字段由根目录 `.pages.yml` 定义，图片自动进 `src/content/posts/images/`；
 3. **本地**：`pnpm new-post <slug>` 或直接写文件，`pnpm dev` 预览，`git push`。
 
