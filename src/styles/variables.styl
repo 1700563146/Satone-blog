@@ -14,10 +14,10 @@
 :root
   --hue-alt: calc(var(--hue) + 30)
 
-  /* 主色：青。亮度压到 0.54，白底对比 4.6:1、白字在其上 4.6:1，
-     正文链接、图标、实心按钮三种用途都能直接用同一支青 */
-  --primary: oklch(0.54 0.115 var(--hue))
-  --primary-hover: oklch(0.48 0.115 var(--hue))
+  /* 主色：青。亮度压到 0.52：卡片现在是半透明的（有效底色比纯白略暗），
+     这个亮度能保证链接 / 图标在「半透明白卡」与「页面底色」上都 ≥ 4.5:1 */
+  --primary: oklch(0.52 0.115 var(--hue))
+  --primary-hover: oklch(0.46 0.115 var(--hue))
   --primary-soft: oklch(0.955 0.028 var(--hue))
   /* 铺在主色上的文字/图标（实心选中态、实心按钮） */
   --on-primary: white
@@ -25,6 +25,9 @@
   /* 底色：淡蓝纸面；卡片纯白，用冷色描边 + 极浅投影分层，而不是靠深灰边框 */
   --page-bg: oklch(0.970 0.014 var(--hue-alt))
   --card-bg: white
+  /* 卡片不透明度：< 1 时卡片透出底色与背后的星点（只作用于 .card-base，
+     浮层面板 / 按钮仍用不透明的 --card-bg，避免面板里透出正文） */
+  --card-alpha: 0.82
   --card-border: oklch(0.912 0.017 var(--hue-alt))
   --card-bg-transparent: unquote("rgb(255 255 255 / var(--card-transparent-opacity, 0.6))")
 
@@ -122,6 +125,8 @@
   --on-primary: var(--deep-text)
   --page-bg: oklch(0.165 0.017 var(--hue-alt))
   --card-bg: oklch(0.225 0.017 var(--hue-alt))
+  /* 暗色下更透一点，让背后的星点隐约透出来（卡片仍是阅读表面，不能再低） */
+  --card-alpha: 0.74
   --card-border: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.10)")
   --card-bg-transparent: unquote("rgb(23 23 23 / var(--card-transparent-opacity, 0.6))")
 

@@ -231,9 +231,16 @@ html {
         -webkit-backdrop-filter: none !important;
     }
     
-    /* 卡片底色 + 一层极浅投影：即使关闭「卡片边框」开关，白卡在淡蓝底上也不会失形 */
+    /* 卡片底色 + 一层极浅投影：即使关闭「卡片边框」开关，白卡在淡蓝底上也不会失形。
+       底色带一点透明（--card-alpha），让页面底色和背后的星点透出来；
+       浮层面板 / 按钮仍用不透明的 --card-bg，避免面板里透出正文 */
     .card-base {
-        @apply rounded-(--radius-large) overflow-hidden bg-(--card-bg) transition-colors duration-150;
+        @apply rounded-(--radius-large) overflow-hidden transition-colors duration-150;
+        background-color: color-mix(
+            in oklch,
+            var(--card-bg) calc(var(--card-alpha, 1) * 100%),
+            transparent
+        );
         box-shadow: var(--shadow-card);
     }
     .card-base-transparent {
