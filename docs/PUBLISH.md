@@ -13,8 +13,11 @@
 
 ## 一、站内 `/admin/publish/`
 
-地址：`https://<你的域名>/admin/publish/`（本地预览时是 `http://localhost:4321/admin/publish/index.html`，
-Astro 的 dev server 不做目录索引，所以要带 `index.html`；线上由 Vercel/CF 做目录索引，短地址就够）。
+地址：`https://<你的域名>/admin/publish/index.html`
+
+> 带上 `index.html` 最稳：Astro 的 `dev` server 和 `preview` 都不做目录索引（`/admin/publish/` 会 404）。
+> 线上（Vercel / Cloudflare Workers）会把 `/admin/publish/` 解析到 index.html，短地址也能用，
+> 但两种环境都认的写法是显式带 `index.html`。
 
 ### 1. 准备 token（一次）
 
