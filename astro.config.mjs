@@ -70,6 +70,11 @@ export default defineConfig({
 	site: siteConfig.site_url,
 
 	base: "/",
+	// 迁移自 Next.js 时的旧地址：保留外链可用（Astro 会生成跳转页）
+	redirects: {
+		"/feed.xml": "/rss.xml",
+		"/posts/readme": "/posts/dsh-plugin/",
+	},
 	trailingSlash: "always",
 
 	// 字体配置 - 只加载实际使用的字体，跳过未引用的以加快构建
