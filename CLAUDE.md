@@ -74,6 +74,16 @@ Defined in `src/content.config.ts`:
 - `spec` — special pages (about, guestbook)
 - `dynamic` — microblog entries (`.md`) with frontmatter: published, pinned, location
 
+Date fields use `z.coerce.date()`, so `published: 2026-10-23` and `published: "2026-10-23"` both validate — different editors serialize YAML differently.
+
+### Publishing
+
+Three paths write the same files; see `docs/PUBLISH.md`:
+
+- `public/admin/publish/index.html` — self-contained admin page (no backend). Uploads committed through the GitHub Contents API using a token the author pastes in: kept in `sessionStorage` unless "记住" is checked, images go to `src/content/posts/images/` (so Astro optimizes them), and submissions default to a `post/<slug>` branch plus a compare link so a Vercel preview can be reviewed before merging.
+- `.pages.yml` + [Pages CMS](https://app.pagescms.org) — hosted git CMS, GitHub App auth (no PAT), collections mirror the schema above; keep `.pages.yml` and `content.config.ts` in sync.
+- Local `pnpm new-post` + `git push`.
+
 ### Key Directories
 
 - `src/components/` — organized by domain: `analytics/`, `comment/`, `common/`, `controls/`, `features/`, `layout/`, `misc/`, `pages/`, `widget/`

@@ -1,0 +1,125 @@
+# Pages CMS 配置
+#
+# 用法：打开 https://app.pagescms.org → GitHub 登录 → 给 1700563146/Satone-blog 安装 GitHub App
+# → 选仓库就能看到「文章」「动态」两个集合。凭证由 GitHub App 签发，不需要 PAT。
+#
+# 字段对应 src/content.config.ts 里的 schema；新增字段请两边一起改，否则构建会报错。
+
+media:
+  # 图片落在内容目录里，才能被 Astro 优化（webp + 宽高 + 懒加载）
+  input: src/content/posts/images
+  # 写进正文/前言的路径：./images/xxx.png（相对 src/content/posts/）
+  output: ./images
+  rename: safe
+  categories: [image]
+
+content:
+  - name: posts
+    label: 文章
+    type: collection
+    path: src/content/posts
+    format: markdown
+    # 文件名就是 URL 段：新建时按标题生成，创建那一刻可以手动改成想要的 slug
+    filename:
+      template: "{primary}.md"
+      field: create
+    view:
+      fields: [title, published, draft, category, tags]
+      primary: title
+      sort: [published, title]
+      default:
+        sort: published
+        order: desc
+      search: [title, description, tags]
+    fields:
+      - name: title
+        label: 标题
+        type: string
+        required: true
+      - name: published
+        label: 发布日期
+        type: date
+        required: true
+        options:
+          format: yyyy-MM-dd
+      - name: description
+        label: 摘要
+        type: text
+      - name: tags
+        label: 标签
+        type: string
+        list: true
+      - name: category
+        label: 分类（单个）
+        type: string
+      - name: image
+        label: 封面图
+        type: image
+      - name: draft
+        label: 草稿（不出现在列表 / RSS / sitemap）
+        type: boolean
+        default: false
+      - name: pinned
+        label: 置顶
+        type: boolean
+        default: false
+      - name: series
+        label: 系列名
+        type: string
+      - name: seriesOrder
+        label: 系列序号
+        type: number
+      - name: password
+        label: 阅读密码
+        type: string
+      - name: passwordHint
+        label: 密码提示
+        type: string
+      - name: comment
+        label: 开启评论
+        type: boolean
+        default: true
+      - name: body
+        label: 正文
+        type: rich-text
+
+  - name: dynamic
+    label: 动态
+    type: collection
+    path: src/content/dynamic
+    format: markdown
+    # 现有文件是 2026-07-15-010756.md 这种「日期-时分秒」，保持一致
+    filename:
+      template: "{year}-{month}-{day}-{hour}{minute}{second}.md"
+      field: create
+    view:
+      fields: [published, location, pinned]
+      primary: published
+      default:
+        sort: published
+        order: desc
+    fields:
+      - name: published
+        label: 发布时间
+        type: date
+        required: true
+        options:
+          time: true
+          format: "yyyy-MM-dd HH:mm:ss"
+      - name: pinned
+        label: 置顶
+        type: boolean
+        default: false
+      - name: location
+        label: 位置（可空）
+        type: string
+      - name: body
+        label: 内容
+        type: rich-text
+
+settings:
+  commit:
+    templates:
+      create: "post: 新增内容（Pages CMS）"
+      update: "post: 更新内容（Pages CMS）"
+      delete: "post: 删除内容（Pages CMS）"

@@ -63,8 +63,11 @@ const postsCollection: ContentCollection<PostData> = defineCollection({
 	loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/posts" }),
 	schema: z.object({
 		title: z.string(),
-		published: z.date(),
-		updated: z.date().optional(),
+		// 用 coerce：`published: 2026-10-23` 与 `published: "2026-10-23"` 都能进 Date。
+		// 手写文件、/admin/publish、Pages CMS 三种来源的 YAML 序列化风格不一致，
+		// 这里宽容一点，别让一个引号把整站构建搞挂
+		published: z.coerce.date(),
+		updated: z.coerce.date().optional(),
 		draft: z.boolean().optional().default(false),
 		description: z.string().optional().default(""),
 		image: z.string().optional().default(""),
@@ -99,7 +102,7 @@ const specCollection: ContentCollection<Record<string, never>> =
 const dynamicCollection: ContentCollection<DynamicData> = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/dynamic" }),
 	schema: z.object({
-		published: z.date(),
+		published: z.coerce.date(),
 		pinned: z.boolean().optional().default(false),
 		location: z.string().optional().default(""),
 	}),
@@ -109,7 +112,7 @@ const projectsCollection: ContentCollection<ProjectData> = defineCollection({
 	loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/projects" }),
 	schema: z.object({
 		title: z.string(),
-		published: z.date(),
+		published: z.coerce.date(),
 		draft: z.boolean().optional().default(false),
 		order: z.number().optional(),
 		description: z.string().optional().default(""),
