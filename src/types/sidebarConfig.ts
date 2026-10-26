@@ -10,6 +10,7 @@ export type WidgetComponentType =
 	| "calendar"
 	| "music"
 	| "siteInfo"
+	| "pomodoro"
 	| "dynamic";
 
 export type WidgetComponentConfig = {
@@ -39,6 +40,7 @@ export type WidgetSpecificConfig = {
 	calendar?: CalendarConfig; // 日历组件专用配置
 	ad?: AdConfig; // 广告组件专用配置
 	siteInfo?: SiteInfoConfig; // 站点信息组件专用配置
+	pomodoro?: PomodoroConfig; // 番茄钟组件专用配置
 	dynamic?: DynamicWidgetConfig; // 最新动态组件专用配置
 };
 
@@ -49,6 +51,14 @@ export type DynamicWidgetConfig = {
 // 站点信息组件专用配置
 export type SiteInfoConfig = {
 	unknownBuildPlatform?: string; // 未识别的构建平台显示文本，默认 "Unknown CI"
+};
+
+// 番茄钟组件专用配置（当前为占位实现，见 components/widget/Pomodoro.astro）
+export type PomodoroConfig = {
+	workMinutes?: number; // 专注时长（分钟），默认 25
+	breakMinutes?: number; // 短休息（分钟），默认 5
+	longBreakMinutes?: number; // 长休息（分钟），默认 15
+	roundsBeforeLongBreak?: number; // 几轮后进入长休息，默认 4
 };
 
 // 日历组件专用配置

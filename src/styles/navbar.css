@@ -325,3 +325,59 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
 :root.dark[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-shadow>div {
     box-shadow: inset 0 1px 0 var(--navbar-glass-highlight), 0 1px 0 var(--navbar-glass-hairline) !important;
 }
+
+/* ============================================
+ * 猫头品牌标（navbar.logo.type = "cat"）
+ * 黑药丸本身就是猫头，耳朵由同色三角从药丸上沿探出，
+ * 因此这里只需要：深色药丸 + 绝对定位的猫脸 SVG + 白色标题
+ * ============================================ */
+.cat-brand {
+    --cat-ink: #141414;
+    --cat-pink: #f2a08c;
+    /* 猫脸 SVG 的高度：药丸高 + 耳朵探出的部分（viewBox 48×58） */
+    --cat-h: 52px;
+
+    background: var(--cat-ink);
+    box-shadow:
+        0 8px 20px -10px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    /* 耳朵要探出药丸上沿，药丸本身不能裁切 */
+    overflow: visible;
+}
+
+.cat-brand-title {
+    color: #fff;
+    letter-spacing: 0.01em;
+    line-height: 1;
+}
+
+.cat-brand-logo {
+    position: absolute;
+    left: 4px;
+    /* 耳朵占 viewBox 顶部 10/58，正好等于药丸上沿以上要露出的高度 */
+    top: calc(var(--cat-h) * -0.1724);
+    width: calc(var(--cat-h) * 0.8276);
+    height: var(--cat-h);
+    pointer-events: none;
+}
+
+/* 悬停：只提亮一点点，不做位移（导航栏里位移会显得晃） */
+.cat-brand:hover {
+    box-shadow:
+        0 10px 24px -10px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.cat-brand:hover .cat-brand-title {
+    color: #fff;
+}
+
+@media (max-width: 767px) {
+    .cat-brand {
+        --cat-h: 46px;
+    }
+
+    .cat-brand-logo {
+        left: 3px;
+    }
+}

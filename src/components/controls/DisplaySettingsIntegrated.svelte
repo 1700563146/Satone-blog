@@ -19,6 +19,7 @@ import {
 	getDefaultOverlayCardOpacity,
 	getDefaultOverlayOpacity,
 	getDefaultSakuraEnabled,
+	getDefaultStarfieldEnabled,
 	getDefaultWavesEnabled,
 	getHue,
 	getStoredBannerCarouselEnabled,
@@ -31,6 +32,7 @@ import {
 	getStoredOverlayCardOpacity,
 	getStoredOverlayOpacity,
 	getStoredSakuraEnabled,
+	getStoredStarfieldEnabled,
 	getStoredWallpaperMode,
 	getStoredWavesEnabled,
 	setBannerCarouselEnabled,
@@ -44,6 +46,7 @@ import {
 	setOverlayCardOpacity,
 	setOverlayOpacity,
 	setSakuraEnabled,
+	setStarfieldEnabled,
 	setWallpaperMode,
 	setWavesEnabled,
 } from "@utils/setting-utils";
@@ -104,6 +107,8 @@ let bannerCarouselEnabled = $state(true);
 const defaultBannerCarouselEnabled = getDefaultBannerCarouselEnabled();
 let sakuraEnabled = $state(true);
 const defaultSakuraEnabled = getDefaultSakuraEnabled();
+let starfieldEnabled = $state(true);
+const defaultStarfieldEnabled = getDefaultStarfieldEnabled();
 let overlayOpacity = $state(getDefaultOverlayOpacity());
 const defaultOverlayOpacity = getDefaultOverlayOpacity();
 let overlayBlur = $state(getDefaultOverlayBlur());
@@ -135,6 +140,7 @@ const isBannerTitleSwitchable =
 const isBannerCarouselSwitchable =
 	displaySettingsConfig.bannerCarouselSwitchable;
 const isSakuraSwitchable = displaySettingsConfig.sakuraSwitchable;
+const isStarfieldSwitchable = displaySettingsConfig.starfieldSwitchable;
 const isCardBorderSwitchable = displaySettingsConfig.cardBorderSwitchable;
 const isCardFollowThemeSwitchable =
 	displaySettingsConfig.cardFollowThemeSwitchable;
@@ -191,6 +197,11 @@ let cardSettingsIsDefault = $derived(
 		(!isCardFollowThemeSwitchable ||
 			cardFollowThemeEnabled === defaultCardFollowThemeEnabled),
 );
+let effectsAreDefault = $derived(
+	(!isSakuraSwitchable || sakuraEnabled === defaultSakuraEnabled) &&
+		(!isStarfieldSwitchable ||
+			starfieldEnabled === defaultStarfieldEnabled),
+);
 
 const hasAnyContent = $derived(
 	showThemeColor ||
@@ -199,7 +210,8 @@ const hasAnyContent = $derived(
 		allowLayoutSwitch ||
 		hasBannerSettings ||
 		hasOverlaySettings ||
-		isSakuraSwitchable,
+		isSakuraSwitchable ||
+		isStarfieldSwitchable,
 );
 
 // --- Tab visibility ---
@@ -219,7 +231,7 @@ const hasWallpaperTab = $derived(
 			wallpaperMode === WALLPAPER_FULLSCREEN) &&
 			hasBannerSettings),
 );
-const hasEffectsTab = $derived(isSakuraSwitchable);
+const hasEffectsTab = $derived(isSakuraSwitchable || isStarfieldSwitchable);
 
 let visibleTabs = $derived.by(() => {
 	const tabs: { key: TabKey; icon: string; label: string }[] = [];
@@ -431,6 +443,22 @@ function toggleSakuraEnabled() {
 	setSakuraEnabled(sakuraEnabled);
 }
 
+function toggleStarfieldEnabled() {
+	starfieldEnabled = !starfieldEnabled;
+	setStarfieldEnabled(starfieldEnabled);
+}
+
+function resetEffectsToDefault() {
+	if (isSakuraSwitchable && sakuraEnabled !== defaultSakuraEnabled) {
+		sakuraEnabled = defaultSakuraEnabled;
+		setSakuraEnabled(defaultSakuraEnabled);
+	}
+	if (isStarfieldSwitchable && starfieldEnabled !== defaultStarfieldEnabled) {
+		starfieldEnabled = defaultStarfieldEnabled;
+		setStarfieldEnabled(defaultStarfieldEnabled);
+	}
+}
+
 function toggleCardBorderEnabled() {
 	cardBorderEnabled = !cardBorderEnabled;
 	setCardBorderEnabled(cardBorderEnabled);
@@ -549,6 +577,9 @@ onMount(() => {
 
 	// 从localStorage读取樱花特效状态
 	sakuraEnabled = getStoredSakuraEnabled();
+
+	// 从localStorage读取星空背景状态
+	starfieldEnabled = getStoredStarfieldEnabled();
 
 	// 从localStorage读取卡片样式状态
 	cardBorderEnabled = getStoredCardBorderEnabled();
@@ -1029,19 +1060,20 @@ $effect(() => {
 
 	<!-- Effects Tab: Sakura -->
 	{#if activeTab === "effects"}
-		{#if isSakuraSwitchable}
+		{#if isSakuraSwitchable || isStarfieldSwitchable}
 		<div class="">
 			<div class="section-title">
 				{i18n(I18nKey.effectsSettings)}
 				<button aria-label="Reset to Default" class="btn-regular rounded-md active:scale-90"
-						class:opacity-0={sakuraEnabled === defaultSakuraEnabled} class:pointer-events-none={sakuraEnabled === defaultSakuraEnabled}
-						disabled={sakuraEnabled === defaultSakuraEnabled} aria-hidden={sakuraEnabled === defaultSakuraEnabled ? "true" : undefined}
-						onclick={() => { sakuraEnabled = defaultSakuraEnabled; setSakuraEnabled(defaultSakuraEnabled); }}>
+						class:opacity-0={effectsAreDefault} class:pointer-events-none={effectsAreDefault}
+						disabled={effectsAreDefault} aria-hidden={effectsAreDefault ? "true" : undefined}
+						onclick={resetEffectsToDefault}>
 					<div class="text-(--btn-content)">
 						<Icon icon="fa7-solid:arrow-rotate-left" class="text-[0.75rem]"></Icon>
 					</div>
 				</button>
 			</div>
+			{#if isSakuraSwitchable}
 			<button
 				class="w-full btn-regular rounded-md py-2 px-3 flex items-center gap-3 text-left active:scale-95 transition-all relative overflow-hidden"
 				class:bg-(--btn-regular-bg-hover)={sakuraEnabled}
@@ -1057,6 +1089,24 @@ $effect(() => {
 						 class:left-5={sakuraEnabled}></div>
 				</div>
 			</button>
+			{/if}
+			{#if isStarfieldSwitchable}
+			<button
+				class="w-full btn-regular rounded-md py-2 px-3 mt-2 flex items-center gap-3 text-left active:scale-95 transition-all relative overflow-hidden"
+				class:bg-(--btn-regular-bg-hover)={starfieldEnabled}
+				onclick={toggleStarfieldEnabled}
+			>
+				<Icon icon="material-symbols:auto-awesome-outline" class="text-[1.25rem] shrink-0"></Icon>
+				<span class="text-sm flex-1">{i18n(I18nKey.starfieldEffect)}</span>
+				<div class="w-10 h-5 rounded-full transition-all duration-200 relative"
+					 class:bg-(--primary)={starfieldEnabled}
+					 class:bg-(--btn-regular-bg-active)={!starfieldEnabled}>
+					<div class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200"
+						 class:left-0.5={!starfieldEnabled}
+						 class:left-5={starfieldEnabled}></div>
+				</div>
+			</button>
+			{/if}
 		</div>
 		{/if}
 	{/if}

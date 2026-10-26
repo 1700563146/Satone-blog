@@ -42,16 +42,16 @@ function initialActive(categoryName: string): {
 ---
 
 <div
-  class="card-base category-bar p-3 onload-animation"
+  class="card-base category-bar p-3.5 onload-animation"
   id="category-bar"
   data-home-path={homeUrl}
   data-archive-path={archiveUrl}
   data-current-post-category={currentPostCategory || ""}
 >
-  <div class="category-bar-inner flex gap-2">
+  <div class="category-bar-inner flex gap-2.5">
     <a
       href={homeUrl}
-      class="category-pill focus-ring-inset text-sm px-3 py-1.5 shrink-0
+      class="category-pill focus-ring-inset text-sm px-3 py-2 shrink-0
              transition-colors duration-150 ease-out flex items-center justify-center"
       data-category-name=""
       data-active={initialActive("").active ? "" : undefined}
@@ -61,7 +61,7 @@ function initialActive(categoryName: string): {
     </a>
     <a
       href={archiveUrl}
-      class="category-pill focus-ring-inset text-sm px-4 py-1.5 whitespace-nowrap shrink-0
+      class="category-pill focus-ring-inset text-sm px-4 py-2 whitespace-nowrap shrink-0
              transition-colors duration-150 ease-out flex items-center justify-center"
       data-category-name="__archive__"
       data-active={initialActive("__archive__").active ? "" : undefined}
@@ -72,14 +72,14 @@ function initialActive(categoryName: string): {
     <div class="category-divider shrink-0"></div>
     <div class="scroll-area relative">
       <div class="scroll-fade scroll-fade-left" aria-hidden="true"></div>
-      <div class="category-scroll flex gap-2 overflow-x-auto">
+      <div class="category-scroll flex gap-2.5 overflow-x-auto">
         {
           categories.map((cat) => {
             const active = initialActive(cat.name);
             return (
             <a
               href={cat.url}
-              class="category-pill focus-ring-inset text-sm px-4 py-1.5 whitespace-nowrap
+              class="category-pill focus-ring-inset text-sm px-4 py-2 whitespace-nowrap
                      transition-colors duration-150 ease-out flex items-center justify-center"
               data-category-name={cat.name}
               data-active={active.active ? "" : undefined}
@@ -97,7 +97,7 @@ function initialActive(categoryName: string): {
     <div class="category-divider shrink-0 more-divider" aria-hidden="true"></div>
     <a
       href={url("/categories/")}
-      class="category-pill focus-ring-inset text-sm px-3 py-1.5 shrink-0
+      class="category-pill focus-ring-inset text-sm px-3 py-2 shrink-0
              transition-colors duration-150 ease-out flex items-center justify-center gap-1"
       data-category-name="__categories__"
       data-active={initialActive("__categories__").active ? "" : undefined}
@@ -114,7 +114,7 @@ function initialActive(categoryName: string): {
     border: none;
   }
   .category-bar {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
   .category-divider {
     width: 1px;

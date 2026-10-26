@@ -37,7 +37,21 @@ All features are toggled/configured via TypeScript files in `src/config/`, expor
 
 - `siteConfig.ts` — core site settings, theme, pagination
 - `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering)
+- `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
+
+### Interactive Effects
+
+Mounted in `Layout.astro`, outside the Swup container, each idempotent via a `window.__*Ready` guard:
+
+- `CursorAmbience.astro` — dark-mode starfield canvas (multi-colour stars, cursor-to-star links only, drawn under the cards at `z-1`) + cursor glow (`z-25`)
+- `MagneticHover.astro` — pointer-proximity offset for buttons/cards via the `translate` property (never `transform`; that is reserved for entrance/hover animations)
+- `ReadingProgress.astro` — top 3px progress bar, only on pages that contain `.custom-md`
+- `StarfieldToggle.astro` — floating star button; hidden outside dark mode because stars are dark-only
+
+All of them respect `prefers-reduced-motion`, stop their rAF loops when idle or the tab is hidden, and skip touch devices where a pointer is required.
+
+> `displaySettingsConfig.enable` is `false` by default (bundle-size guard); the settings panel row for the starfield only appears when it is enabled via `PUBLIC_DISPLAY_SETTINGS=true`.
 
 ### Layout System
 

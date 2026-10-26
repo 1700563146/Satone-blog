@@ -179,14 +179,14 @@ async function computeSiteLogo(): Promise<{
 } | null> {
 	const logo = siteConfig.navbar?.logo;
 	if (logo) {
-		if (logo.type === "url") return { url: logo.value };
-		if (logo.type === "image") {
+		if (logo.type === "url" && logo.value) return { url: logo.value };
+		if (logo.type === "image" && logo.value) {
 			const info = await getLocalImageInfo(logo.value, "", siteConfig.site_url);
 			return info
 				? { url: info.url, width: info.width, height: info.height }
 				: null;
 		}
-		// icon 类型无图片 URL → 落到 favicon 兜底
+		// icon / cat 类型无图片 URL → 落到 favicon 兜底
 	}
 	return getFaviconAsLogo();
 }

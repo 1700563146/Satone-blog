@@ -1,6 +1,7 @@
 ---
 import { Icon } from "astro-icon/components";
 import { musicPlayerConfig } from "@/config/musicConfig";
+import { interactiveEffectsConfig } from "@/config/effectsConfig";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 
@@ -12,6 +13,8 @@ interface Props {
 const { class: className, style, id } = Astro.props;
 
 const config = musicPlayerConfig;
+// 播放按钮流光边框的旋转周期（秒）
+const musicGlowSpeed = interactiveEffectsConfig.musicGlow.speed;
 
 const widgetId =
 	id || `music-widget-${Math.random().toString(36).substring(2, 9)}`;
@@ -97,8 +100,8 @@ const widgetId =
         <Icon name="material-symbols:skip-previous-rounded" class="text-3xl" aria-hidden="true" />
     </button>
 
-    <!-- Play/Pause (Feature) -->
-    <button class="btn-play w-12 h-12 bg-(--btn-regular-bg) hover:bg-(--btn-regular-bg-hover) active:bg-(--btn-regular-bg-active) text-(--primary) rounded-full flex items-center justify-center transition-all duration-300" title={i18n(I18nKey.musicPlay)} aria-label={i18n(I18nKey.musicPlay)}>
+    <!-- Play/Pause (Feature) - 流光边框见文件末尾样式 -->
+    <button class="btn-play music-play-glow w-12 h-12 bg-(--btn-regular-bg) hover:bg-(--btn-regular-bg-hover) active:bg-(--btn-regular-bg-active) text-(--primary) rounded-full flex items-center justify-center transition-all duration-300" style={`--music-glow-duration: ${musicGlowSpeed}s`} title={i18n(I18nKey.musicPlay)} aria-label={i18n(I18nKey.musicPlay)}>
         <Icon name="material-symbols:play-arrow-rounded" class="icon-play text-3xl ml-0.5" aria-hidden="true" />
         <Icon name="material-symbols:pause-rounded" class="icon-pause text-3xl hidden" aria-hidden="true" />
     </button>
@@ -151,5 +154,68 @@ const widgetId =
     }
     .animate-spin-slow {
         animation: spin-slow 10s linear infinite;
+    }
+
+    /* ── 播放按钮流光边框 ──────────────────────────────────────────────
+       用 @property 注册角度，让 conic-gradient 的起始角可插值：
+       动画只改一个角度变量，浏览器按合成层处理，不引起重排/重绘整块卡片。
+       不支持 @property 的浏览器退化为静态渐变环（仍有边框，只是不旋转）。 */
+    @property --music-glow-angle {
+        syntax: "<angle>";
+        inherits: false;
+        initial-value: 0deg;
+    }
+
+    .music-play-glow {
+        position: relative;
+    }
+
+    .music-play-glow::after {
+        content: "";
+        position: absolute;
+        inset: -2.5px;
+        border-radius: inherit;
+        pointer-events: none;
+        /* 彗星式流光：一亮一暗两条弧首尾相接，旋转时读作「光在边框上跑」，
+           避免只亮一小段时被看成渲染残影 */
+        background: conic-gradient(
+            from var(--music-glow-angle),
+            transparent 0deg,
+            color-mix(in oklch, var(--primary) 42%, transparent) 40deg,
+            color-mix(in oklch, var(--primary) 88%, white) 118deg,
+            color-mix(in oklch, var(--primary) 96%, white) 152deg,
+            color-mix(in oklch, var(--primary) 55%, transparent) 200deg,
+            transparent 255deg,
+            transparent 305deg,
+            color-mix(in oklch, var(--primary) 30%, transparent) 340deg,
+            transparent 360deg
+        );
+        /* 只保留最外侧 2.5px 的环，中间挖空，不遮挡按钮底色与图标 */
+        -webkit-mask: radial-gradient(
+            farthest-side,
+            transparent calc(100% - 3px),
+            #000 calc(100% - 3px)
+        );
+        mask: radial-gradient(
+            farthest-side,
+            transparent calc(100% - 3px),
+            #000 calc(100% - 3px)
+        );
+        opacity: 0.92;
+        animation: music-glow-rotate var(--music-glow-duration, 6s) linear infinite;
+    }
+
+    @keyframes music-glow-rotate {
+        to { --music-glow-angle: 360deg; }
+    }
+
+    .music-play-glow:hover::after {
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .music-play-glow::after {
+            animation: none;
+        }
     }
 </style>

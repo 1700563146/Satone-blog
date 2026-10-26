@@ -1,0 +1,97 @@
+---
+// 番茄钟（占位实现）
+//
+// 当前只呈现「结构 + 禁用态」：圆环、时长、状态文案、开始按钮都在位，
+// 但计时逻辑、通知、localStorage 记忆尚未接入，按钮保持 disabled，
+// 避免用户点到一个假按钮。待实现清单见 docs/POMODORO.md。
+// 配置项见 types/sidebarConfig.ts 的 PomodoroConfig（workMinutes 等）。
+import WidgetLayout from "@/components/common/WidgetLayout.astro";
+import { Icon } from "astro-icon/components";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import type { WidgetComponentConfig } from "@/types/config";
+
+interface Props {
+	class?: string;
+	style?: string;
+	widgetConfig?: WidgetComponentConfig;
+}
+
+const { class: className, style, widgetConfig } = Astro.props;
+
+const widgetId = `pomodoro-widget-${Math.random().toString(36).substring(2, 9)}`;
+const showTitle = widgetConfig?.showTitle !== false;
+
+const cfg = widgetConfig?.specificConfig?.pomodoro ?? {};
+const workMinutes = Math.max(1, Math.trunc(cfg.workMinutes ?? 25));
+const breakMinutes = Math.max(1, Math.trunc(cfg.breakMinutes ?? 5));
+const longBreakMinutes = Math.max(1, Math.trunc(cfg.longBreakMinutes ?? 15));
+const roundsBeforeLongBreak = Math.max(1, Math.trunc(cfg.roundsBeforeLongBreak ?? 4));
+
+const totalLabel = `${workMinutes}:00`;
+---
+
+<WidgetLayout
+	id={widgetId}
+	class={className}
+	style={style}
+	name={i18n(I18nKey.pomodoro)}
+	showTitle={showTitle}
+>
+	<div class="pomodoro-placeholder flex flex-col items-center pt-1 pb-1" data-pomodoro-state="placeholder">
+		<!-- 圆环：占位用静态进度（整圈 0%），真实进度由后续计时逻辑驱动 -->
+		<div
+			class="pomodoro-ring relative flex items-center justify-center w-28 h-28 rounded-full"
+			style={`--pomodoro-progress: 0deg;`}
+			aria-hidden="true"
+		>
+			<div class="pomodoro-ring-inner flex flex-col items-center justify-center w-full h-full rounded-full">
+				<span class="pomodoro-time text-2xl font-bold tabular-nums leading-none text-neutral-800 dark:text-neutral-100">
+					{totalLabel}
+				</span>
+				<span class="text-[0.65rem] mt-1 text-black/45 dark:text-white/45">
+					{workMinutes} / {breakMinutes} / {longBreakMinutes} · {roundsBeforeLongBreak}
+				</span>
+			</div>
+		</div>
+
+		<button
+			type="button"
+			class="pomodoro-start mt-3 w-full h-9 rounded-lg flex items-center justify-center gap-1.5 text-sm font-medium
+				bg-(--btn-regular-bg) text-(--btn-content) opacity-60 cursor-not-allowed"
+			disabled
+			aria-disabled="true"
+		>
+			<Icon name="material-symbols:hourglass-empty-rounded" class="text-base" aria-hidden="true" />
+			<span>开发中</span>
+		</button>
+
+		<p class="mt-2 text-[0.7rem] leading-relaxed text-center text-black/40 dark:text-white/40">
+			计时 / 循环 / 提醒逻辑待接入
+		</p>
+	</div>
+</WidgetLayout>
+
+<style>
+	.pomodoro-ring {
+		/* 用 conic-gradient 画环，后续计时器只需改 --pomodoro-progress 即可 */
+		background:
+			conic-gradient(
+				var(--primary) 0deg var(--pomodoro-progress, 0deg),
+				color-mix(in oklch, var(--primary) 16%, transparent) var(--pomodoro-progress, 0deg) 360deg
+			);
+		position: relative;
+	}
+
+	/* 用内圈把 conic 挖成环：比 mask 更稳，且不会在部分浏览器上出现锯齿 */
+	.pomodoro-ring-inner {
+		width: calc(100% - 10px);
+		height: calc(100% - 10px);
+		background: var(--card-bg);
+	}
+
+	.pomodoro-ring-inner span:first-child {
+		/* 等宽数字，倒计时跳秒时不会左右抖 */
+		font-variant-numeric: tabular-nums;
+	}
+</style>

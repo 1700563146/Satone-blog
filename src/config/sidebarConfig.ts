@@ -126,8 +126,8 @@ export const sidebarLayoutConfig: SidebarLayoutConfig = {
 			showOnPostPage: false,
 		},
 		{
-			// 组件类型：站点信息组件
-			type: "siteInfo",
+			// 组件类型：番茄钟（占位实现，计时逻辑待接入，见 docs/POMODORO.md）
+			type: "pomodoro",
 			// 是否启用该组件
 			enable: true,
 			// 组件位置
@@ -136,9 +136,15 @@ export const sidebarLayoutConfig: SidebarLayoutConfig = {
 			showOnPostPage: false,
 			// 组件专属配置
 			specificConfig: {
-				siteInfo: {
-					// 未能识别的构建平台回退显示文本，可自定义
-					unknownBuildPlatform: "Unknown CI",
+				pomodoro: {
+					// 专注时长（分钟）
+					workMinutes: 25,
+					// 短休息（分钟）
+					breakMinutes: 5,
+					// 长休息（分钟）
+					longBreakMinutes: 15,
+					// 几轮后进入长休息
+					roundsBeforeLongBreak: 4,
 				},
 			},
 		},
@@ -300,17 +306,19 @@ export const sidebarLayoutConfig: SidebarLayoutConfig = {
 			showOnPostPage: true,
 		},
 		{
-			// 组件类型：站点信息组件
-			type: "siteInfo",
+			// 组件类型：番茄钟（占位实现，移动端同样展示）
+			type: "pomodoro",
 			// 是否启用该组件
 			enable: true,
 			// 是否在文章详情页显示
 			showOnPostPage: true,
 			// 组件专属配置
 			specificConfig: {
-				siteInfo: {
-					// 未能识别的构建平台回退显示文本，可自定义
-					unknownBuildPlatform: "Unknown CI",
+				pomodoro: {
+					workMinutes: 25,
+					breakMinutes: 5,
+					longBreakMinutes: 15,
+					roundsBeforeLongBreak: 4,
 				},
 			},
 		},

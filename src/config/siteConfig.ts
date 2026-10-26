@@ -59,8 +59,9 @@ export const siteConfig: SiteConfig = {
 
 	// 主题色
 	themeColor: {
-		// 主题色的默认色相，范围从 0 到 360。例如：红色：0，青色：200，蓝绿色：250，粉色：345
-		hue: 165,
+		// 主题色的默认色相，范围从 0 到 360。例如：红色：0，青色：180，青蓝：202，蓝色：240，粉色：345
+		// 202 是青（cyan）偏蓝的位置：底色自动叠加一层更冷的淡蓝（见 variables.styl 的 --hue-alt）
+		hue: 202,
 		// 默认模式："light" 亮色，"dark" 暗色，"system" 跟随系统
 		defaultMode: "system",
 	},
@@ -73,7 +74,8 @@ export const siteConfig: SiteConfig = {
 	// 网站Card样式配置
 	card: {
 		// 是否开启卡片边框和阴影，开启后让网站更有立体感
-		border: false,
+		// 淡蓝底 + 白色卡片几乎同亮度，必须靠一条极细的冷色描边 + 浅投影把卡片「抬」起来
+		border: true,
 		// 是否让卡片风格跟随主题色相
 		followTheme: false,
 	},
@@ -94,22 +96,22 @@ export const siteConfig: SiteConfig = {
 	// 导航栏配置
 	navbar: {
 		// 导航栏Logo
-		// 支持三种类型：
+		// 支持五种类型：
 		// 1. Astro图标库: { type: "icon", value: "material-symbols:home-pin-outline" }
 		// 2. 本地图片（public目录，不优化）: { type: "image", value: "/assets/images/logo.webp", alt: "Logo" }
 		// 3. 本地图片（src目录，自动优化但会增加构建时间）: { type: "image", value: "assets/images/logo.webp", alt: "Logo" }
 		// 4. 网络图片: { type: "url", value: "https://example.com/logo.png", alt: "Logo" }
+		// 5. 内置猫图案: { type: "cat" } —— 瞳孔会跟随鼠标（见 components/common/CatLogo.astro）
 		// image 和 url 类型可额外设置 valueDark，用于暗色模式下显示另一张图片，不设置则亮暗色共用 value
 		// 例如: { type: "image", value: "assets/images/logo.png", valueDark: "assets/images/logo-dark.png", alt: "Logo" }
 		// 使用 Astro 图标库时不需要设置 valueDark，图标会自动跟随主题亮暗色切换
 		logo: {
-			type: "icon",
-			value: "fa7-solid:feather",
+			type: "cat",
 		},
 		// 导航栏标题
 		title: "Sato Blog",
 		// 全宽导航栏，导航栏是否占满屏幕宽度
-		widthFull: false,
+		widthFull: true,
 		// 导航菜单对齐方式，left：左对齐，center：居中
 		menuAlign: "center",
 		// 导航栏图标和标题是否跟随主题色

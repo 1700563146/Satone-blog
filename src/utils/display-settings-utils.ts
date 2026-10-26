@@ -32,6 +32,7 @@ const DISABLED_SETTINGS: DisplaySettingsConfig = {
 	bannerCarouselSwitchable: false,
 	overlaySwitchable: false,
 	sakuraSwitchable: false,
+	starfieldSwitchable: false,
 };
 
 // 读取总开关环境变量

@@ -108,7 +108,7 @@ const {
             （页脚作为兄弟节点也要拿到 --content-ratio-*）。子元素无需定位类：
             侧栏包裹层是 display:contents，真正的 grid item 是内层元素 */}
         <div id="main-grid"
-          class="transition duration-700 w-full left-0 right-0 grid mx-auto gap-4 px-2 md:px-4 mobile-no-sidebar"
+          class="transition duration-700 w-full left-0 right-0 grid mx-auto gap-4 md:gap-6 px-2 md:px-4 mobile-no-sidebar"
           {...gridDataAttrs}
         >
 
@@ -143,7 +143,7 @@ const {
 
                 {/* 移动端底部组件：<768px 时 #main-grid 是 display:block，必须排在页脚之前 */}
                 {sidebarLayoutConfig.mobileBottomComponents && sidebarLayoutConfig.mobileBottomComponents.length > 0 && (
-                    <div id="mobile-bottom-sidebar" class="block md:hidden mt-4">
+                    <div id="mobile-bottom-sidebar" class="block md:hidden mt-5">
                         <SideBar side="bottom" headings={headings} encrypted={encrypted}></SideBar>
                     </div>
                 )}

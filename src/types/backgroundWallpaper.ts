@@ -18,6 +18,11 @@ export type BackgroundWallpaperConfig = {
 		homeText?: {
 			enable: boolean; // 是否在首页显示自定义文字（全局开关）
 			title?: string; // 主标题
+			// 主标题中的流动渐变文字：从标题里挑一段，让它流动起来
+			titleGradient?: {
+				enable?: boolean; // 是否启用，默认 false
+				match?: string; // 参与渐变的文字片段（按标题原文匹配，留空则整段标题渐变）
+			};
 			subtitle?: string | string[]; // 副标题，支持单个字符串或字符串数组
 			titleSize?: string; // 主标题字体大小，如 "3.5rem"
 			subtitleSize?: string; // 副标题字体大小，如 "1.5rem"

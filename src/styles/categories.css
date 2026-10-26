@@ -26,11 +26,11 @@
 }
 .category-pill[data-active] {
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   border-color: transparent;
 }
 .category-pill[data-active] .pill-count {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in oklch, var(--on-primary) 22%, transparent);
   opacity: 0.9;
 }
 .category-pill[data-soft-active] {
@@ -53,7 +53,7 @@
 }
 .category-pill[data-category-name=""][data-active],
 .category-pill[data-category-name=""][data-active]:hover {
-  color: white;
+  color: var(--on-primary);
 }
 
 /* 矩形样式（siteConfig.categoryStyle = "rectangle"）- 只收小圆角，配色沿用上方胶囊样式 */

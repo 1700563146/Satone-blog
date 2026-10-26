@@ -91,6 +91,16 @@ declare global {
 		__floatingTOCAutoCloseInit?: boolean;
 		/** 文章列表页布局监听器守卫,确保只注册一次 */
 		__postPageInit?: boolean;
+		/** 指针氛围层（星光 + 光晕）初始化守卫,确保 Swup 切页不重复初始化 */
+		__cursorAmbienceReady?: boolean;
+		/** 磁吸效果初始化守卫,确保 Swup 切页不重复注册监听器 */
+		__magneticReady?: boolean;
+		/** 阅读进度条初始化守卫,确保 Swup 切页不重复注册监听器 */
+		__readingProgressReady?: boolean;
+		/** 导航栏猫 Logo 眼睛跟随初始化守卫,确保 Swup 切页不重复注册监听器 */
+		__catLogoReady?: boolean;
+		/** 星空开关按钮初始化守卫,确保 Swup 切页不重复注册监听器 */
+		__starfieldToggleReady?: boolean;
 	}
 
 	interface MediaQueryList {

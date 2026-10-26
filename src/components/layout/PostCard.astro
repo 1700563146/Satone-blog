@@ -116,7 +116,7 @@ const minutes = remarkPluginFrontmatter.minutes;
   <div
     class:list={[
       "post-card-content",
-      "pl-4 md:pl-9 pr-4 md:pr-2 pt-4 md:pt-7 pb-4 md:pb-7 relative flex flex-col h-full",
+      "pl-4 md:pl-10 pr-4 md:pr-2 pt-5 md:pt-8 pb-5 md:pb-8 relative flex flex-col h-full",
       {
         "w-full md:w-[calc(100%-52px-12px)]": !hasCover,
         "w-full md:w-[calc(100%-var(--coverWidth)-1.5rem)]": hasCover,
@@ -159,7 +159,7 @@ const minutes = remarkPluginFrontmatter.minutes;
       minutes={minutes}
       showWords={metaShowWords}
       showReadingTime={metaShowReadingTime}
-      className="mb-4 post-meta card-header-meta"
+      className="mb-5 post-meta card-header-meta"
     />
 
     <!-- description -->
@@ -267,7 +267,8 @@ const minutes = remarkPluginFrontmatter.minutes;
         class:list={[
           "post-card-enter-btn",
           "flex btn-regular w-13",
-          "absolute right-3 top-3 bottom-3 rounded-xl bg-(--enter-btn-bg)",
+          // 默认不铺底色：整列淡色方块比正文更抢眼，悬停/按下再浮现
+          "absolute right-3 top-3 bottom-3 rounded-xl bg-transparent",
           "hover:bg-(--enter-btn-bg-hover) active:bg-(--enter-btn-bg-active) active:scale-95",
         ]}
       >
@@ -281,6 +282,19 @@ const minutes = remarkPluginFrontmatter.minutes;
 </div>
 
 <style define:vars={{ coverWidth, descriptionClampLines }}>
+  /* 悬停微抬：只加深投影、不位移，避免和布局切换的 transform 过渡打架 */
+  @media (hover: hover) {
+    .post-card-wrapper {
+      transition:
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
+    }
+    .post-card-wrapper:hover {
+      box-shadow: var(--shadow-card-hover);
+      border-color: color-mix(in oklch, var(--card-border) 55%, var(--primary));
+    }
+  }
+
   .description-clamped {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -297,7 +311,7 @@ const minutes = remarkPluginFrontmatter.minutes;
 
   :global(.list-mode) .has-cover .post-card-content {
     width: calc(100% - 9rem - 0.75rem) !important;
-    padding: 0.75rem 0.5rem 0.75rem 0.75rem !important;
+    padding: 1rem 0.5rem 1rem 0.9rem !important;
   }
 
   :global(.list-mode) .has-cover .post-card-image {
@@ -313,7 +327,7 @@ const minutes = remarkPluginFrontmatter.minutes;
   /* 封面在左侧：封面改钉左边，内容用 margin-left:auto 推到右边并镜像内边距 */
   :global(.list-mode.cover-left) .has-cover .post-card-content {
     margin-left: auto !important;
-    padding: 0.75rem 0.75rem 0.75rem 0.5rem !important;
+    padding: 1rem 0.9rem 1rem 0.5rem !important;
   }
 
   :global(.list-mode.cover-left) .has-cover .post-card-image {
@@ -358,7 +372,7 @@ const minutes = remarkPluginFrontmatter.minutes;
 
     :global(.list-mode) .has-cover .post-card-content {
       width: calc(100% - var(--coverWidth) - 1.5rem) !important;
-      padding: 1.75rem 0.5rem 1.75rem 2.25rem !important;
+      padding: 2.25rem 0.5rem 2.25rem 2.5rem !important;
     }
 
     :global(.list-mode) .has-cover .post-card-image {
@@ -369,9 +383,9 @@ const minutes = remarkPluginFrontmatter.minutes;
       border-radius: 0.75rem !important;
     }
 
-    /* 封面在左侧：内边距完全镜像右侧模式（靠封面那侧 0.5rem，靠卡片边缘那侧 2.25rem） */
+    /* 封面在左侧：内边距完全镜像右侧模式（靠封面那侧 0.5rem，靠卡片边缘那侧 2.5rem） */
     :global(.list-mode.cover-left) .has-cover .post-card-content {
-      padding: 1.75rem 2.25rem 1.75rem 0.5rem !important;
+      padding: 2.25rem 2.5rem 2.25rem 0.5rem !important;
     }
 
     :global(.list-mode.cover-left) .has-cover .post-card-image {
@@ -387,17 +401,19 @@ const minutes = remarkPluginFrontmatter.minutes;
     :global(.list-mode) .post-card-title {
       font-size: 1.5rem !important;
       line-height: 2rem !important;
-      margin-bottom: 0.75rem !important;
+      margin-bottom: 1rem !important;
     }
 
     :global(.list-mode) .post-card-title::before {
       display: block !important;
-      top: 2.25rem !important;
+      top: 2.75rem !important;
+      left: 1.375rem !important;
       height: 1rem !important;
     }
 
     :global(.list-mode) .description {
       font-size: inherit !important;
+      line-height: 1.75 !important;
     }
 
     :global(.list-mode) .stats a {

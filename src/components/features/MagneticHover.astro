@@ -1,0 +1,222 @@
+---
+// 磁吸交互：指针靠近按钮/卡片时，元素被轻轻带向指针（最大位移几 px）
+//
+// 实现要点：
+// 1. 只写 CSS 变量 --magnet-x/--magnet-y，位移由 .js-magnetic 里的 translate 完成。
+//    用 translate（独立变换属性）而不是 transform，避免和卡片入场动画、
+//    悬停 scale、Tailwind 的 translate-* 工具类互相覆盖。
+// 2. 元素矩形缓存 + 限流重建：pointermove 里不做 getBoundingClientRect，
+//    滚动/换页后标脏，下一次 pointermove 才重建，逐帧只剩算术。
+// 3. 触屏、减弱动态一律不启用；同时最多吸 6 个元素，避免一堆元素一起抖。
+---
+
+<style is:global>
+	/* 位移走 translate，与 transform 动画互不干扰。
+	   这里给每个元素重新声明 --magnet-* 的默认值：自定义属性会继承，
+	   嵌套的磁吸元素（卡片里的按钮）否则会叠加两遍位移。 */
+	.js-magnetic {
+		--magnet-x: 0px;
+		--magnet-y: 0px;
+		translate: var(--magnet-x) var(--magnet-y);
+		transition: translate 180ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.js-magnetic {
+			translate: none !important;
+			transition: none !important;
+		}
+	}
+</style>
+
+<script>
+	import { interactiveEffectsConfig } from "@/config";
+
+	(function setupMagnetic() {
+		if (window.__magneticReady) return;
+		window.__magneticReady = true;
+
+		const cfg = interactiveEffectsConfig.magnetic;
+		if (!cfg.enable) return;
+
+		// 触屏没有「靠近」这回事；减弱动态时任何跟随都不该出现
+		if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+		const BUTTON_SELECTOR = [
+			".btn-regular",
+			".btn-plain",
+			".btn-card",
+			".category-pill",
+			".banner-link",
+			".post-card-enter-btn",
+			".music-player-widget .btn-play",
+			"#navbar .dropdown-trigger",
+			".pagination-wrapper button",
+			".pagination-wrapper a",
+		].join(",");
+
+		const CARD_SELECTOR = [".post-card-wrapper", "widget-layout.card-base"].join(
+			",",
+		);
+
+		// 单帧同时吸附的元素上限：超过就只保留最近的几个
+		const MAX_ACTIVE = 6;
+		const MEASURE_INTERVAL = 120;
+
+		type Target = {
+			el: HTMLElement;
+			pull: number;
+			halfW: number;
+			halfH: number;
+			cx: number;
+			cy: number;
+			active: boolean;
+		};
+
+		let targets: Target[] = [];
+		let measuredAt = 0;
+		let pointerX = Number.NaN;
+		let pointerY = Number.NaN;
+		let rafId: number | null = null;
+
+		const collect = () => {
+			const next: Target[] = [];
+			const seen = new Set<HTMLElement>();
+
+			const register = (el: Element, pull: number) => {
+				if (!(el instanceof HTMLElement) || seen.has(el)) return;
+				seen.add(el);
+				el.classList.add("js-magnetic");
+				next.push({
+					el,
+					pull,
+					halfW: 0,
+					halfH: 0,
+					cx: 0,
+					cy: 0,
+					active: false,
+				});
+			};
+
+			for (const el of document.querySelectorAll(BUTTON_SELECTOR)) {
+				register(el, cfg.buttonPull);
+			}
+			for (const el of document.querySelectorAll(CARD_SELECTOR)) {
+				register(el, cfg.cardPull);
+			}
+
+			// 清掉上一页残留的位移与标记
+			for (const t of targets) {
+				if (seen.has(t.el)) continue;
+				t.el.style.removeProperty("--magnet-x");
+				t.el.style.removeProperty("--magnet-y");
+			}
+
+			targets = next;
+			measuredAt = 0;
+		};
+
+		const measure = () => {
+			const now = performance.now();
+			if (now - measuredAt < MEASURE_INTERVAL) return;
+			measuredAt = now;
+			for (const t of targets) {
+				const rect = t.el.getBoundingClientRect();
+				t.halfW = rect.width / 2;
+				t.halfH = rect.height / 2;
+				t.cx = rect.left + t.halfW;
+				t.cy = rect.top + t.halfH;
+			}
+		};
+
+		const release = (t: Target) => {
+			if (!t.active) return;
+			t.active = false;
+			t.el.style.setProperty("--magnet-x", "0px");
+			t.el.style.setProperty("--magnet-y", "0px");
+		};
+
+		const apply = () => {
+			rafId = null;
+			if (Number.isNaN(pointerX)) return;
+			measure();
+
+			const candidates: Array<{ t: Target; proximity: number; out: number }> = [];
+
+			for (const t of targets) {
+				const dx = pointerX - t.cx;
+				const dy = pointerY - t.cy;
+				// 到元素外框的距离：框内为 0，只有离开外框超过半径才彻底放开
+				const out = Math.hypot(
+					Math.max(0, Math.abs(dx) - t.halfW),
+					Math.max(0, Math.abs(dy) - t.halfH),
+				);
+				if (out > cfg.radius) {
+					release(t);
+					continue;
+				}
+				const proximity = 1 - out / cfg.radius;
+				candidates.push({ t, proximity, out });
+			}
+
+			candidates.sort((a, b) => a.out - b.out);
+
+			for (let i = 0; i < candidates.length; i++) {
+				const { t, proximity } = candidates[i];
+				if (i >= MAX_ACTIVE) {
+					release(t);
+					continue;
+				}
+				// 位移与「指针偏离元素中心的程度」成正比、在边缘饱和：
+				// 指针在正中时不动，贴边时最大，这样大卡片也不会只在正中才有反应
+				const kx = t.halfW
+					? Math.max(-1, Math.min(1, (pointerX - t.cx) / t.halfW))
+					: 0;
+				const ky = t.halfH
+					? Math.max(-1, Math.min(1, (pointerY - t.cy) / t.halfH))
+					: 0;
+				const strength = t.pull * proximity * proximity;
+				const nx = Math.round(kx * strength * 100) / 100;
+				const ny = Math.round(ky * strength * 100) / 100;
+				t.active = true;
+				t.el.style.setProperty("--magnet-x", `${nx}px`);
+				t.el.style.setProperty("--magnet-y", `${ny}px`);
+			}
+		};
+
+		const request = () => {
+			if (rafId !== null) return;
+			rafId = requestAnimationFrame(apply);
+		};
+
+		window.addEventListener(
+			"pointermove",
+			(event) => {
+				pointerX = event.clientX;
+				pointerY = event.clientY;
+				request();
+			},
+			{ passive: true },
+		);
+
+		// 指针离开窗口时把位移归零，不留「卡住」的元素
+		document.addEventListener("pointerleave", () => {
+			pointerX = Number.NaN;
+			pointerY = Number.NaN;
+			for (const t of targets) release(t);
+		});
+
+		// 滚动/换尺寸后矩形失效，标脏等下一次 pointermove 重建（滚动路径上零布局读取）
+		const invalidate = () => {
+			measuredAt = 0;
+		};
+		window.addEventListener("scroll", invalidate, { passive: true });
+		window.addEventListener("resize", invalidate, { passive: true });
+
+		collect();
+		// Swup 换页会替换内容区的 DOM，重建目标集合
+		document.addEventListener("astro:page-load", collect);
+		document.addEventListener("swup:contentReplaced", collect);
+	})();
+</script>

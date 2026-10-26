@@ -67,10 +67,10 @@ export type SiteConfig = {
 	}>;
 
 	navbar: {
-		/** 导航栏Logo图标，可选类型：icon库、本地图片、网络图片链接 */
+		/** 导航栏Logo：icon 图标库 / image 本地图片 / url 网络图片 / cat 内置猫图案（瞳孔跟随指针） */
 		logo?: {
-			type: "icon" | "image" | "url";
-			value: string; // icon名、本地图片路径或网络图片url
+			type: "icon" | "image" | "url" | "cat";
+			value?: string; // icon名、本地图片路径或网络图片url（cat 类型不需要）
 			valueDark?: string; // 暗色模式下的图片，仅 image / url 类型生效，不设置则亮暗色共用 value
 			alt?: string; // 图片alt文本
 		};

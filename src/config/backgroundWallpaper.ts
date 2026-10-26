@@ -60,6 +60,13 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 			enable: true,
 			// 主页横幅主标题
 			title: "Sato Blog",
+			// 主标题里的流动渐变：match 为空 = 整段标题都走渐变（左侧多色、向右逐渐收成白色）。
+			// 只让某一段炫彩时填那一段的原文，例如 match: "Sato"
+			// 减弱动态（prefers-reduced-motion）下渐变停止流动但仍保留色彩
+			titleGradient: {
+				enable: true,
+				match: "",
+			},
 			// 主页横幅主标题字体大小
 			titleSize: "4.5rem",
 			// 主页横幅副标题

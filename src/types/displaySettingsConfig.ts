@@ -57,4 +57,7 @@ export type DisplaySettingsConfig = {
 
 	// 樱花特效开关
 	sakuraSwitchable: boolean;
+
+	// 星空背景开关（暗色主题下的星点 + 指针连线）
+	starfieldSwitchable: boolean;
 };

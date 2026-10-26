@@ -325,9 +325,10 @@ html.is-page-transitioning .banner-home-text-overlay {
 
 /* ===== 首页横幅文字与链接（banner-title.css 来源，原样保留先后顺序） ===== */
 
-/* 横幅文字阴影 - 更柔和的扩散效果 */
+/* 横幅文字阴影 - 更柔和的扩散效果
+   阴影只为在照片上保住可读性，不再用 0.6 的黑雾把文字压出脏边 */
 .banner-title {
-    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
     /* 防止大字体标题溢出容器 */
     overflow-wrap: break-word;
     word-break: break-word;
@@ -339,9 +340,66 @@ html.is-page-transitioning .banner-home-text-overlay {
 }
 
 .banner-subtitle {
-    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
     /* 独立字体设置，通过 fontConfig.bannerSubtitleFont 配置 */
     font-family: var(--font-banner-subtitle, inherit);
+}
+
+/* ── 主标题的炫彩渐变 ────────────────────────────────────────────────
+   左侧「Sato」一带是青 → 蓝 → 紫 → 玫 → 金的连续炫彩，向右逐渐收成白色，
+   只留给「Blog」一点极淡的主色。做法是 background-clip: text；
+   所有颜色亮度都在 0.8 以上，压在壁纸照片上依然读得清。
+   text-shadow 在这里换成 drop-shadow：字形被裁成背景后，文字阴影会变成一层
+   实心剪影，只有滤镜能保留「光晕跟字形一致」的效果。
+   颜色的「流动」用 hue-rotate 完成 —— 纯白色不受 hue-rotate 影响，
+   所以右侧的白不会跟着变色，只有左侧的炫彩在换色，正是「左边炫彩、右边安静」。
+   色相落点全部基于 --hue，换主题色时整条彩带一起平移。 */
+.banner-title-flow {
+    background-image: linear-gradient(
+        100deg,
+        color-mix(in oklch, var(--primary) 82%, white) 0%,
+        oklch(0.82 0.125 calc(var(--hue) + 34)) 7%,
+        oklch(0.83 0.13 calc(var(--hue) + 96)) 14%,
+        oklch(0.86 0.12 calc(var(--hue) + 156)) 21%,
+        oklch(0.90 0.10 calc(var(--hue) + 206)) 28%,
+        color-mix(in oklch, var(--primary) 30%, white) 36%,
+        white 46%,
+        color-mix(in oklch, var(--primary) 10%, white) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45));
+    will-change: filter;
+    animation: banner-title-hue 18s linear infinite;
+}
+
+@keyframes banner-title-hue {
+    from {
+        filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45)) hue-rotate(0deg);
+    }
+    to {
+        filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45)) hue-rotate(360deg);
+    }
+}
+
+/* 减弱动态：保留渐变色彩，但不再循环换色 */
+@media (prefers-reduced-motion: reduce) {
+    .banner-title-flow {
+        animation: none;
+        will-change: auto;
+    }
+}
+
+/* 小屏下渐变拼色的边界更明显，稍微收一点光晕半径 */
+@media (max-width: 767px) {
+    .banner-title-flow {
+        filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.5));
+        animation: none;
+        will-change: auto;
+    }
 }
 
 /* 首页横幅标题下方的链接图标行（半透明圆按钮） */

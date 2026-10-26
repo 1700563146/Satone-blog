@@ -231,11 +231,14 @@ html {
         -webkit-backdrop-filter: none !important;
     }
     
+    /* 卡片底色 + 一层极浅投影：即使关闭「卡片边框」开关，白卡在淡蓝底上也不会失形 */
     .card-base {
         @apply rounded-(--radius-large) overflow-hidden bg-(--card-bg) transition-colors duration-150;
+        box-shadow: var(--shadow-card);
     }
     .card-base-transparent {
         @apply rounded-(--radius-large) overflow-hidden bg-(--card-bg-transparent) transition-colors duration-150;
+        box-shadow: var(--shadow-card);
     }
 
     /* LQIP 占位渐变 */
@@ -248,21 +251,28 @@ html {
     }
 
 
-    /* 开启边框和阴影效果时的样式 */
+    /* 开启边框和阴影效果时的样式
+       描边用冷色（--card-border）而非纯黑透明：淡蓝纸面上，黑描边会发脏；
+       投影用 --shadow-card 只把卡片「抬起来一点」，不制造重量 */
     .enable-card-border .card-base {
-        @apply transition-all duration-300 border border-(--line-divider) shadow-xs;
+        @apply transition-all duration-300 border;
+        border-color: var(--card-border);
+        box-shadow: var(--shadow-card);
     }
     .enable-card-border .card-base-transparent {
-        @apply transition-all duration-300 border border-(--line-divider) shadow-xs;
+        @apply transition-all duration-300 border;
+        border-color: var(--card-border);
+        box-shadow: var(--shadow-card);
     }
     .enable-card-border .btn-card {
-        @apply transition-all duration-300 border border-(--line-divider) shadow-xs;
+        @apply transition-all duration-300 border shadow-xs;
+        border-color: var(--card-border);
     }
 
     /* 导航栏样式适配 */
     .enable-card-border #navbar > div:not(.absolute) {
         @apply transition-all duration-300 border shadow-xs;
-        border-color: var(--line-divider) !important;
+        border-color: var(--card-border) !important;
     }
 
     /* 壁纸模式切换期间禁止导航栏边框和阴影闪现 */
@@ -551,8 +561,14 @@ html {
     @apply cursor-zoom-in
 }
 
+/* 选中态与光标也走主题色：浏览器默认的蓝色选中块会和这套淡蓝/青打架 */
 ::selection {
     background-color: var(--selection-bg)
+}
+
+html {
+    caret-color: var(--primary);
+    accent-color: var(--primary);
 }
 
 .dash-line {
@@ -609,7 +625,8 @@ html {
 }
 
 .post-list-layout-switch button.active {
-  @apply bg-(--primary) text-white;
+  @apply bg-(--primary);
+  color: var(--on-primary);
 }
 
 .post-list-layout-switch button:not(.active) {

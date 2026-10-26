@@ -22,7 +22,7 @@ const mobileDefaultLayout =
 const initialLayoutClass =
 	defaultLayout === "grid"
 		? "post-grid-auto grid-mode"
-		: "flex flex-col gap-4 md:gap-4 list-mode";
+		: "flex flex-col gap-5 md:gap-6 list-mode";
 
 // 列表模式封面位置，只有 left 需要额外样式，right 是默认布局
 const coverPositionClass =
@@ -31,7 +31,7 @@ const coverPositionClass =
 
 <div
   id="post-list-container"
-  class={`transition-all duration-500 ease-in-out mb-4 ${initialLayoutClass}${coverPositionClass}`}
+  class={`transition-all duration-500 ease-in-out mb-6 ${initialLayoutClass}${coverPositionClass}`}
   data-default-layout={defaultLayout}
   data-mobile-default-layout={mobileDefaultLayout}
   data-masonry-enabled={masonryEnabled}
@@ -78,12 +78,12 @@ const coverPositionClass =
         container.style.transition = 'none';
 
         // 移除所有布局类
-        container.classList.remove('list-mode', 'grid-mode', 'post-grid-auto', 'flex', 'flex-col', 'gap-4', 'md:gap-4');
+        container.classList.remove('list-mode', 'grid-mode', 'post-grid-auto', 'flex', 'flex-col', 'gap-4', 'md:gap-4', 'gap-5', 'md:gap-6');
 
         if (effectiveLayout === 'grid') {
           container.classList.add('grid-mode', 'post-grid-auto');
         } else {
-          container.classList.add('list-mode', 'flex', 'flex-col', 'gap-4', 'md:gap-4');
+          container.classList.add('list-mode', 'flex', 'flex-col', 'gap-5', 'md:gap-6');
         }
 
         // 强制重排后恢复过渡动画
@@ -147,7 +147,7 @@ const coverPositionClass =
             }
         } else {
             postListContainer.classList.add("list-mode");
-            postListContainer.classList.add("flex", "flex-col", "gap-4", "md:gap-4");
+            postListContainer.classList.add("flex", "flex-col", "gap-5", "md:gap-6");
             postListContainer.classList.remove("post-grid-auto");
             resetMasonryLayout();
         }
@@ -217,7 +217,7 @@ const coverPositionClass =
     if (items.length === 0) return;
 
     // 瀑布流配置
-    const gap = 16; // 1rem = 16px
+    const gap = 20; // 与 .post-grid-auto 的 1.25rem 保持一致
     const columnWidth = parseInt(container.getAttribute("data-column-width") || "280");
 
     // 重置容器样式以允许绝对定位
@@ -335,7 +335,7 @@ const coverPositionClass =
   .post-grid-auto {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--post-card-min-width, 320px), 1fr));
-    gap: 1rem;
+    gap: 1.25rem;
   }
 
   /* 移动端列表模式下缩小元数据 */
@@ -387,7 +387,7 @@ const coverPositionClass =
   #post-list-container.grid-mode :global(.post-card-wrapper) {
     flex-direction: column-reverse !important;
     /* 网格模式卡片内边距，封面非贴边时的内缩量也取这个值，改这里两边一起变 */
-    --grid-card-padding: 1rem;
+    --grid-card-padding: 1.25rem;
   }
 
   /* 网格模式封面的定位、宽度和圆角统一在 PostCard.astro 里维护（含 grid.coverFullWidth 贴边开关），此处不再重复覆盖 */

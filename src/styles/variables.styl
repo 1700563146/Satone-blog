@@ -1,52 +1,75 @@
 /* ===== 基础变量定义 ===== */
 :root
-  --radius-large: 1rem
+  /* 卡片圆角：比 1rem 再柔一档，配合淡蓝底色显得轻 */
+  --radius-large: 1.25rem
   --content-delay: 150ms
 
 /* ===== 主题相关变量 ===== */
+
+/* 色相体系（两层色相，避免单一色相铺满整个页面）
+     --hue      主色相，由 siteConfig.themeColor.hue 或设置面板写入（默认 202：青）
+     --hue-alt  恒比主色相冷一档（+30°）的辅助色相：淡蓝。
+                 只用于底色、卡片描边、暗部表面与分隔线，让页面读起来是
+                 「青色作笔、淡蓝作纸」——主色负责动作与强调，底色负责空气感 */
 :root
-  --primary: oklch(0.70 0.14 var(--hue))
-  --page-bg: oklch(0.95 0.01 var(--hue))
+  --hue-alt: calc(var(--hue) + 30)
+
+  /* 主色：青。亮度压到 0.54，白底对比 4.6:1、白字在其上 4.6:1，
+     正文链接、图标、实心按钮三种用途都能直接用同一支青 */
+  --primary: oklch(0.54 0.115 var(--hue))
+  --primary-hover: oklch(0.48 0.115 var(--hue))
+  --primary-soft: oklch(0.955 0.028 var(--hue))
+  /* 铺在主色上的文字/图标（实心选中态、实心按钮） */
+  --on-primary: white
+
+  /* 底色：淡蓝纸面；卡片纯白，用冷色描边 + 极浅投影分层，而不是靠深灰边框 */
+  --page-bg: oklch(0.970 0.014 var(--hue-alt))
   --card-bg: white
+  --card-border: oklch(0.912 0.017 var(--hue-alt))
   --card-bg-transparent: unquote("rgb(255 255 255 / var(--card-transparent-opacity, 0.6))")
-  
-  --btn-content: oklch(0.55 0.12 var(--hue))
-  --btn-regular-bg: oklch(0.95 0.025 var(--hue))
-  --btn-regular-bg-hover: oklch(0.9 0.05 var(--hue))
-  --btn-regular-bg-active: oklch(0.85 0.08 var(--hue))
-  
-  --btn-plain-bg-hover: oklch(0.95 0.025 var(--hue))
-  --btn-plain-bg-active: oklch(0.98 0.01 var(--hue))
-  
-  --btn-card-bg-hover: oklch(0.98 0.005 var(--hue))
-  --btn-card-bg-active: oklch(0.9 0.03 var(--hue))
-  
+
+  --btn-content: oklch(0.46 0.09 var(--hue))
+  --btn-regular-bg: oklch(0.966 0.022 var(--hue))
+  --btn-regular-bg-hover: oklch(0.933 0.04 var(--hue))
+  --btn-regular-bg-active: oklch(0.90 0.055 var(--hue))
+
+  --btn-plain-bg-hover: oklch(0.955 0.026 var(--hue))
+  --btn-plain-bg-active: oklch(0.93 0.04 var(--hue))
+
+  --btn-card-bg-hover: oklch(0.976 0.012 var(--hue-alt))
+  --btn-card-bg-active: oklch(0.93 0.03 var(--hue))
+
   --enter-btn-bg: var(--btn-regular-bg)
   --enter-btn-bg-hover: var(--btn-regular-bg-hover)
   --enter-btn-bg-active: var(--btn-regular-bg-active)
-  
-  --deep-text: oklch(0.25 0.02 var(--hue))
-  --title-active: oklch(0.6 0.1 var(--hue))
-  
-  --line-divider: rgba(0, 0, 0, 0.08)
-  --line-color: rgba(0, 0, 0, 0.1)
-  --meta-divider: rgba(0, 0, 0, 0.2)
-  --content-meta: rgba(0, 0, 0, 0.7)
-  
+
+  --deep-text: oklch(0.25 0.025 var(--hue-alt))
+  --title-active: oklch(0.50 0.10 var(--hue))
+
+  /* 分隔线也带一点冷色，纯黑描边在淡蓝纸面上会显脏 */
+  --line-divider: unquote("oklch(0.50 0.04 var(--hue-alt) / 0.14)")
+  --line-color: unquote("oklch(0.50 0.04 var(--hue-alt) / 0.18)")
+  --meta-divider: unquote("oklch(0.50 0.04 var(--hue-alt) / 0.28)")
+  --content-meta: unquote("oklch(0.40 0.03 var(--hue-alt) / 0.72)")
+
   --inline-code-bg: var(--btn-regular-bg)
   --inline-code-color: var(--btn-content)
-  --muted: oklch(0.93 0.015 var(--hue))
-  --selection-bg: oklch(0.90 0.05 var(--hue))
-  --codeblock-bg: oklch(0.17 0.015 var(--hue))
-  --codeblock-topbar-bg: oklch(0.3 0.02 var(--hue))
-  
-  --license-block-bg: rgba(0, 0, 0, 0.03)
-  
-  --link-underline: oklch(0.93 0.04 var(--hue))
-  --link-hover: oklch(0.95 0.025 var(--hue))
+  --muted: oklch(0.955 0.014 var(--hue-alt))
+  --selection-bg: oklch(0.88 0.06 var(--hue))
+  --codeblock-bg: oklch(0.17 0.015 var(--hue-alt))
+  --codeblock-topbar-bg: oklch(0.3 0.02 var(--hue-alt))
+
+  --license-block-bg: unquote("oklch(0.50 0.04 var(--hue-alt) / 0.05)")
+
+  --link-underline: oklch(0.90 0.05 var(--hue))
+  --link-hover: oklch(0.95 0.028 var(--hue))
   --link-active: oklch(0.90 0.05 var(--hue))
-  
+
   --float-panel-bg: white
+
+  /* 卡片层次：极浅投影只用来「抬起来一点」，不制造重量 */
+  --shadow-card: unquote("0 1px 2px oklch(0.45 0.04 var(--hue-alt) / 0.07), 0 12px 26px -14px oklch(0.45 0.05 var(--hue-alt) / 0.22)")
+  --shadow-card-hover: unquote("0 2px 4px oklch(0.45 0.04 var(--hue-alt) / 0.09), 0 18px 36px -18px oklch(0.45 0.05 var(--hue-alt) / 0.3)")
   
   --scrollbar-bg-light: rgba(0, 0, 0, 0.4)
   --scrollbar-bg-hover-light: rgba(0, 0, 0, 0.5)
@@ -71,14 +94,14 @@
   
   /* TOC相关变量 */
   --toc-badge-bg: oklch(0.9 0.045 var(--hue))
-  --toc-btn-hover: oklch(0.92 0.05 var(--hue))
-  --toc-btn-active: oklch(0.90 0.06 var(--hue))
-  --toc-indicator-bg: oklch(0.92 0.015 var(--hue))
+  --toc-btn-hover: oklch(0.94 0.04 var(--hue))
+  --toc-btn-active: oklch(0.91 0.055 var(--hue))
+  --toc-indicator-bg: oklch(0.94 0.014 var(--hue-alt))
   --toc-width: calc((100vw - var(--page-width)) / 2 - 1rem)
-  --toc-item-active: oklch(0.70 0.13 var(--hue))
+  --toc-item-active: oklch(0.54 0.115 var(--hue))
 
   /* Live2D 消息框变量 */
-  --l2d-msg-bg: oklch(0.7 0.14 var(--hue))
+  --l2d-msg-bg: oklch(0.54 0.115 var(--hue))
 
   /* 主题色选择条渐变 */
   --color-selection-bar: linear-gradient(to right, oklch(0.80 0.10 0), oklch(0.80 0.10 30), oklch(0.80 0.10 60), oklch(0.80 0.10 90), oklch(0.80 0.10 120), oklch(0.80 0.10 150), oklch(0.80 0.10 180), oklch(0.80 0.10 210), oklch(0.80 0.10 240), oklch(0.80 0.10 270), oklch(0.80 0.10 300), oklch(0.80 0.10 330), oklch(0.80 0.10 360))
@@ -87,45 +110,59 @@
 :root:not(.dark) body.card-follow-theme-hue
   --card-bg: oklch(1 0.01 var(--hue))
 
-/* 暗色主题变量 */
+/* 暗色主题变量
+   暗色不是亮色的机械反相：底色走更深的蓝调（--hue-alt），卡片比底浅一档形成层次，
+   主色提亮到 0.78 保证在深底上仍然醒目 */
 :root.dark
-  --primary: oklch(0.75 0.14 var(--hue))
-  --page-bg: oklch(0.16 0.014 var(--hue))
-  --card-bg: oklch(0.23 0.015 var(--hue))
+  --primary: oklch(0.78 0.115 var(--hue))
+  --primary-hover: oklch(0.84 0.10 var(--hue))
+  --primary-soft: oklch(0.30 0.04 var(--hue))
+  /* 暗色主色偏亮，铺在主色上的文字改用深墨，避免白字在亮青上糊成一片
+     （--deep-text 语义就是「压深墨色」，暗色下不反转，见 StepItem/TimelineItem 的局部覆盖） */
+  --on-primary: var(--deep-text)
+  --page-bg: oklch(0.165 0.017 var(--hue-alt))
+  --card-bg: oklch(0.225 0.017 var(--hue-alt))
+  --card-border: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.10)")
   --card-bg-transparent: unquote("rgb(23 23 23 / var(--card-transparent-opacity, 0.6))")
 
   /* 导航栏玻璃高光与发丝线（暗色） */
   --navbar-glass-highlight: rgba(255, 255, 255, 0.06)
   --navbar-glass-hairline: rgba(255, 255, 255, 0.10)
 
-  --btn-content: oklch(0.75 0.1 var(--hue))
-  --btn-regular-bg: oklch(0.33 0.035 var(--hue))
-  --btn-regular-bg-hover: oklch(0.38 0.04 var(--hue))
-  --btn-regular-bg-active: oklch(0.43 0.045 var(--hue))
-  
-  --btn-plain-bg-hover: oklch(0.30 0.035 var(--hue))
-  --btn-plain-bg-active: oklch(0.27 0.025 var(--hue))
-  
-  --btn-card-bg-hover: oklch(0.3 0.03 var(--hue))
-  --btn-card-bg-active: oklch(0.35 0.035 var(--hue))
-  
-  --line-divider: rgba(255, 255, 255, 0.08)
-  --line-color: rgba(255, 255, 255, 0.1)
-  --meta-divider: rgba(255, 255, 255, 0.2)
-  --content-meta: rgba(255, 255, 255, 0.6)
-  
-  --muted: oklch(0.25 0.015 var(--hue))
+  --btn-content: oklch(0.80 0.09 var(--hue))
+  --btn-regular-bg: oklch(0.31 0.032 var(--hue))
+  --btn-regular-bg-hover: oklch(0.36 0.038 var(--hue))
+  --btn-regular-bg-active: oklch(0.41 0.042 var(--hue))
+
+  --btn-plain-bg-hover: oklch(0.29 0.03 var(--hue))
+  --btn-plain-bg-active: oklch(0.26 0.024 var(--hue))
+
+  --btn-card-bg-hover: oklch(0.29 0.026 var(--hue-alt))
+  --btn-card-bg-active: oklch(0.34 0.03 var(--hue))
+
+  /* --deep-text 保持深墨（不随暗色反转）：它同时是「亮色面板上的墨色」，
+     如分类计数徽标 dark:bg-(--primary) + dark:text-(--deep-text) */
+  --line-divider: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.10)")
+  --line-color: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.13)")
+  --meta-divider: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.24)")
+  --content-meta: unquote("oklch(0.95 0.02 var(--hue-alt) / 0.62)")
+
+  --muted: oklch(0.26 0.016 var(--hue-alt))
   --selection-bg: oklch(0.40 0.08 var(--hue))
-  --codeblock-bg: oklch(0.17 0.015 var(--hue))
-  --codeblock-topbar-bg: oklch(0.12 0.015 var(--hue))
-  
+  --codeblock-bg: oklch(0.17 0.015 var(--hue-alt))
+  --codeblock-topbar-bg: oklch(0.12 0.015 var(--hue-alt))
+
   --license-block-bg: var(--codeblock-bg)
-  
-  --link-underline: oklch(0.40 0.08 var(--hue))
-  --link-hover: oklch(0.40 0.08 var(--hue))
-  --link-active: oklch(0.35 0.07 var(--hue))
-  
-  --float-panel-bg: oklch(0.19 0.015 var(--hue))
+
+  --link-underline: oklch(0.45 0.09 var(--hue))
+  --link-hover: oklch(0.45 0.09 var(--hue))
+  --link-active: oklch(0.38 0.08 var(--hue))
+
+  --float-panel-bg: oklch(0.20 0.017 var(--hue-alt))
+
+  /* 暗色投影更依赖黑色，但保留一点冷调避免发黄 */
+  --shadow-card: unquote("0 1px 3px rgb(0 0 0 / 0.4), 0 14px 30px -18px rgb(0 0 0 / 0.65)")
+  --shadow-card-hover: unquote("0 2px 8px rgb(0 0 0 / 0.45), 0 20px 44px -20px rgb(0 0 0 / 0.75)")
   
   --scrollbar-bg: var(--scrollbar-bg-dark)
   --scrollbar-bg-hover: var(--scrollbar-bg-hover-dark)
@@ -144,8 +181,8 @@
   --toc-badge-bg: var(--btn-regular-bg)
   --toc-btn-hover: oklch(0.28 0.04 var(--hue))
   --toc-btn-active: oklch(0.32 0.05 var(--hue))
-  --toc-indicator-bg: oklch(0.28 0.04 var(--hue))
-  --toc-item-active: oklch(0.35 0.07 var(--hue))
+  --toc-indicator-bg: oklch(0.28 0.035 var(--hue-alt))
+  --toc-item-active: oklch(0.78 0.115 var(--hue))
 
   /* Live2D 消息框变量 - 暗色主题 */
   --l2d-msg-bg: oklch(0.35 0.08 var(--hue))

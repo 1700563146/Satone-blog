@@ -14,7 +14,15 @@ export type { CommentConfig } from "./commentConfig";
 export type { CoverImageConfig } from "./coverImageConfig";
 export type { DisplaySettingsConfig } from "./displaySettingsConfig";
 export type { DynamicConfig } from "./dynamicConfig";
-export type { SakuraConfig } from "./effectsConfig";
+export type {
+	CursorGlowConfig,
+	InteractiveEffectsConfig,
+	MagneticConfig,
+	MusicGlowConfig,
+	ReadingProgressConfig,
+	SakuraConfig,
+	StarfieldConfig,
+} from "./effectsConfig";
 
 export type {
 	ExpressiveCodeConfig,
@@ -40,6 +48,7 @@ export type {
 	AdConfig,
 	CalendarConfig,
 	MobileBottomComponentConfig,
+	PomodoroConfig,
 	SidebarLayoutConfig,
 	SiteInfoConfig,
 	WidgetComponentConfig,

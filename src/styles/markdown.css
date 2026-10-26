@@ -1,5 +1,19 @@
 @reference "tailwindcss";
 
+/* 正文阅读节奏：行高与段距各放宽一点，长文读起来更透气。
+   用 .custom-md.prose 提高特异性，确保压过 typography 插件的默认值 */
+.custom-md.prose :where(p, li) {
+  line-height: 1.85;
+}
+
+.custom-md.prose > :where(p) {
+  margin-block: 1.4em;
+}
+
+.custom-md.prose :where(h2, h3) {
+  margin-top: 2.2em;
+}
+
 .custom-md {
   overflow-wrap: break-word;
 

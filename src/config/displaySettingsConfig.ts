@@ -69,4 +69,7 @@ export const displaySettingsConfig: DisplaySettingsConfig =
 
 		// 樱花特效开关
 		sakuraSwitchable: true,
+
+		// 星空背景开关（暗色主题下的星点 + 指针连线，可关闭以降低消耗）
+		starfieldSwitchable: true,
 	});

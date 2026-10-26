@@ -1,0 +1,639 @@
+---
+// 指针氛围层：暗色背景星光点阵（含指针连线） + 鼠标跟随光晕
+//
+// 层级设计（关键）：
+//   html 底色 < canvas(z-1) < 壁纸(z-10) < 光晕(z-25) < 内容区(z-30) < 卡片
+// 星点只活在页面空白处，光晕铺在壁纸上但永远在卡片之下，
+// 因此两者都不会糊到正文或卡片上。
+// 逐帧代价：星点上限 64 颗（约 2k 次距离判断/帧）+ 一个固定尺寸的混合层，
+// 且仅在「暗色 + 可见 + 未减弱动态」时启动；否则完全不占帧。
+import { interactiveEffectsConfig } from "@/config";
+
+const { starfield, cursorGlow } = interactiveEffectsConfig;
+
+const starfieldAnyDevice =
+	starfield.enable === true ||
+	(typeof starfield.enable === "object" &&
+		(starfield.enable.desktop || starfield.enable.mobile));
+
+const glowSize = `${cursorGlow.size}px`;
+---
+
+{
+	starfieldAnyDevice && (
+		<canvas id="starfield-canvas" aria-hidden="true" />
+	)
+}
+{
+	cursorGlow.enable && (
+		<div
+			id="cursor-glow"
+			aria-hidden="true"
+			style={`--glow-size: ${glowSize}; --glow-opacity-dark: ${cursorGlow.opacityDark}; --glow-opacity-light: ${cursorGlow.opacityLight};`}
+		/>
+	)
+}
+
+<style>
+	/* 星点画布：置于页面底色之上、壁纸与内容区之下 */
+	#starfield-canvas {
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 1;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 700ms ease;
+	}
+
+	:root.dark #starfield-canvas {
+		opacity: 1;
+	}
+
+	/* 鼠标跟随光晕：screen 混合只在深色区域显影，白底上自动隐身 */
+	#cursor-glow {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: var(--glow-size, 480px);
+		height: var(--glow-size, 480px);
+		border-radius: 50%;
+		z-index: 25;
+		pointer-events: none;
+		translate: -50% -50%;
+		transform: translate3d(-200vw, -200vw, 0);
+		opacity: 0;
+		transition: opacity 500ms ease;
+		will-change: transform, opacity;
+		/* 多段衰减，避免单段径向渐变在深色壁纸上出现「圆斑边界」 */
+		background: radial-gradient(
+			circle closest-side,
+			color-mix(in oklch, var(--primary) 62%, transparent) 0%,
+			color-mix(in oklch, var(--primary) 40%, transparent) 22%,
+			color-mix(in oklch, var(--primary) 22%, transparent) 40%,
+			color-mix(in oklch, var(--primary) 10%, transparent) 58%,
+			color-mix(in oklch, var(--primary) 4%, transparent) 76%,
+			transparent 100%
+		);
+		mix-blend-mode: screen;
+	}
+
+	#cursor-glow[data-visible="true"] {
+		opacity: var(--glow-opacity-light, 0.24);
+	}
+
+	:root.dark #cursor-glow[data-visible="true"] {
+		opacity: var(--glow-opacity-dark, 0.5);
+	}
+
+	/* 减弱动态：光晕直接不出现，星点由脚本静态绘制 */
+	@media (prefers-reduced-motion: reduce) {
+		#cursor-glow {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	import { interactiveEffectsConfig } from "@/config";
+
+	type Star = {
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		r: number;
+		alpha: number;
+		phase: number;
+		twinkle: number;
+		color: number; // 调色板索引
+	};
+
+	/** 指针与星点之间的一条连线（带生长/收回动画） */
+	type Link = {
+		star: number; // 星点在 stars 里的下标
+		progress: number; // 0 = 刚出现，1 = 完全展开
+		fading: boolean; // 正在收回
+	};
+
+	(function setupCursorAmbience() {
+		// 幂等：Swup 切页会重跑模块脚本，这里只初始化一次
+		if (window.__cursorAmbienceReady) return;
+		window.__cursorAmbienceReady = true;
+
+		const cfg = interactiveEffectsConfig;
+		const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+		const desktopQuery = window.matchMedia("(min-width: 768px)");
+
+		const canvas = document.getElementById(
+			"starfield-canvas",
+		) as HTMLCanvasElement | null;
+		const glowEl = document.getElementById("cursor-glow");
+		let ctx: CanvasRenderingContext2D | null = null;
+
+		// ── 星点状态 ────────────────────────────────────────────
+		const stars: Star[] = [];
+		let viewW = 0;
+		let viewH = 0;
+		// 星空调色板：由主题主色的 oklch 派生出的一组星色（暗色下才用）
+		let starColors: string[] = ["rgb(180, 240, 255)"];
+		let canvasDirty = false;
+		// 用户在设置面板里的开关（localStorage 覆盖配置默认值）
+		let userEnabled = readUserEnabled();
+
+		function readUserEnabled(): boolean {
+			const enable = cfg.starfield.enable;
+			const fallback =
+				typeof enable === "boolean" ? enable : (enable.desktop ?? false);
+			try {
+				const stored = localStorage.getItem("starfieldEnabled");
+				return stored === null ? fallback : stored === "true";
+			} catch {
+				return fallback;
+			}
+		}
+
+		// ── 指针 / 光晕状态 ─────────────────────────────────────
+		const pointer = { x: 0, y: 0, seen: false, inside: false };
+		let glowX = 0;
+		let glowY = 0;
+		let rafId: number | null = null;
+		let resizeRafId: number | null = null;
+		let colorSyncAt = 0;
+
+		// ── 连线状态 ────────────────────────────────────────────
+		// 最多 maxLinks 条；每条自己记录生长进度，指针换目标时旧线收回、新线长出
+		const links: Link[] = [];
+		const LINK_MS = 280; // 一条线从 0 长到 1（或收回）的时长
+		let lastFrameAt = 0;
+
+		const isDark = () =>
+			document.documentElement.classList.contains("dark");
+
+		const starfieldOn = () => {
+			if (!userEnabled) return false;
+			const enable = cfg.starfield.enable;
+			if (enable === true) return true;
+			if (enable === false) return false;
+			return desktopQuery.matches ? enable.desktop : enable.mobile;
+		};
+
+		/** 需要逐帧绘制星点 */
+		const starsAnimating = () =>
+			!!ctx &&
+			starfieldOn() &&
+			isDark() &&
+			!document.hidden &&
+			!reduceMotionQuery.matches;
+
+		/** 需要逐帧移动光晕 */
+		const glowActive = () =>
+			!!glowEl &&
+			cfg.cursorGlow.enable &&
+			finePointerQuery.matches &&
+			!reduceMotionQuery.matches;
+
+		/**
+		 * 生成星空调色板。
+		 * 从 --primary 的 oklch 里取出亮度/彩度/色相，再按若干偏移派生出一组星色：
+		 * 亮度都在 0.72 以上（星光要亮），色相绕主色散开（青→蓝→紫→粉，外加少量近白），
+		 * 这样铺满屏的细小星点才有「彩色星空」而不是一片单色灰点。
+		 * 用 1×1 canvas 让浏览器自己解析 CSS 颜色，不在 JS 里复刻色彩空间换算。
+		 */
+		const resolveStarPalette = () => {
+			const probe = document.createElement("canvas");
+			probe.width = 1;
+			probe.height = 1;
+			const pctx = probe.getContext("2d", { willReadFrequently: true });
+			if (!pctx) return;
+
+			const raw = getComputedStyle(document.documentElement)
+				.getPropertyValue("--primary")
+				.trim();
+			// --primary 形如 oklch(0.78 0.115 202)
+			const match = raw.match(
+				/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/i,
+			);
+			const base = match
+				? { l: Number(match[1]), c: Number(match[2]), h: Number(match[3]) }
+				: { l: 0.78, c: 0.11, h: 202 };
+
+			// [亮度偏移, 彩度比例, 色相偏移]
+			const specs: Array<[number, number, number]> = [
+				[0.12, 0.55, -58],
+				[0.16, 0.45, -30],
+				[0.06, 1.0, 0],
+				[0.14, 0.7, 26],
+				[0.10, 0.85, 52],
+				[0.16, 0.6, 84],
+				[0.2, 0.15, -12],
+				[0.18, 0.3, 18],
+			];
+
+			const colors: string[] = [];
+			for (const [dl, cScale, dh] of specs) {
+				const l = Math.min(0.98, base.l + dl);
+				const c = Math.max(0.01, base.c * cScale);
+				const h = (base.h + dh + 360) % 360;
+				pctx.clearRect(0, 0, 1, 1);
+				pctx.fillStyle = `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
+				pctx.fillRect(0, 0, 1, 1);
+				const d = pctx.getImageData(0, 0, 1, 1).data;
+				// 解析失败拿到纯黑就跳过，避免黑色星点
+				if (!d[3] || (d[0] + d[1] + d[2] === 0)) continue;
+				colors.push(`rgb(${d[0]}, ${d[1]}, ${d[2]})`);
+			}
+
+			if (colors.length > 0) starColors = colors;
+		};
+
+		const buildStars = () => {
+			stars.length = 0;
+			// 星点下标会变，旧连线全部作废
+			links.length = 0;
+			if (!viewW || !viewH) return;
+			const count = Math.max(
+				40,
+				Math.min(
+					cfg.starfield.maxParticles,
+					Math.round((viewW * viewH) / cfg.starfield.density),
+				),
+			);
+			const paletteSize = Math.max(1, starColors.length);
+			for (let i = 0; i < count; i++) {
+				const angle = Math.random() * Math.PI * 2;
+				const speed = cfg.starfield.drift * (0.4 + Math.random() * 0.6);
+				// 亮度分布偏暗：多数是背景微光，少数是真正亮的星
+				const bright = Math.random();
+				const alpha =
+					bright > 0.92
+						? 0.85 + Math.random() * 0.15
+						: bright > 0.7
+							? 0.45 + Math.random() * 0.3
+							: 0.2 + Math.random() * 0.3;
+				stars.push({
+					x: Math.random() * viewW,
+					y: Math.random() * viewH,
+					vx: Math.cos(angle) * speed,
+					vy: Math.sin(angle) * speed,
+					// 体积要小：0.4–1.2px，靠数量堆出星空感
+					r: 0.4 + Math.random() * Math.random() * 0.8,
+					alpha,
+					phase: Math.random() * Math.PI * 2,
+					twinkle: 0.3 + Math.random() * 1.6,
+					color: Math.floor(Math.random() * paletteSize),
+				});
+			}
+		};
+
+		const sizeCanvas = () => {
+			viewW = window.innerWidth;
+			viewH = window.innerHeight;
+			if (!canvas) return;
+			const dpr = Math.min(window.devicePixelRatio || 1, 2);
+			canvas.width = Math.round(viewW * dpr);
+			canvas.height = Math.round(viewH * dpr);
+			ctx = canvas.getContext("2d");
+			if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			buildStars();
+		};
+
+		const clearCanvas = () => {
+			if (!ctx) return;
+			ctx.clearRect(0, 0, viewW, viewH);
+			canvasDirty = false;
+		};
+
+		/** 静态星点：减弱动态时保留画面，但不逐帧重绘 */
+		const drawStaticStars = () => {
+			if (!ctx || !starfieldOn() || !isDark()) {
+				clearCanvas();
+				return;
+			}
+			ctx.clearRect(0, 0, viewW, viewH);
+			for (const s of stars) {
+				ctx.fillStyle = starColors[s.color] ?? starColors[0];
+				ctx.globalAlpha = s.alpha * 0.85;
+				ctx.beginPath();
+				ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			ctx.globalAlpha = 1;
+			canvasDirty = true;
+		};
+
+		/**
+		 * 逐帧绘制：
+		 * 1) 星点按「颜色 × 明暗」分组，每组一次 path + 一次 fill（紫/蓝/粉/白各一组，共十余次填充，
+		 *    比逐颗设 fillStyle 便宜得多，又保住了每颗自身的闪烁节奏）
+		 * 2) 只画「指针 → 星点」的连线，最多 maxLinks 条，星点彼此不连
+		 */
+		const drawStars = (time: number, dt: number) => {
+			if (!ctx) return;
+			ctx.clearRect(0, 0, viewW, viewH);
+
+			const paletteSize = starColors.length;
+			// [颜色索引][明暗档 0=暗 1=亮]
+			const buckets: Star[][][] = [];
+			for (let c = 0; c < paletteSize; c++) buckets.push([[], []]);
+
+			for (const s of stars) {
+				s.x += s.vx;
+				s.y += s.vy;
+				if (s.x < -4) s.x = viewW + 4;
+				else if (s.x > viewW + 4) s.x = -4;
+				if (s.y < -4) s.y = viewH + 4;
+				else if (s.y > viewH + 4) s.y = -4;
+
+				const pulse = Math.sin(time * 0.0011 * s.twinkle + s.phase);
+				const bucket = pulse > 0 ? 1 : 0;
+				(buckets[s.color] ?? buckets[0])[bucket].push(s);
+			}
+
+			// 1) 星点
+			for (let c = 0; c < paletteSize; c++) {
+				ctx.fillStyle = starColors[c];
+				for (let b = 0; b < 2; b++) {
+					const list = buckets[c][b];
+					if (!list.length) continue;
+					ctx.globalAlpha = b === 1 ? 0.92 : 0.4;
+					ctx.beginPath();
+					for (const s of list) {
+						const r = b === 1 ? s.r * 1.15 : s.r;
+						ctx.moveTo(s.x + r, s.y);
+						ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+					}
+					ctx.fill();
+				}
+			}
+
+			// 2) 指针连线：只有 2~3 条，且带生长/收回动画（见 drawLinks）
+			updateLinks(dt);
+			drawLinks();
+
+			ctx.globalAlpha = 1;
+			canvasDirty = true;
+		};
+
+		/**
+		 * 维护「指针 → 星点」的连线集合：
+		 * - 任意时刻最多 cfg.starfield.maxLinks 条（默认 3），大幅减少每帧 stroke 次数
+		 * - 已有连线带 30% 迟滞保留，避免指针微动就换线导致闪烁
+		 * - 新连线从 0 生长到 1，被替换的线缩回 0 后移除（动画过渡，不是瞬间连接）
+		 */
+		const updateLinks = (dt: number) => {
+			const maxLinks = Math.max(1, Math.trunc(cfg.starfield.maxLinks ?? 3));
+			const maxD = cfg.starfield.pointerDistance;
+			const maxD2 = maxD * maxD;
+			const hasPointer = pointer.seen && pointer.inside;
+
+			if (hasPointer) {
+				// 1) 收集范围内的星点，按距离升序
+				const candidates: Array<{ i: number; d2: number }> = [];
+				for (let i = 0; i < stars.length; i++) {
+					const s = stars[i];
+					const dx = s.x - pointer.x;
+					const dy = s.y - pointer.y;
+					const d2 = dx * dx + dy * dy;
+					if (d2 <= maxD2) candidates.push({ i, d2 });
+				}
+				candidates.sort((a, b) => a.d2 - b.d2);
+
+				// 2) 旧连线只要还在 1.3 倍半径内就保留（迟滞）
+				const target = new Set<number>();
+				for (const l of links) {
+					const s = stars[l.star];
+					if (!s) continue;
+					const dx = s.x - pointer.x;
+					const dy = s.y - pointer.y;
+					if (dx * dx + dy * dy <= maxD2 * 1.7) target.add(l.star);
+				}
+
+				// 3) 用最近的星点补满
+				for (const c of candidates) {
+					if (target.size >= maxLinks) break;
+					target.add(c.i);
+				}
+				// 保留的连线可能超过上限（半径放宽后）
+				if (target.size > maxLinks) {
+					const kept = Array.from(target).slice(0, maxLinks);
+					target.clear();
+					for (const i of kept) target.add(i);
+				}
+
+				// 4) 同步 fading 标记，新目标补进 links
+				for (const l of links) {
+					l.fading = !target.has(l.star);
+				}
+				for (const i of target) {
+					if (!links.some((l) => l.star === i)) {
+						links.push({ star: i, progress: 0, fading: false });
+					}
+				}
+			} else {
+				// 指针离开窗口：全部收回
+				for (const l of links) l.fading = true;
+			}
+
+			// 5) 推进进度
+			const step = dt / LINK_MS;
+			for (let i = links.length - 1; i >= 0; i--) {
+				const l = links[i];
+				l.progress += l.fading ? -step : step;
+				if (l.progress > 1) l.progress = 1;
+				if (l.progress <= 0) links.splice(i, 1);
+			}
+		};
+
+		const drawLinks = () => {
+			if (!ctx || !links.length) return;
+			ctx.strokeStyle = starColors[0] ?? "rgb(180, 240, 255)";
+			ctx.lineWidth = 0.9;
+			ctx.fillStyle = starColors[0] ?? "rgb(180, 240, 255)";
+
+			for (const l of links) {
+				const s = stars[l.star];
+				if (!s) continue;
+				const p = l.progress;
+				// easeOutCubic：起步快、末尾收得柔
+				const k = 1 - (1 - p) * (1 - p) * (1 - p);
+				const ex = pointer.x + (s.x - pointer.x) * k;
+				const ey = pointer.y + (s.y - pointer.y) * k;
+
+				ctx.globalAlpha = 0.34 * k;
+				ctx.beginPath();
+				ctx.moveTo(pointer.x, pointer.y);
+				ctx.lineTo(ex, ey);
+				ctx.stroke();
+
+				// 线头的小亮点：让线"够到"星点，而不是硬连过去
+				ctx.globalAlpha = 0.5 * k;
+				ctx.beginPath();
+				ctx.arc(ex, ey, 1.1, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			ctx.globalAlpha = 1;
+		};
+
+		const updateGlow = () => {
+			if (!glowEl || !pointer.seen) return false;
+			const dx = pointer.x - glowX;
+			const dy = pointer.y - glowY;
+			glowX += dx * 0.16;
+			glowY += dy * 0.16;
+			glowEl.style.transform = `translate3d(${glowX}px, ${glowY}px, 0)`;
+			return Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4;
+		};
+
+		const frame = (now: number) => {
+			rafId = null;
+
+			// dt 用于连线生长/收回；首帧与切回前台时钳制上限，避免大跳变
+			const dt = lastFrameAt ? Math.min(48, now - lastFrameAt) : 16;
+			lastFrameAt = now;
+
+			const starsActive = starsAnimating();
+			if (starsActive) drawStars(now, dt);
+			else if (canvasDirty) clearCanvas();
+
+			const glowMoving = glowActive() && updateGlow();
+
+			// 还有连线在生长/收回时也要继续跑，否则动画会卡在半路
+			const linksAnimating = links.some((l) => l.progress > 0 && l.progress < 1);
+
+			// 星点在动就继续跑；否则等光晕追平指针、连线收完再停，避免空闲时占着 rAF
+			if (starsActive || glowMoving || linksAnimating) {
+				rafId = requestAnimationFrame(frame);
+			}
+		};
+
+		const schedule = () => {
+			if (rafId !== null) return;
+			if (reduceMotionQuery.matches) {
+				drawStaticStars();
+				return;
+			}
+			if (!starsAnimating() && !glowActive()) {
+				if (canvasDirty) clearCanvas();
+				return;
+			}
+			rafId = requestAnimationFrame(frame);
+		};
+
+		// ── 初次装载 ────────────────────────────────────────────
+		if (canvas) {
+			sizeCanvas();
+			resolveStarPalette();
+			// 调色板依赖 --primary，必须先解析再建星
+			buildStars();
+		}
+
+		// ── 设置面板开关（实时生效，不需要刷新） ─────────────────
+		window.addEventListener("starfieldToggle", (event: Event) => {
+			const detail = (event as CustomEvent<{ enabled: boolean }>).detail;
+			if (!detail) return;
+			userEnabled = detail.enabled;
+			if (!userEnabled) {
+				if (rafId !== null) {
+					cancelAnimationFrame(rafId);
+					rafId = null;
+				}
+				clearCanvas();
+				return;
+			}
+			buildStars();
+			drawStaticStars();
+			schedule();
+		});
+
+		// ── 指针 ────────────────────────────────────────────────
+		const onPointerMove = (event: PointerEvent) => {
+			pointer.x = event.clientX;
+			pointer.y = event.clientY;
+			pointer.inside = true;
+			if (!pointer.seen) {
+				pointer.seen = true;
+				glowX = pointer.x;
+				glowY = pointer.y;
+				glowEl?.setAttribute("data-visible", "true");
+			}
+			schedule();
+		};
+
+		const onPointerLeave = () => {
+			pointer.inside = false;
+			glowEl?.removeAttribute("data-visible");
+		};
+
+		if (glowActive()) {
+			window.addEventListener("pointermove", onPointerMove, {
+				passive: true,
+			});
+			document.addEventListener("pointerleave", onPointerLeave);
+			document.addEventListener("pointerenter", () => {
+				pointer.inside = true;
+				glowEl?.setAttribute("data-visible", "true");
+			});
+		} else if (canvas) {
+			// 没有光晕时，断点/设备条件变化后仍需要指针位置来连线
+			window.addEventListener("pointermove", onPointerMove, {
+				passive: true,
+			});
+		}
+
+		// 移动端滚动时会触发 pointermove；星点只在可见时才连，开销可忽略
+		document.addEventListener("visibilitychange", () => {
+			if (document.hidden) {
+				if (rafId !== null) {
+					cancelAnimationFrame(rafId);
+					rafId = null;
+				}
+				clearCanvas();
+				return;
+			}
+			schedule();
+		});
+
+		// ── 主题 / 色相变化 ─────────────────────────────────────
+		new MutationObserver(() => {
+			const now = performance.now();
+			if (!isDark()) clearCanvas();
+			// 切主题/换色相会连带 --primary 变化：重算调色板并重新分配星色。
+			// 限流，避免连续写入触发大量 1×1 canvas 解析
+			if (now - colorSyncAt > 240) {
+				colorSyncAt = now;
+				resolveStarPalette();
+				buildStars();
+			}
+			schedule();
+		}).observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["class", "style"],
+		});
+
+		// ── 尺寸 ────────────────────────────────────────────────
+		window.addEventListener("resize", () => {
+			if (resizeRafId !== null) return;
+			resizeRafId = requestAnimationFrame(() => {
+				resizeRafId = null;
+				sizeCanvas();
+				schedule();
+			});
+		});
+
+		// 断点/偏好变化（例如拖动窗口跨 768px、切换「减弱动态」）
+		for (const query of [desktopQuery, reduceMotionQuery]) {
+			query.addEventListener("change", () => {
+				resizeRafId = null;
+				sizeCanvas();
+				schedule();
+			});
+		}
+
+		// 首帧：静态星点先行，之后由 rAF 接管（避免暗色下首屏空白一帧）
+		drawStaticStars();
+		schedule();
+	})();
+</script>

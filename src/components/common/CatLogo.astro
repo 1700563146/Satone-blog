@@ -1,0 +1,164 @@
+---
+// 导航栏「猫头」品牌标：黑药丸 + 猫脸（耳朵/眼睛/小嘴）
+//
+// 造型来源：黑底圆角药丸本身就是猫头，耳朵由同色三角从药丸上沿探出来，
+// 所以这里不画头部轮廓，只画耳朵、眼白、瞳孔和一张小嘴 —— 药丸提供黑色。
+// 眼睛：瞳孔跟随指针（限制在眼白内），并每隔几秒眨一次眼。
+// 亮/暗主题都成立：药丸恒为深色，眼白为白，文字为白。
+interface Props {
+	class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<svg
+	class:list={["cat-logo", className]}
+	viewBox="0 0 48 58"
+	aria-hidden="true"
+	focusable="false"
+	data-cat-logo
+>
+	<!-- 耳朵：药丸上沿以上 10 个单位，同色三角与药丸连成一体 -->
+	<path d="M6 21 L14.5 1.5 L25 19 Z" fill="var(--cat-ink, #141414)"></path>
+	<path d="M42 21 L33.5 1.5 L23 19 Z" fill="var(--cat-ink, #141414)"></path>
+	<!-- 耳内 -->
+	<path d="M9.7 18.4 L14.7 6.6 L21.2 17 Z" fill="var(--cat-pink, #f2a08c)"></path>
+	<path d="M38.3 18.4 L33.3 6.6 L26.8 17 Z" fill="var(--cat-pink, #f2a08c)"></path>
+
+	<!-- 左眼 -->
+	<g data-cat-eye>
+		<ellipse cx="16.4" cy="33" rx="7" ry="7.8" fill="#ffffff"></ellipse>
+		<g data-cat-pupil>
+			<circle cx="16.4" cy="33.2" r="3.2" fill="#141414"></circle>
+			<circle cx="15.4" cy="32" r="1.15" fill="#ffffff"></circle>
+		</g>
+	</g>
+	<!-- 右眼 -->
+	<g data-cat-eye>
+		<ellipse cx="31.6" cy="33" rx="7" ry="7.8" fill="#ffffff"></ellipse>
+		<g data-cat-pupil>
+			<circle cx="31.6" cy="33.2" r="3.2" fill="#141414"></circle>
+			<circle cx="30.6" cy="32" r="1.15" fill="#ffffff"></circle>
+		</g>
+	</g>
+
+	<!-- 小嘴 -->
+	<ellipse cx="24" cy="47.4" rx="2.3" ry="1.6" fill="var(--cat-pink, #f2a08c)"></ellipse>
+</svg>
+
+<style>
+	.cat-logo {
+		display: block;
+		/* 耳朵要探出药丸上沿，所以允许超出 viewBox */
+		overflow: visible;
+	}
+
+	.cat-logo [data-cat-pupil] {
+		transition: transform 90ms linear;
+	}
+
+	.cat-logo [data-cat-eye] {
+		transform-box: fill-box;
+		transform-origin: 50% 50%;
+		transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.cat-logo.is-blinking [data-cat-eye] {
+		transform: scaleY(0.1);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cat-logo [data-cat-pupil],
+		.cat-logo [data-cat-eye] {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	(function setupCatEyes() {
+		// 幂等：Swup 切页会重跑脚本
+		if (window.__catLogoReady) return;
+		window.__catLogoReady = true;
+
+		const logos = Array.from(
+			document.querySelectorAll<SVGSVGElement>("[data-cat-logo]"),
+		);
+		if (!logos.length) return;
+
+		const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+		// ── 瞳孔跟随 ────────────────────────────────────────────
+		// 眼白 rx 7 / ry 7.8，瞳孔 r 3.2 → 水平可移动 3.8、垂直 4.6，取 3.3 保守值
+		const MAX_OFFSET = 3.3;
+		const FAR = 220;
+
+		let pointerX = Number.NaN;
+		let pointerY = Number.NaN;
+		let rafId: number | null = null;
+
+		const apply = () => {
+			rafId = null;
+			if (Number.isNaN(pointerX) || reduceMotion.matches) return;
+			for (const svg of logos) {
+				const rect = svg.getBoundingClientRect();
+				if (!rect.width) continue;
+				const dx = pointerX - (rect.left + rect.width / 2);
+				const dy = pointerY - (rect.top + rect.height / 2);
+				const dist = Math.hypot(dx, dy) || 1;
+				const strength = Math.min(1, dist / FAR);
+				const ox = (dx / dist) * MAX_OFFSET * strength;
+				const oy = (dy / dist) * MAX_OFFSET * strength;
+				for (const pupil of svg.querySelectorAll<SVGGElement>(
+					"[data-cat-pupil]",
+				)) {
+					pupil.style.transform = `translate(${ox.toFixed(2)}px, ${oy.toFixed(2)}px)`;
+				}
+			}
+		};
+
+		if (finePointer.matches && !reduceMotion.matches) {
+			window.addEventListener(
+				"pointermove",
+				(event) => {
+					pointerX = event.clientX;
+					pointerY = event.clientY;
+					if (rafId === null) rafId = requestAnimationFrame(apply);
+				},
+				{ passive: true },
+			);
+		}
+
+		// ── 偶尔眨眼 ────────────────────────────────────────────
+		// 随机 3.5–8.5s 眨一次，1/5 概率连眨两下；页面不可见时不计时
+		const BLINK_MS = 130;
+
+		const blink = () => {
+			for (const svg of logos) svg.classList.add("is-blinking");
+			window.setTimeout(() => {
+				for (const svg of logos) svg.classList.remove("is-blinking");
+			}, BLINK_MS);
+		};
+
+		const scheduleBlink = () => {
+			const delay = 3500 + Math.random() * 5000;
+			window.setTimeout(() => {
+				if (document.hidden) {
+					scheduleBlink();
+					return;
+				}
+				if (!reduceMotion.matches) {
+					blink();
+					if (Math.random() < 0.2) {
+						window.setTimeout(blink, BLINK_MS + 90);
+					}
+				}
+				scheduleBlink();
+			}, delay);
+		};
+
+		if (!reduceMotion.matches) scheduleBlink();
+	})();
+</script>

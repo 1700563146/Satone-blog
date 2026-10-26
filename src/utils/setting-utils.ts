@@ -17,6 +17,7 @@ import {
 	backgroundWallpaper,
 	displaySettingsConfig,
 	expressiveCodeConfig,
+	interactiveEffectsConfig,
 	sakuraConfig,
 	siteConfig,
 } from "../config";
@@ -788,6 +789,46 @@ export function setSakuraEnabled(enabled: boolean): void {
 	// 实时切换樱花特效
 	window.dispatchEvent(
 		new CustomEvent("sakuraToggle", { detail: { enabled } }),
+	);
+}
+
+// Starfield（星空背景）functions
+export function getDefaultStarfieldEnabled(): boolean {
+	const enable = interactiveEffectsConfig.starfield.enable;
+	if (typeof enable === "boolean") return enable;
+	// 配置按设备区分时，面板开关用「桌面端」的默认值兜底
+	return enable.desktop ?? false;
+}
+
+export function getStoredStarfieldEnabled(): boolean {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.getItem !== "function"
+	) {
+		return getDefaultStarfieldEnabled();
+	}
+	const stored = localStorage.getItem("starfieldEnabled");
+	if (stored === null) {
+		return getDefaultStarfieldEnabled();
+	}
+	return stored === "true";
+}
+
+export function setStarfieldEnabled(enabled: boolean): void {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.setItem !== "function"
+	) {
+		return;
+	}
+	localStorage.setItem("starfieldEnabled", String(enabled));
+	document.documentElement.setAttribute(
+		"data-starfield-enabled",
+		String(enabled),
+	);
+	// 实时切换星空（CursorAmbience 监听）
+	window.dispatchEvent(
+		new CustomEvent("starfieldToggle", { detail: { enabled } }),
 	);
 }
 

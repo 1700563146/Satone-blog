@@ -1,0 +1,157 @@
+---
+// 阅读进度条：只在有正文的页面（文章页 / 关于页等含 .custom-md 的页面）顶部显示
+//
+// 性能约定：
+// - 滚动帧里只读 window.scrollY 与缓存好的文章文档坐标，不做布局读取
+//   （缓存由换页 / resize / 图片加载后重建，并在滚动中每 500ms 兜底刷新一次）
+// - 进度通过 transform: scaleX() 驱动，走合成层，不触发布局
+// - 与站内已有的 #progress-bar（切页加载条, z-9999, 3px）错开层次：本条约 2px 且 z-90，
+//   切页瞬间加载条压在它上面，阅读条仍留在原地
+import { interactiveEffectsConfig } from "@/config";
+
+const { readingProgress } = interactiveEffectsConfig;
+---
+
+{
+	readingProgress.enable && (
+		<div id="reading-progress" aria-hidden="true">
+			<span id="reading-progress-fill" />
+		</div>
+	)
+}
+
+<style>
+	#reading-progress {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		z-index: 90;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 320ms ease;
+	}
+
+	#reading-progress[data-visible="true"] {
+		opacity: 1;
+	}
+
+	#reading-progress-fill {
+		display: block;
+		height: 100%;
+		width: 100%;
+		transform: scaleX(var(--reading-progress, 0));
+		transform-origin: 0 50%;
+		background: linear-gradient(
+			90deg,
+			var(--primary) 0%,
+			color-mix(in oklch, var(--primary) 45%, white) 70%,
+			color-mix(in oklch, var(--primary) 25%, white) 100%
+		);
+		box-shadow: 0 0 10px color-mix(in oklch, var(--primary) 45%, transparent);
+		will-change: transform;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		#reading-progress {
+			transition: none;
+		}
+
+		#reading-progress-fill {
+			will-change: auto;
+		}
+	}
+</style>
+
+<script>
+	import { interactiveEffectsConfig } from "@/config";
+
+	(function setupReadingProgress() {
+		if (!interactiveEffectsConfig.readingProgress.enable) return;
+		if (window.__readingProgressReady) return;
+		window.__readingProgressReady = true;
+
+		const bar = document.getElementById("reading-progress");
+		if (!bar) return;
+
+		// 认为「读完」所需的可滚动距离；短于此视为一屏读完，不显示进度
+		const MIN_SPAN = 120;
+
+		let startEl: HTMLElement | null = null;
+		let endEl: HTMLElement | null = null;
+		let geo: { top: number; span: number } | null = null;
+		let rafId: number | null = null;
+		let remeasuredAt = 0;
+		let value = -1;
+
+		const resolveTargets = () => {
+			startEl =
+				document.getElementById("post-container") ??
+				document.querySelector<HTMLElement>(".custom-md");
+			endEl =
+				document.querySelector<HTMLElement>("#post-container .custom-md") ??
+				startEl;
+		};
+
+		const measure = () => {
+			remeasuredAt = performance.now();
+			if (!startEl || !endEl) {
+				geo = null;
+				return;
+			}
+			const scrollY = window.scrollY;
+			const top = startEl.getBoundingClientRect().top + scrollY;
+			const bottom = endEl.getBoundingClientRect().bottom + scrollY;
+			geo = { top, span: bottom - top - window.innerHeight };
+		};
+
+		const render = () => {
+			rafId = null;
+			if (!geo) {
+				bar.removeAttribute("data-visible");
+				return;
+			}
+			// 长文滚到一半时图片/字体可能改变高度，滚动中每 500ms 兜底重测一次
+			if (performance.now() - remeasuredAt > 500) measure();
+			if (!geo || geo.span < MIN_SPAN) {
+				bar.removeAttribute("data-visible");
+				return;
+			}
+			const raw = (window.scrollY - geo.top) / geo.span;
+			const next = Math.min(1, Math.max(0, raw));
+			if (Math.abs(next - value) < 0.001) {
+				if (next > 0.001) bar.setAttribute("data-visible", "true");
+				else bar.removeAttribute("data-visible");
+				return;
+			}
+			value = next;
+			bar.style.setProperty("--reading-progress", next.toFixed(4));
+			// 刚进入文章（约首屏）到读完之间显示，避免首页/列表页出现一条静止的线
+			if (next > 0.001) bar.setAttribute("data-visible", "true");
+			else bar.removeAttribute("data-visible");
+		};
+
+		const onScroll = () => {
+			if (rafId !== null) return;
+			rafId = requestAnimationFrame(render);
+		};
+
+		const refresh = () => {
+			resolveTargets();
+			measure();
+			value = -1;
+			onScroll();
+		};
+
+		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("resize", refresh, { passive: true });
+		window.addEventListener("load", refresh);
+
+		// Swup 换页：内容被替换，目标元素与高度都变了
+		document.addEventListener("astro:page-load", refresh);
+		document.addEventListener("swup:contentReplaced", refresh);
+
+		refresh();
+	})();
+</script>
