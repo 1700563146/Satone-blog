@@ -528,30 +528,35 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
 }
 
 .nav-compact {
-    /* 不设定位：让 .nav-capsule 相对 .navbar-row 定位（右边缘对齐） */
+    /* 作为胶囊的定位参照：胶囊贴着图标右侧弹出 */
+    position: relative;
     display: flex;
     align-items: center;
 }
 
 .nav-capsule {
     position: absolute;
-    top: calc(100% + 0.5rem);
-    right: 0;
+    /* 从图标右侧偏下弹出：横向起点贴着图标右缘，纵向让开图标本身，
+       这样不会盖住紧邻的其它图标（图标之间只有 8px 间距） */
+    top: calc(100% + 0.3rem);
+    left: calc(100% - 2rem);
     z-index: 60;
-    min-width: 10rem;
+    min-width: 6.5rem;
     padding: 0.4rem;
     border-radius: 1.5rem;
     border: 1px solid var(--card-border);
-    background-color: color-mix(in oklch, var(--card-bg) 88%, transparent);
+    background-color: color-mix(in oklch, var(--card-bg) 90%, transparent);
     box-shadow: var(--shadow-card-hover);
     backdrop-filter: blur(14px);
     opacity: 0;
     visibility: hidden;
-    transform: translate(8px, -4px) scale(0.97);
+    /* 收起时略向左上缩：看起来像从图标里抽出来 */
+    transform: translate(-6px, -4px) scale(0.94);
+    transform-origin: left top;
     transition:
-        opacity 170ms ease,
+        opacity 160ms ease,
         transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-        visibility 170ms;
+        visibility 160ms;
 }
 
 /* 从图标移向胶囊时补一条看不见的通道，别让悬停断掉 */
