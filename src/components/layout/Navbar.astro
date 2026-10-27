@@ -55,8 +55,7 @@ const navbarTitle = siteConfig.navbar.title || siteConfig.title;
 
 // 获取导航栏宽度配置
 const navbarWidthFull = siteConfig.navbar.widthFull ?? false;
-const navbarMenuAlign = siteConfig.navbar.menuAlign ?? "center";
-const isNavbarMenuCentered = navbarMenuAlign === "center";
+// 布局已固定：logo 在左、搜索居中偏左、导航链接 + 图标在右（menuAlign 不再参与计算）
 
 // 检查是否有任何显示设置可用（总开关关闭时下方各项均为 false）
 const isDisplaySettingsEnabled = displaySettingsConfig.enable;
@@ -220,21 +219,18 @@ const logoVariants = await Promise.all(
                     </div>
                 </a>
             )}
-            <div class:list={[
-                "hidden lg:flex items-center space-x-1 col-start-2",
-                isNavbarMenuCentered
-                    ? "justify-center"
-                    : "justify-start pl-2"
-            ]}>
-                {links.map((l) => {
-                    return <DropdownMenu link={l} />;
-                })}
+            {/* 搜索：占中间的弹性列并居中。右侧那一栏（导航链接 + 图标）比左边 logo 宽，
+                所以视觉上会落在页面中线偏左一点点 —— 就是想要的那种"偏左" */}
+            <div class="col-start-2 flex items-center justify-center min-w-0">
+                <Search client:load />
             </div>
-            <div class="flex col-start-3 justify-self-end">
-                <!--<SearchPanel client:load>-->
-                <Search
-                    client:load
-                />
+            {/* 右侧：导航链接在前、图标在后，整体贴右 */}
+            <div class="flex col-start-3 items-center justify-self-end">
+                <div class="hidden lg:flex items-center space-x-1 mr-2">
+                    {links.map((l) => {
+                        return <DropdownMenu link={l} />;
+                    })}
+                </div>
                 {musicPlayerConfig.showInNavbar && (
                     <button aria-label={i18n(I18nKey.music)} aria-controls="music-nav-panel" aria-expanded="false" class="btn-plain scale-animation rounded-lg h-11 w-11 active:scale-90" id="music-player-switch">
                         <Icon name="material-symbols:music-note-rounded" class="text-[1.25rem]"></Icon>

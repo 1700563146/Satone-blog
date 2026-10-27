@@ -112,8 +112,8 @@ export const siteConfig: SiteConfig = {
 		title: "Sato Blog",
 		// 全宽导航栏，导航栏是否占满屏幕宽度
 		widthFull: true,
-		// 导航菜单对齐方式，left：左对齐，center：居中
-		menuAlign: "center",
+		// 导航栏布局固定为：左 logo / 中间搜索（略偏左）/ 右侧导航链接 + 图标，
+		// 原来的 menuAlign（left/center）已不再生效，配置项一并去掉
 		// 导航栏图标和标题是否跟随主题色
 		followTheme: false,
 		// 导航栏模式navbarMode：

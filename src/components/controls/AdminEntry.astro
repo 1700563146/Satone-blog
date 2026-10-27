@@ -73,7 +73,9 @@
 
 		const sync = () => {
 			if (!box) return;
-			const enabled = localStorage.getItem(KEY) === "1";
+			// 默认就显示（作者自己用），只有明确关掉过（"0"）才隐藏；
+			// 在发布页里可以随时切换，切换后由 adminEntryChange 事件立刻同步
+			const enabled = localStorage.getItem(KEY) !== "0";
 			// 已经在发布页上就没必要再显示入口
 			const onAdminPage = location.pathname.startsWith("/admin/");
 			box.hidden = !enabled || onAdminPage;

@@ -1008,12 +1008,8 @@ const description = "站内发布工具：拖入 Markdown，提交成 post/<slug
 
 			// ── 快捷入口开关 ─────────────────────────────────────
 			const applyEntryToggle = () => {
-				// 第一次打开这个页面时默认开启快捷入口，省得用户还得找一圈
-				if (localStorage.getItem(TARGET.entryKey) === null) {
-					localStorage.setItem(TARGET.entryKey, "1");
-				}
-				const enabled = localStorage.getItem(TARGET.entryKey) === "1";
-				$("admin-entry-toggle").checked = enabled;
+				// 默认开启（没设置过就是开），只有明确关过（"0"）才是关
+				$("admin-entry-toggle").checked = localStorage.getItem(TARGET.entryKey) !== "0";
 			};
 
 			$("admin-entry-toggle").onchange = () => {
