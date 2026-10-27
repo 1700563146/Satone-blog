@@ -49,7 +49,7 @@ Mounted in `Layout.astro`, outside the Swup container, each idempotent via a `wi
 - `CursorAmbience.astro` — dark-mode starfield canvas drawn under the cards at `z-1`, two layers. (1) Dense background field of tiny twinkling stars (`bgDensity`/`bgMaxParticles`, ~400 at 1440×900) drawn as batched fills, never linked. (2) Sparse big glowing nodes (≤88, ~16.8k px² per star) rendered from pre-baked radial-gradient sprites plus a solid core, ~8% warm-tinted, joined by two link tiers: star↔star constellation lines (`starLinkDistance`, 150px, one batched path) and pointer↔star links (`pointerDistance`, 176px, brighter, capped at `maxLinks`, grown in over 280ms). Plus cursor glow (`z-25`).
 - `MagneticHover.astro` — pointer-proximity offset for buttons/cards via the `translate` property (never `transform`; that is reserved for entrance/hover animations)
 - `ReadingProgress.astro` — top 3px progress bar, only on pages that contain `.custom-md`
-- `StarfieldToggle.astro` — floating star button; hidden outside dark mode because stars are dark-only
+- `SettingsPanel.svelte` — the single「设置」panel in the navbar (gear icon): theme (light / dark / system) plus switches for 星空背景 / 指针光晕 / 指针连线. Choices persist in `localStorage` (`starfieldEnabled`, `cursorGlowEnabled`, `pointerLinksEnabled`) and are broadcast as CustomEvents (`starfieldToggle` / `cursorGlowToggle` / `pointerLinksToggle`) so `CursorAmbience` reacts live without a reload.
 - `AdminEntry.astro` — floating "write a post" pencil that links to `/admin/publish/` (default on, toggle stored in `localStorage.adminEntry`); also owns the `Ctrl/⌘+Shift+P` shortcut
 
 All of them respect `prefers-reduced-motion`, stop their rAF loops when idle or the tab is hidden, and skip touch devices where a pointer is required.

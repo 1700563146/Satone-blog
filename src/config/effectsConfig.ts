@@ -84,6 +84,7 @@ export const interactiveEffectsConfig: InteractiveEffectsConfig = {
 		maxParticles: 88, // 数量上限（对齐最初的设计：上限 88）
 		pointerDistance: 120, // 指针与星点连线的最大距离（更亮的那一级，短一点更贴身）
 		maxLinks: 5, // 同时存在的连线数量上限
+		pointerLinks: true, // 是否画「指针 → 星点」的连线（用户可在设置里关）
 		starLinkMax: 16, // 星座连线总条数上限（少而清楚）
 		bgDensity: 3200, // 背景繁星：每 3200 px² 一颗（1440×900 约 400 颗），只闪烁不连线
 		bgMaxParticles: 520, // 背景繁星数量上限

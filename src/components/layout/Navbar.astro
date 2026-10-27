@@ -5,7 +5,7 @@ import type { ImageMetadata } from "astro";
 import { Icon } from "astro-icon/components";
 import CatLogo from "@/components/common/CatLogo.astro";
 import DisplaySettings from "@/components/controls/DisplaySettingsIntegrated.svelte";
-import LightDarkSwitch from "@/components/controls/LightDarkSwitch.svelte";
+import SettingsPanel from "@/components/controls/SettingsPanel.svelte";
 import Search from "@/components/controls/Search.svelte";
 import MusicPlayer from "@/components/features/MusicPlayer.astro";
 import {
@@ -303,7 +303,7 @@ const logoVariants = await Promise.all(
                         </button>
                 )}
                 {/* @ts-ignore */}
-                <LightDarkSwitch client:load></LightDarkSwitch>
+                <SettingsPanel client:load></SettingsPanel>
                 <button aria-label="Menu" aria-controls="nav-menu-panel" aria-expanded="false" name="Nav Menu" class="btn-plain scale-animation rounded-lg w-11 h-11 active:scale-90 lg:hidden!" id="nav-menu-switch">
                     <Icon name="material-symbols:menu-rounded" class="text-[1.25rem]"></Icon>
                 </button>
@@ -394,21 +394,13 @@ function loadButtonScript() {
         }
     }
 
-    let themeSwitchBtn = document.getElementById("scheme-switch");
-    if (themeSwitchBtn) {
-        themeSwitchBtn.onclick = function () {
-            let themePanel = document.getElementById("theme-mode-panel");
-            if (themePanel) {
-                themePanel.classList.toggle("float-panel-closed");
-            }
-        };
-    }
+    // 主题切换已并入导航栏的「设置」面板（SettingsPanel.svelte 自己管开合），这里不再处理
 
     document.addEventListener("click", function(event) {
         // nav-menu-panel 不再走点击外部关闭：面板现在覆盖全屏（inset-0），任意点击都在面板内，
         // 该监听永不触发；关闭由抽屉自己的遮罩点击/Document 委托负责。
-        const panels = ["display-setting", "music-nav-panel", "theme-mode-panel"];
-        const buttons = ["display-settings-switch", "music-player-switch", "scheme-switch"];
+        const panels = ["display-setting", "music-nav-panel"];
+        const buttons = ["display-settings-switch", "music-player-switch"];
 
         panels.forEach((id, index) => {
             const panel = document.getElementById(id);

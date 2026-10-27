@@ -177,6 +177,15 @@ const glowSize = `${cursorGlow.size}px`;
 		let canvasDirty = false;
 		// 用户在设置面板里的开关（localStorage 覆盖配置默认值）
 		let userEnabled = readUserEnabled();
+		// 设置面板里的另外两个开关：指针光晕、指针连线（默认读配置）
+		let glowUserEnabled =
+			localStorage.getItem("cursorGlowEnabled") === null
+				? cfg.cursorGlow.enable !== false
+				: localStorage.getItem("cursorGlowEnabled") === "true";
+		let linksUserEnabled =
+			localStorage.getItem("pointerLinksEnabled") === null
+				? cfg.starfield.pointerLinks !== false
+				: localStorage.getItem("pointerLinksEnabled") === "true";
 
 		function readUserEnabled(): boolean {
 			const enable = cfg.starfield.enable;
@@ -232,6 +241,7 @@ const glowSize = `${cursorGlow.size}px`;
 		const glowActive = () =>
 			!!glowEl &&
 			cfg.cursorGlow.enable &&
+			glowUserEnabled &&
 			finePointerQuery.matches &&
 			!reduceMotionQuery.matches;
 
@@ -642,6 +652,11 @@ const glowSize = `${cursorGlow.size}px`;
 		 * - 线的起点永远是当前指针坐标，所以「生长」不会带来跟手延迟
 		 */
 		const updateLinks = (dt: number) => {
+			// 设置里关掉指针连线：清空并跳过
+			if (!linksUserEnabled) {
+				if (links.length) links.length = 0;
+				return;
+			}
 			const maxLinks = Math.max(1, Math.trunc(cfg.starfield.maxLinks ?? 3));
 			const maxD = cfg.starfield.pointerDistance;
 			const maxD2 = maxD * maxD;
@@ -785,6 +800,24 @@ const glowSize = `${cursorGlow.size}px`;
 			// 调色板依赖 --primary，必须先解析再建星
 			buildStars();
 		}
+
+		// ── 指针光晕 / 指针连线开关（设置面板） ──────────────────
+		window.addEventListener("cursorGlowToggle", (event: Event) => {
+			const detail = (event as CustomEvent<{ enabled: boolean }>).detail;
+			if (!detail) return;
+			glowUserEnabled = detail.enabled;
+			if (glowUserEnabled) {
+				glowEl?.setAttribute("data-visible", "true");
+			} else {
+				glowEl?.removeAttribute("data-visible");
+			}
+		});
+		window.addEventListener("pointerLinksToggle", (event: Event) => {
+			const detail = (event as CustomEvent<{ enabled: boolean }>).detail;
+			if (!detail) return;
+			linksUserEnabled = detail.enabled;
+			if (!linksUserEnabled) links.length = 0;
+		});
 
 		// ── 设置面板开关（实时生效，不需要刷新） ─────────────────
 		window.addEventListener("starfieldToggle", (event: Event) => {

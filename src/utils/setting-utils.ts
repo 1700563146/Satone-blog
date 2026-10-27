@@ -832,6 +832,62 @@ export function setStarfieldEnabled(enabled: boolean): void {
 	);
 }
 
+// Cursor glow（指针光晕）functions
+export function getStoredCursorGlowEnabled(): boolean {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.getItem !== "function"
+	) {
+		return interactiveEffectsConfig.cursorGlow.enable !== false;
+	}
+	const stored = localStorage.getItem("cursorGlowEnabled");
+	if (stored === null) {
+		return interactiveEffectsConfig.cursorGlow.enable !== false;
+	}
+	return stored === "true";
+}
+
+export function setCursorGlowEnabled(enabled: boolean): void {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.setItem !== "function"
+	) {
+		return;
+	}
+	localStorage.setItem("cursorGlowEnabled", String(enabled));
+	window.dispatchEvent(
+		new CustomEvent("cursorGlowToggle", { detail: { enabled } }),
+	);
+}
+
+// Pointer links（指针与星点的连线）functions
+export function getStoredPointerLinksEnabled(): boolean {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.getItem !== "function"
+	) {
+		return interactiveEffectsConfig.starfield.pointerLinks !== false;
+	}
+	const stored = localStorage.getItem("pointerLinksEnabled");
+	if (stored === null) {
+		return interactiveEffectsConfig.starfield.pointerLinks !== false;
+	}
+	return stored === "true";
+}
+
+export function setPointerLinksEnabled(enabled: boolean): void {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.setItem !== "function"
+	) {
+		return;
+	}
+	localStorage.setItem("pointerLinksEnabled", String(enabled));
+	window.dispatchEvent(
+		new CustomEvent("pointerLinksToggle", { detail: { enabled } }),
+	);
+}
+
 // Banner title functions
 export function getDefaultBannerTitleEnabled(): boolean {
 	return backgroundWallpaper.common?.homeText?.enable ?? true;
