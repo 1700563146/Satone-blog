@@ -80,10 +80,11 @@ export const interactiveEffectsConfig: InteractiveEffectsConfig = {
 			// 移动端默认关闭：没有指针就没有连线，只剩耗电的逐帧绘制
 			mobile: false,
 		},
-		density: 3200, // 每 3200 px² 一颗星（约 1920×1080 屏约 650 颗，按上限截断）
-		maxParticles: 420, // 数量上限，超大屏也不会失控
-		pointerDistance: 170, // 指针与星点连线的最大距离
+		density: 16800, // 每 19600 px² 一颗星（1440×900 约 66 颗，少量大节点才看得出星座）
+		maxParticles: 88, // 数量上限（对齐最初的设计：上限 88）
+		pointerDistance: 176, // 指针与星点连线的最大距离（更亮的那一级）
 		maxLinks: 3, // 同时存在的连线数量上限（3 条最清爽）
+		starLinkDistance: 150, // 星点之间连线的最大距离（星座网）
 		drift: 0.055, // 极慢漂移，几乎察觉不到移动
 	},
 

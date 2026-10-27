@@ -46,7 +46,7 @@ All features are toggled/configured via TypeScript files in `src/config/`, expor
 
 Mounted in `Layout.astro`, outside the Swup container, each idempotent via a `window.__*Ready` guard:
 
-- `CursorAmbience.astro` — dark-mode starfield canvas drawn under the cards at `z-1`: multi-colour twinkling stars + cursor-to-star links capped at maxLinks that grow into place (280ms easeOutCubic, hysteresis kept so links do not flicker) + cursor glow (`z-25`)
+- `CursorAmbience.astro` — dark-mode starfield canvas drawn under the cards at `z-1`. Stars are sparse big glowing nodes (≤88, ~16.8k px² per star) rendered from pre-baked radial-gradient sprites plus a solid core, ~8% warm-tinted. Two link tiers: star↔star constellation lines (`starLinkDistance`, 150px, one batched path) and pointer↔star links (`pointerDistance`, 176px, brighter, capped at `maxLinks`, grown in over 280ms). Plus cursor glow (`z-25`).
 - `MagneticHover.astro` — pointer-proximity offset for buttons/cards via the `translate` property (never `transform`; that is reserved for entrance/hover animations)
 - `ReadingProgress.astro` — top 3px progress bar, only on pages that contain `.custom-md`
 - `StarfieldToggle.astro` — floating star button; hidden outside dark mode because stars are dark-only

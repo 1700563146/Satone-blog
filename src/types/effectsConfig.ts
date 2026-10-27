@@ -45,6 +45,7 @@ export type StarfieldConfig = {
 	maxParticles: number; // 星点数量上限（性能封顶）
 	pointerDistance: number; // 指针与星点连线的最大距离（px）
 	maxLinks: number; // 同时存在的连线数量上限（2~3 条最清爽）
+	starLinkDistance: number; // 星点之间连线的最大距离（px），组成星座网
 	drift: number; // 星点漂移速度（px/帧），0 为静止
 };
 

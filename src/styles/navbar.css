@@ -545,9 +545,9 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
     color: inherit;
     background-color: transparent;
     transition:
-        background-color 180ms ease,
-        color 180ms ease,
-        gap 260ms cubic-bezier(0.22, 1, 0.36, 1);
+        background-color 240ms ease,
+        color 240ms ease,
+        gap 420ms cubic-bezier(0.33, 0, 0.25, 1);
 }
 
 .nav-pill-icon {
@@ -566,9 +566,9 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
     font-weight: 700;
     line-height: 1;
     transition:
-        max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 160ms ease,
-        margin-left 280ms cubic-bezier(0.22, 1, 0.36, 1);
+        max-width 460ms cubic-bezier(0.33, 0, 0.25, 1),
+        opacity 280ms ease,
+        margin-left 460ms cubic-bezier(0.33, 0, 0.25, 1);
 }
 
 /* 悬停 / 键盘聚焦 / 点击固定展开 —— 三种情况都变成「图标 + 文字」的胶囊 */

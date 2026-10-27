@@ -108,6 +108,8 @@ const glowSize = `${cursorGlow.size}px`;
 		phase: number;
 		twinkle: number;
 		color: number; // 调色板索引
+		glow: number; // 光晕半径倍率（大节点更亮更大）
+		warm: boolean; // 暖色星（琥珀/珊瑚），整片星空里只留几颗
 	};
 
 	/** 指针与星点之间的一条连线（带生长 / 收回动画） */
@@ -166,6 +168,13 @@ const glowSize = `${cursorGlow.size}px`;
 		const links: Link[] = [];
 		const LINK_MS = 280; // 一条线从 0 长到 1（或收回）的时长
 		let lastFrameAt = 0;
+
+		// ── 发光贴图 ────────────────────────────────────────────
+		// 每颗星都是一团柔光：逐帧 createRadialGradient 太贵，
+		// 预渲染「颜色 × 暖/冷」几张精灵图，绘制时按星点大小缩放 drawImage
+		const GLOW_TEX_R = 24; // 贴图半径（px）
+		let glowSprites: HTMLCanvasElement[] = [];
+		let warmSprite: HTMLCanvasElement | null = null;
 
 		const isDark = () =>
 			document.documentElement.classList.contains("dark");
@@ -245,6 +254,47 @@ const glowSize = `${cursorGlow.size}px`;
 			}
 
 			if (colors.length > 0) starColors = colors;
+			buildGlowSprites();
+		};
+
+		const withAlpha = (color: string, a: number) => {
+			const m = /rgba?\(([^)]+)\)/.exec(color);
+			if (!m) return color;
+			const parts = m[1].split(",").map((v) => v.trim());
+			return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${a})`;
+		};
+
+		/** 预渲染发光精灵：中心实心、向外渐隐到透明 */
+		const makeGlowSprite = (color: string) => {
+			const size = GLOW_TEX_R * 2;
+			const el = document.createElement("canvas");
+			el.width = size;
+			el.height = size;
+			const g = el.getContext("2d");
+			if (!g) return el;
+			const grad = g.createRadialGradient(
+				GLOW_TEX_R,
+				GLOW_TEX_R,
+				0,
+				GLOW_TEX_R,
+				GLOW_TEX_R,
+				GLOW_TEX_R,
+			);
+			grad.addColorStop(0, withAlpha(color, 1));
+			grad.addColorStop(0.18, withAlpha(color, 0.85));
+			grad.addColorStop(0.42, withAlpha(color, 0.28));
+			grad.addColorStop(1, withAlpha(color, 0));
+			g.fillStyle = grad;
+			g.beginPath();
+			g.arc(GLOW_TEX_R, GLOW_TEX_R, GLOW_TEX_R, 0, Math.PI * 2);
+			g.fill();
+			return el;
+		};
+
+		const buildGlowSprites = () => {
+			glowSprites = starColors.map((color) => makeGlowSprite(color));
+			// 暖色星：琥珀偏珊瑚，整片星空里 5% 左右，像参考图里那颗橘点
+			warmSprite = makeGlowSprite("rgb(255, 186, 128)");
 		};
 
 		const buildStars = () => {
@@ -253,7 +303,7 @@ const glowSize = `${cursorGlow.size}px`;
 			links.length = 0;
 			if (!viewW || !viewH) return;
 			const count = Math.max(
-				40,
+				24,
 				Math.min(
 					cfg.starfield.maxParticles,
 					Math.round((viewW * viewH) / cfg.starfield.density),
@@ -263,25 +313,38 @@ const glowSize = `${cursorGlow.size}px`;
 			for (let i = 0; i < count; i++) {
 				const angle = Math.random() * Math.PI * 2;
 				const speed = cfg.starfield.drift * (0.4 + Math.random() * 0.6);
-				// 亮度分布偏暗：多数是背景微光，少数是真正亮的星
+				// 亮度分布：多数是中等亮度的节点，少量暗的做底噪
 				const bright = Math.random();
 				const alpha =
-					bright > 0.92
-						? 0.85 + Math.random() * 0.15
-						: bright > 0.7
-							? 0.45 + Math.random() * 0.3
-							: 0.2 + Math.random() * 0.3;
+					bright > 0.9
+						? 0.9 + Math.random() * 0.1
+						: bright > 0.6
+							? 0.6 + Math.random() * 0.25
+							: 0.3 + Math.random() * 0.25;
+				// 三档：背景微尘（不参与连线，只做底噪）/ 普通节点 / 大节点
+				const roll = Math.random();
+				const tiny = roll < 0.38;
+				const big = roll > 0.78;
 				stars.push({
 					x: Math.random() * viewW,
 					y: Math.random() * viewH,
 					vx: Math.cos(angle) * speed,
 					vy: Math.sin(angle) * speed,
-					// 体积要小：0.4–1.2px，靠数量堆出星空感
-					r: 0.4 + Math.random() * Math.random() * 0.8,
-					alpha,
+					r: tiny
+						? 0.35 + Math.random() * 0.45
+						: big
+							? 2.1 + Math.random() * 1.6
+							: 1.1 + Math.random() * 1.1,
+					alpha: tiny ? 0.35 + Math.random() * 0.3 : alpha,
 					phase: Math.random() * Math.PI * 2,
-					twinkle: 0.3 + Math.random() * 1.6,
+					twinkle: 0.3 + Math.random() * 1.2,
 					color: Math.floor(Math.random() * paletteSize),
+					glow: tiny
+						? 1.4 + Math.random() * 0.8
+						: big
+							? 4.6 + Math.random() * 2.6
+							: 2.6 + Math.random() * 1.4,
+					warm: !tiny && Math.random() < 0.08,
 				});
 			}
 		};
@@ -311,15 +374,48 @@ const glowSize = `${cursorGlow.size}px`;
 				return;
 			}
 			ctx.clearRect(0, 0, viewW, viewH);
+			drawStarLinks(0.55);
 			for (const s of stars) {
-				ctx.fillStyle = starColors[s.color] ?? starColors[0];
-				ctx.globalAlpha = s.alpha * 0.85;
-				ctx.beginPath();
-				ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-				ctx.fill();
+				const sprite = s.warm ? warmSprite : glowSprites[s.color];
+				if (sprite) {
+					const R = s.r * s.glow;
+					ctx.globalAlpha = s.alpha * 0.75;
+					ctx.drawImage(sprite, s.x - R, s.y - R, R * 2, R * 2);
+				}
 			}
 			ctx.globalAlpha = 1;
 			canvasDirty = true;
+		};
+
+		/**
+		 * 星点之间的连线（星座）：132px 内两两相连，一次 path 一次 stroke。
+		 * 星点只有几十颗，O(n²) 每帧算距离也就几千次比较，可以忽略。
+		 */
+		const drawStarLinks = (alphaScale: number) => {
+			if (!ctx) return;
+			const maxD = cfg.starfield.starLinkDistance;
+			const maxD2 = maxD * maxD;
+			// 连线颜色单独定：偏冷的蓝白，和参考图那种「细而亮的线」一致
+			ctx.strokeStyle = "rgba(186, 206, 246, 0.62)";
+			ctx.lineWidth = 1;
+			ctx.globalAlpha = alphaScale;
+			ctx.beginPath();
+			for (let a = 0; a < stars.length; a++) {
+				const A = stars[a];
+				// 背景微尘不参与连线，否则整片都是碎线
+				if (A.r < 1) continue;
+				for (let b = a + 1; b < stars.length; b++) {
+					const B = stars[b];
+					if (B.r < 1) continue;
+					const dx = B.x - A.x;
+					const dy = B.y - A.y;
+					if (dx * dx + dy * dy > maxD2) continue;
+					ctx.moveTo(A.x, A.y);
+					ctx.lineTo(B.x, B.y);
+				}
+			}
+			ctx.stroke();
+			ctx.globalAlpha = 1;
 		};
 
 		/**
@@ -332,45 +428,41 @@ const glowSize = `${cursorGlow.size}px`;
 			if (!ctx) return;
 			ctx.clearRect(0, 0, viewW, viewH);
 
-			const paletteSize = starColors.length;
-			// [颜色索引][明暗档 0=暗 1=亮]
-			const buckets: Star[][][] = [];
-			for (let c = 0; c < paletteSize; c++) buckets.push([[], []]);
-
+			// 1) 先推进漂移，位置变了连线才对得上
 			for (const s of stars) {
 				s.x += s.vx;
 				s.y += s.vy;
-				if (s.x < -4) s.x = viewW + 4;
-				else if (s.x > viewW + 4) s.x = -4;
-				if (s.y < -4) s.y = viewH + 4;
-				else if (s.y > viewH + 4) s.y = -4;
-
-				const pulse = Math.sin(time * 0.0011 * s.twinkle + s.phase);
-				const bucket = pulse > 0 ? 1 : 0;
-				(buckets[s.color] ?? buckets[0])[bucket].push(s);
+				if (s.x < -6) s.x = viewW + 6;
+				else if (s.x > viewW + 6) s.x = -6;
+				if (s.y < -6) s.y = viewH + 6;
+				else if (s.y > viewH + 6) s.y = -6;
 			}
 
-			// 1) 星点
-			for (let c = 0; c < paletteSize; c++) {
-				ctx.fillStyle = starColors[c];
-				for (let b = 0; b < 2; b++) {
-					const list = buckets[c][b];
-					if (!list.length) continue;
-					ctx.globalAlpha = b === 1 ? 0.92 : 0.4;
+			// 2) 星点之间的星座连线（压在星点下面，微微呼吸）
+			drawStarLinks(0.75 + 0.25 * Math.sin(time * 0.0006));
+
+			// 3) 星点本体：柔光贴图 + 实心亮核（有核心才像「星」，不然只是一团雾）
+			for (const s of stars) {
+				const sprite = s.warm ? warmSprite : glowSprites[s.color];
+				if (!sprite) continue;
+				const R = s.r * s.glow;
+				const twinkle = 0.82 + 0.18 * Math.sin(time * 0.0011 * s.twinkle + s.phase);
+				const a = Math.min(1, s.alpha * twinkle);
+				ctx.globalAlpha = a * 0.85;
+				ctx.drawImage(sprite, s.x - R, s.y - R, R * 2, R * 2);
+				if (s.r >= 1) {
+					ctx.globalAlpha = a;
+					ctx.fillStyle = s.warm ? "rgb(255, 226, 196)" : "rgb(236, 243, 255)";
 					ctx.beginPath();
-					for (const s of list) {
-						const r = b === 1 ? s.r * 1.15 : s.r;
-						ctx.moveTo(s.x + r, s.y);
-						ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-					}
+					ctx.arc(s.x, s.y, s.r * 0.62, 0, Math.PI * 2);
 					ctx.fill();
 				}
 			}
+			ctx.globalAlpha = 1;
 
-			// 2) 指针连线：最多 maxLinks 条，带生长 / 收回动画（见 drawLinks）
+			// 4) 指针连线：最多 maxLinks 条，带生长 / 收回动画（见 drawLinks）
 			updateLinks(dt);
 			drawLinks();
-			ctx.globalAlpha = 1;
 			canvasDirty = true;
 		};
 
@@ -444,9 +536,9 @@ const glowSize = `${cursorGlow.size}px`;
 
 		const drawLinks = () => {
 			if (!ctx || !links.length) return;
-			const color = starColors[0] ?? "rgb(180, 240, 255)";
-			ctx.strokeStyle = color;
-			ctx.lineWidth = 0.9;
+			const color = starColors[0] ?? "rgb(190, 215, 255)";
+			ctx.strokeStyle = withAlpha(color, 1);
+			ctx.lineWidth = 1;
 			ctx.fillStyle = color;
 
 			for (const l of links) {
@@ -457,14 +549,14 @@ const glowSize = `${cursorGlow.size}px`;
 				const ex = pointer.x + (star.x - pointer.x) * k;
 				const ey = pointer.y + (star.y - pointer.y) * k;
 
-				ctx.globalAlpha = 0.34 * k;
+				ctx.globalAlpha = 0.62 * k;
 				ctx.beginPath();
 				ctx.moveTo(pointer.x, pointer.y);
 				ctx.lineTo(ex, ey);
 				ctx.stroke();
 
 				// 线头的小亮点：让线「够到」星点，而不是硬连过去
-				ctx.globalAlpha = 0.5 * k;
+				ctx.globalAlpha = 0.85 * k;
 				ctx.beginPath();
 				ctx.arc(ex, ey, 1.1, 0, Math.PI * 2);
 				ctx.fill();
