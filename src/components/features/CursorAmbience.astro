@@ -112,6 +112,19 @@ const glowSize = `${cursorGlow.size}px`;
 		warm: boolean; // 暖色星（琥珀/珊瑚），整片星空里只留几颗
 	};
 
+	/** 背景繁星：数量多、体积小，不参与任何连线，只负责「璀璨」的底噪 */
+	type BgStar = {
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		r: number;
+		alpha: number;
+		phase: number;
+		twinkle: number;
+		color: number;
+	};
+
 	/** 指针与星点之间的一条连线（带生长 / 收回动画） */
 	type Link = {
 		star: number; // 星点在 stars 里的下标
@@ -136,7 +149,9 @@ const glowSize = `${cursorGlow.size}px`;
 		let ctx: CanvasRenderingContext2D | null = null;
 
 		// ── 星点状态 ────────────────────────────────────────────
+		// stars = 会有连线的「节点」；bgStars = 铺满背景的小星点（不连线）
 		const stars: Star[] = [];
+		const bgStars: BgStar[] = [];
 		let viewW = 0;
 		let viewH = 0;
 		// 星空调色板：由主题主色的 oklch 派生出的一组星色（暗色下才用）
@@ -299,6 +314,7 @@ const glowSize = `${cursorGlow.size}px`;
 
 		const buildStars = () => {
 			stars.length = 0;
+			bgStars.length = 0;
 			// 星点下标会变，旧连线全部作废
 			links.length = 0;
 			if (!viewW || !viewH) return;
@@ -347,6 +363,31 @@ const glowSize = `${cursorGlow.size}px`;
 					warm: !tiny && Math.random() < 0.08,
 				});
 			}
+
+			// 背景繁星：数量按面积算（~3200px² 一颗），只做闪烁与漂移，不参与连线
+			const bgCount = Math.max(
+				80,
+				Math.min(
+					cfg.starfield.bgMaxParticles,
+					Math.round((viewW * viewH) / cfg.starfield.bgDensity),
+				),
+			);
+			for (let i = 0; i < bgCount; i++) {
+				const angle = Math.random() * Math.PI * 2;
+				const speed = cfg.starfield.drift * (0.4 + Math.random() * 0.6);
+				bgStars.push({
+					x: Math.random() * viewW,
+					y: Math.random() * viewH,
+					vx: Math.cos(angle) * speed,
+					vy: Math.sin(angle) * speed,
+					// 小：0.35–1.0px，靠数量堆出满天星
+					r: 0.35 + Math.random() * 0.65,
+					alpha: 0.16 + Math.random() * 0.44,
+					phase: Math.random() * Math.PI * 2,
+					twinkle: 0.3 + Math.random() * 1.8,
+					color: Math.floor(Math.random() * paletteSize),
+				});
+			}
 		};
 
 		const sizeCanvas = () => {
@@ -374,6 +415,21 @@ const glowSize = `${cursorGlow.size}px`;
 				return;
 			}
 			ctx.clearRect(0, 0, viewW, viewH);
+			// 静态模式：背景繁星直接按各自的 alpha 画一遍（不闪烁）
+			const paletteSize = Math.max(1, starColors.length);
+			for (let c = 0; c < paletteSize; c++) {
+				const list = bgStars.filter((s) => s.color === c);
+				if (!list.length) continue;
+				ctx.fillStyle = starColors[c];
+				ctx.globalAlpha = 0.5;
+				ctx.beginPath();
+				for (const s of list) {
+					ctx.moveTo(s.x + s.r, s.y);
+					ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+				}
+				ctx.fill();
+			}
+			ctx.globalAlpha = 1;
 			drawStarLinks(0.55);
 			for (const s of stars) {
 				const sprite = s.warm ? warmSprite : glowSprites[s.color];
@@ -388,7 +444,49 @@ const glowSize = `${cursorGlow.size}px`;
 		};
 
 		/**
-		 * 星点之间的连线（星座）：132px 内两两相连，一次 path 一次 stroke。
+		 * 背景繁星：按「颜色 × 明暗」分桶批量画（几种颜色 × 两个明暗档 = 十几次 fill），
+		 * 几百颗也只是十来次填充，比逐颗设 fillStyle 便宜得多。
+		 */
+		const bgBuckets: BgStar[][][] = [];
+		const drawBgStars = (time: number) => {
+			if (!ctx || bgStars.length === 0) return;
+			const paletteSize = Math.max(1, starColors.length);
+			while (bgBuckets.length < paletteSize) bgBuckets.push([[], []]);
+			for (const b of bgBuckets) {
+				b[0].length = 0;
+				b[1].length = 0;
+			}
+
+			for (const s of bgStars) {
+				s.x += s.vx;
+				s.y += s.vy;
+				if (s.x < -3) s.x = viewW + 3;
+				else if (s.x > viewW + 3) s.x = -3;
+				if (s.y < -3) s.y = viewH + 3;
+				else if (s.y > viewH + 3) s.y = -3;
+				const pulse = Math.sin(time * 0.0012 * s.twinkle + s.phase);
+				(bgBuckets[s.color] ?? bgBuckets[0])[pulse > 0 ? 1 : 0].push(s);
+			}
+
+			for (let c = 0; c < paletteSize; c++) {
+				ctx.fillStyle = starColors[c];
+				for (let bucket = 0; bucket < 2; bucket++) {
+					const list = bgBuckets[c][bucket];
+					if (!list.length) continue;
+					ctx.globalAlpha = bucket === 1 ? 0.85 : 0.38;
+					ctx.beginPath();
+					for (const s of list) {
+						ctx.moveTo(s.x + s.r, s.y);
+						ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+					}
+					ctx.fill();
+				}
+			}
+			ctx.globalAlpha = 1;
+		};
+
+		/**
+		 * 星点之间的连线（星座）：150px 内两两相连，一次 path 一次 stroke。
 		 * 星点只有几十颗，O(n²) 每帧算距离也就几千次比较，可以忽略。
 		 */
 		const drawStarLinks = (alphaScale: number) => {
@@ -438,10 +536,13 @@ const glowSize = `${cursorGlow.size}px`;
 				else if (s.y > viewH + 6) s.y = -6;
 			}
 
-			// 2) 星点之间的星座连线（压在星点下面，微微呼吸）
+			// 2) 背景繁星（最底层，铺满画面的底噪）
+			drawBgStars(time);
+
+			// 3) 星点之间的星座连线（压在星点下面，微微呼吸）
 			drawStarLinks(0.75 + 0.25 * Math.sin(time * 0.0006));
 
-			// 3) 星点本体：柔光贴图 + 实心亮核（有核心才像「星」，不然只是一团雾）
+			// 4) 星点本体：柔光贴图 + 实心亮核（有核心才像「星」，不然只是一团雾）
 			for (const s of stars) {
 				const sprite = s.warm ? warmSprite : glowSprites[s.color];
 				if (!sprite) continue;
@@ -460,7 +561,7 @@ const glowSize = `${cursorGlow.size}px`;
 			}
 			ctx.globalAlpha = 1;
 
-			// 4) 指针连线：最多 maxLinks 条，带生长 / 收回动画（见 drawLinks）
+			// 5) 指针连线：最多 maxLinks 条，带生长 / 收回动画（见 drawLinks）
 			updateLinks(dt);
 			drawLinks();
 			canvasDirty = true;
