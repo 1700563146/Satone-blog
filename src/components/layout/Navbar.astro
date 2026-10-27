@@ -223,60 +223,59 @@ const logoVariants = await Promise.all(
             <div class="navbar-search-slot">
                 <Search client:load />
             </div>
-            {/* 右侧：导航（纯图标）+ 功能图标，整体贴右 */}
+            {/* 右侧：导航（图标 → 悬停展开成胶囊）+ 功能图标，整体贴右 */}
             <div class="flex col-start-3 items-center justify-self-end">
-                <div class="hidden lg:flex items-center gap-2 mr-3">
+                <div class="hidden lg:flex items-center mr-3">
                     {links.map((l, index) => {
                         const hasChildren = Boolean(l.children && l.children.length > 0);
                         const key = `nav-${index}`;
+                        const triggerClass = "nav-pill";
+                        const triggerInner = (
+                            <>
+                                <Icon name={l.icon || "material-symbols:apps"} class="nav-pill-icon text-[1.3rem]"></Icon>
+                                <span class="nav-pill-label">{l.name}</span>
+                            </>
+                        );
                         return (
                             <div class="nav-compact" data-nav-item data-nav-key={key}>
                                 {hasChildren ? (
                                     <button
                                         type="button"
-                                        class="btn-plain scale-animation rounded-xl h-11 w-11 active:scale-90"
+                                        class={triggerClass}
                                         aria-label={l.name}
                                         aria-expanded="false"
                                         aria-controls={`${key}-panel`}
                                         data-nav-trigger
                                     >
-                                        <Icon name={l.icon || "material-symbols:apps"} class="text-[1.3rem]"></Icon>
+                                        {triggerInner}
                                     </button>
                                 ) : (
                                     <a
                                         href={l.external ? l.url : url(l.url)}
                                         target={l.external ? "_blank" : undefined}
                                         rel={l.external ? "noreferrer" : undefined}
-                                        class="btn-plain scale-animation rounded-xl h-11 w-11 active:scale-90"
+                                        class={triggerClass}
                                         aria-label={l.name}
-                                        aria-controls={`${key}-panel`}
                                         data-nav-trigger
                                     >
-                                        <Icon name={l.icon || "material-symbols:apps"} class="text-[1.3rem]"></Icon>
+                                        {triggerInner}
                                     </a>
                                 )}
-                                {/* 右侧抽屉胶囊：锚在导航栏右下方，悬停/点击图标才展开 */}
-                                <div class="nav-capsule" id={`${key}-panel`} data-nav-panel>
-                                    <div class="nav-capsule-head">
-                                        {l.icon && <Icon name={l.icon} class="text-[1.05rem]"></Icon>}
-                                        <span>{l.name}</span>
+                                {hasChildren && (
+                                    <div class="nav-children" id={`${key}-panel`} data-nav-panel>
+                                        {l.children?.map((child) => (
+                                            <a
+                                                class="nav-children-link"
+                                                href={child.external ? child.url : url(child.url)}
+                                                target={child.external ? "_blank" : undefined}
+                                                rel={child.external ? "noreferrer" : undefined}
+                                            >
+                                                {child.icon && <Icon name={child.icon} class="text-[1.1rem]"></Icon>}
+                                                <span>{child.name}</span>
+                                            </a>
+                                        ))}
                                     </div>
-                                    {hasChildren && (
-                                        <div class="nav-capsule-links">
-                                            {l.children?.map((child) => (
-                                                <a
-                                                    class="nav-capsule-link"
-                                                    href={child.external ? child.url : url(child.url)}
-                                                    target={child.external ? "_blank" : undefined}
-                                                    rel={child.external ? "noreferrer" : undefined}
-                                                >
-                                                    {child.icon && <Icon name={child.icon} class="text-[1.1rem]"></Icon>}
-                                                    <span>{child.name}</span>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                )}
                             </div>
                         );
                     })}

@@ -110,6 +110,13 @@ const glowSize = `${cursorGlow.size}px`;
 		color: number; // 调色板索引
 	};
 
+	/** 指针与星点之间的一条连线（带生长 / 收回动画） */
+	type Link = {
+		star: number; // 星点在 stars 里的下标
+		progress: number; // 0 = 刚出现，1 = 完全展开
+		fading: boolean; // 正在收回
+	};
+
 	(function setupCursorAmbience() {
 		// 幂等：Swup 切页会重跑模块脚本，这里只初始化一次
 		if (window.__cursorAmbienceReady) return;
@@ -153,6 +160,12 @@ const glowSize = `${cursorGlow.size}px`;
 		let rafId: number | null = null;
 		let resizeRafId: number | null = null;
 		let colorSyncAt = 0;
+
+		// ── 连线状态 ────────────────────────────────────────────
+		// 最多 maxLinks 条；每条自己记录生长进度，指针换目标时旧线收回、新线长出
+		const links: Link[] = [];
+		const LINK_MS = 280; // 一条线从 0 长到 1（或收回）的时长
+		let lastFrameAt = 0;
 
 		const isDark = () =>
 			document.documentElement.classList.contains("dark");
@@ -236,6 +249,8 @@ const glowSize = `${cursorGlow.size}px`;
 
 		const buildStars = () => {
 			stars.length = 0;
+			// 星点下标会变，旧连线全部作废
+			links.length = 0;
 			if (!viewW || !viewH) return;
 			const count = Math.max(
 				40,
@@ -313,7 +328,7 @@ const glowSize = `${cursorGlow.size}px`;
 		 *    比逐颗设 fillStyle 便宜得多，又保住了每颗自身的闪烁节奏）
 		 * 2) 「指针 → 星点」的连线：半径内所有星点都连，按距离分三档做纵深（见 drawLinks）
 		 */
-		const drawStars = (time: number) => {
+		const drawStars = (time: number, dt: number) => {
 			if (!ctx) return;
 			ctx.clearRect(0, 0, viewW, viewH);
 
@@ -352,98 +367,108 @@ const glowSize = `${cursorGlow.size}px`;
 				}
 			}
 
-			// 2) 指针连线：半径内星点全连，按远近分三档（见 drawLinks）
+			// 2) 指针连线：最多 maxLinks 条，带生长 / 收回动画（见 drawLinks）
+			updateLinks(dt);
 			drawLinks();
 			ctx.globalAlpha = 1;
 			canvasDirty = true;
 		};
 
 		/**
-		 * 「指针 → 星点」的连线：半径内**所有**星点都连，按距离分三档
-		 * —— 近的亮且粗、中的柔和、远的几乎透明，叠起来就是有纵深感的星网。
-		 * 每帧只 3 次 stroke（按档位批量画），星点再多也不会变成逐个描边。
-		 * 不做生长动画：指针在哪线就在哪，避免任何可感知的延迟。
+		 * 维护「指针 → 星点」的连线集合（10-26 那版的效果）：
+		 * - 任意时刻最多 cfg.starfield.maxLinks 条（3 条）
+		 * - 新连线从 0 长到 1，被换下的线缩回 0 再移除 —— 有动画过渡，不是瞬间连接
+		 * - 已有连线带迟滞保留（半径放宽 1.7 倍），指针微动不会来回跳线
+		 * - 线的起点永远是当前指针坐标，所以「生长」不会带来跟手延迟
 		 */
-		const tierNear: Star[] = [];
-		const tierMid: Star[] = [];
-		const tierFar: Star[] = [];
-
-		const drawLinks = () => {
-			if (!ctx) return;
-			tierNear.length = 0;
-			tierMid.length = 0;
-			tierFar.length = 0;
-			if (!pointer.seen || !pointer.inside) return;
-
+		const updateLinks = (dt: number) => {
+			const maxLinks = Math.max(1, Math.trunc(cfg.starfield.maxLinks ?? 3));
 			const maxD = cfg.starfield.pointerDistance;
 			const maxD2 = maxD * maxD;
-			for (const s of stars) {
-				const dx = s.x - pointer.x;
-				const dy = s.y - pointer.y;
-				const d2 = dx * dx + dy * dy;
-				if (d2 > maxD2) continue;
-				const t = Math.sqrt(d2) / maxD;
-				if (t < 0.36) tierNear.push(s);
-				else if (t < 0.68) tierMid.push(s);
-				else tierFar.push(s);
+			const hasPointer = pointer.seen && pointer.inside;
+
+			if (hasPointer) {
+				// 1) 收集范围内的星点，按距离升序
+				const candidates: Array<{ i: number; d2: number }> = [];
+				for (let k = 0; k < stars.length; k++) {
+					const star = stars[k];
+					const dx = star.x - pointer.x;
+					const dy = star.y - pointer.y;
+					const d2 = dx * dx + dy * dy;
+					if (d2 <= maxD2) candidates.push({ i: k, d2 });
+				}
+				candidates.sort((a, b) => a.d2 - b.d2);
+
+				// 2) 旧连线只要还在 1.3 倍半径内就保留（迟滞）
+				const target = new Set<number>();
+				for (const l of links) {
+					const star = stars[l.star];
+					if (!star) continue;
+					const dx = star.x - pointer.x;
+					const dy = star.y - pointer.y;
+					if (dx * dx + dy * dy <= maxD2 * 1.7) target.add(l.star);
+				}
+
+				// 3) 用最近的星点补满
+				for (const c of candidates) {
+					if (target.size >= maxLinks) break;
+					target.add(c.i);
+				}
+				if (target.size > maxLinks) {
+					const kept = Array.from(target).slice(0, maxLinks);
+					target.clear();
+					for (const k of kept) target.add(k);
+				}
+
+				// 4) 同步 fading 标记，新目标补进 links
+				for (const l of links) l.fading = !target.has(l.star);
+				for (const k of target) {
+					if (!links.some((l) => l.star === k)) {
+						links.push({ star: k, progress: 0, fading: false });
+					}
+				}
+			} else {
+				// 指针离开窗口：全部收回
+				for (const l of links) l.fading = true;
 			}
 
+			// 5) 推进进度
+			const step = dt / LINK_MS;
+			for (let k = links.length - 1; k >= 0; k--) {
+				const l = links[k];
+				l.progress += l.fading ? -step : step;
+				if (l.progress > 1) l.progress = 1;
+				if (l.progress <= 0) links.splice(k, 1);
+			}
+		};
+
+		const drawLinks = () => {
+			if (!ctx || !links.length) return;
 			const color = starColors[0] ?? "rgb(180, 240, 255)";
 			ctx.strokeStyle = color;
-
-			// 远：极淡的细线，铺开整张网
-			ctx.globalAlpha = 0.075;
-			ctx.lineWidth = 0.55;
-			ctx.beginPath();
-			for (const s of tierFar) {
-				ctx.moveTo(pointer.x, pointer.y);
-				ctx.lineTo(s.x, s.y);
-			}
-			ctx.stroke();
-
-			// 中：稍微提亮
-			ctx.globalAlpha = 0.16;
-			ctx.lineWidth = 0.8;
-			ctx.beginPath();
-			for (const s of tierMid) {
-				ctx.moveTo(pointer.x, pointer.y);
-				ctx.lineTo(s.x, s.y);
-			}
-			ctx.stroke();
-
-			// 近：先一条宽而淡的做辉光，再一条细而亮的压中线 —— 立体感主要来自这一层
-			ctx.globalAlpha = 0.1;
-			ctx.lineWidth = 2.6;
-			ctx.beginPath();
-			for (const s of tierNear) {
-				ctx.moveTo(pointer.x, pointer.y);
-				ctx.lineTo(s.x, s.y);
-			}
-			ctx.stroke();
-
-			ctx.globalAlpha = 0.34;
 			ctx.lineWidth = 0.9;
-			ctx.beginPath();
-			for (const s of tierNear) {
-				ctx.moveTo(pointer.x, pointer.y);
-				ctx.lineTo(s.x, s.y);
-			}
-			ctx.stroke();
-
-			// 连线落点的小亮点，让线的尽头"钉"在星上
 			ctx.fillStyle = color;
-			ctx.globalAlpha = 0.35;
-			ctx.beginPath();
-			for (const s of tierNear) {
-				ctx.moveTo(s.x + 1.2, s.y);
-				ctx.arc(s.x, s.y, 1.2, 0, Math.PI * 2);
-			}
-			for (const s of tierMid) {
-				ctx.moveTo(s.x + 0.9, s.y);
-				ctx.arc(s.x, s.y, 0.9, 0, Math.PI * 2);
-			}
-			ctx.fill();
 
+			for (const l of links) {
+				const star = stars[l.star];
+				if (!star) continue;
+				// easeOutCubic：起步快、末尾收得柔
+				const k = 1 - (1 - l.progress) * (1 - l.progress) * (1 - l.progress);
+				const ex = pointer.x + (star.x - pointer.x) * k;
+				const ey = pointer.y + (star.y - pointer.y) * k;
+
+				ctx.globalAlpha = 0.34 * k;
+				ctx.beginPath();
+				ctx.moveTo(pointer.x, pointer.y);
+				ctx.lineTo(ex, ey);
+				ctx.stroke();
+
+				// 线头的小亮点：让线「够到」星点，而不是硬连过去
+				ctx.globalAlpha = 0.5 * k;
+				ctx.beginPath();
+				ctx.arc(ex, ey, 1.1, 0, Math.PI * 2);
+				ctx.fill();
+			}
 			ctx.globalAlpha = 1;
 		};
 
@@ -460,12 +485,18 @@ const glowSize = `${cursorGlow.size}px`;
 		const frame = (now: number) => {
 			rafId = null;
 
+			// dt 只用于连线生长 / 收回；首帧与切回前台时钳制上限，避免大跳变
+			const dt = lastFrameAt ? Math.min(48, now - lastFrameAt) : 16;
+			lastFrameAt = now;
+
 			const starsActive = starsAnimating();
-			if (starsActive) drawStars(now);
+			if (starsActive) drawStars(now, dt);
 			else if (canvasDirty) clearCanvas();
 
-			// 星点在动就继续跑；静止时（或亮色主题下）完全停掉 rAF
-			if (starsActive) {
+			// 还有连线在生长 / 收回时也要继续跑，否则动画会停半路
+			const linksAnimating = links.some((l) => l.progress > 0 && l.progress < 1);
+
+			if (starsActive || linksAnimating) {
 				rafId = requestAnimationFrame(frame);
 			}
 		};
@@ -476,7 +507,8 @@ const glowSize = `${cursorGlow.size}px`;
 				drawStaticStars();
 				return;
 			}
-			if (!starsAnimating()) {
+			const linksAnimating = links.some((l) => l.progress > 0 && l.progress < 1);
+			if (!starsAnimating() && !linksAnimating) {
 				if (canvasDirty) clearCanvas();
 				return;
 			}

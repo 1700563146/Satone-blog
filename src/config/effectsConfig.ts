@@ -82,7 +82,8 @@ export const interactiveEffectsConfig: InteractiveEffectsConfig = {
 		},
 		density: 3200, // 每 3200 px² 一颗星（约 1920×1080 屏约 650 颗，按上限截断）
 		maxParticles: 420, // 数量上限，超大屏也不会失控
-		pointerDistance: 170, // 指针与星点连线的最大距离（这个半径内的星点全部连线，按远近分三档做纵深）
+		pointerDistance: 170, // 指针与星点连线的最大距离
+		maxLinks: 3, // 同时存在的连线数量上限（3 条最清爽）
 		drift: 0.055, // 极慢漂移，几乎察觉不到移动
 	},
 
