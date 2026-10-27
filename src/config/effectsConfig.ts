@@ -82,11 +82,12 @@ export const interactiveEffectsConfig: InteractiveEffectsConfig = {
 		},
 		density: 16800, // 每 19600 px² 一颗星（1440×900 约 66 颗，少量大节点才看得出星座）
 		maxParticles: 88, // 数量上限（对齐最初的设计：上限 88）
-		pointerDistance: 176, // 指针与星点连线的最大距离（更亮的那一级）
-		maxLinks: 3, // 同时存在的连线数量上限（3 条最清爽）
+		pointerDistance: 120, // 指针与星点连线的最大距离（更亮的那一级，短一点更贴身）
+		maxLinks: 5, // 同时存在的连线数量上限
+		starLinkMax: 16, // 星座连线总条数上限（少而清楚）
 		bgDensity: 3200, // 背景繁星：每 3200 px² 一颗（1440×900 约 400 颗），只闪烁不连线
 		bgMaxParticles: 520, // 背景繁星数量上限
-		starLinkDistance: 150, // 星点之间连线的最大距离（星座网）
+		starLinkDistance: 110, // 星点之间连线的最大距离（星座网）
 		drift: 0.055, // 极慢漂移，几乎察觉不到移动
 	},
 

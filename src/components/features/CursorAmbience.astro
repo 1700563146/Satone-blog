@@ -152,6 +152,24 @@ const glowSize = `${cursorGlow.size}px`;
 		// stars = 会有连线的「节点」；bgStars = 铺满背景的小星点（不连线）
 		const stars: Star[] = [];
 		const bgStars: BgStar[] = [];
+
+		// ── 星域（世界坐标） ────────────────────────────────────
+		// 星点铺在「横幅下方 → 页面底部」这块区域里，绘制时按滚动量平移：
+		// 滚动时星点跟着页面走，而且永远不会跑到横幅背后去。
+		let worldTop = 0; // 星域起点在文档里的 Y（横幅底部）
+		let worldHeight = 0; // 星域高度
+		let scrollOffset = 0; // 当前滚动量（相对星域起点）
+
+		const measureWorld = () => {
+			const wallpaper = document.getElementById("wallpaper-wrapper");
+			const rect = wallpaper?.getBoundingClientRect();
+			worldTop = rect ? Math.max(0, rect.bottom + window.scrollY) : 0;
+			const docHeight = Math.max(
+				document.documentElement.scrollHeight,
+				window.innerHeight,
+			);
+			worldHeight = Math.max(window.innerHeight, docHeight - worldTop);
+		};
 		let viewW = 0;
 		let viewH = 0;
 		// 星空调色板：由主题主色的 oklch 派生出的一组星色（暗色下才用）
@@ -318,12 +336,12 @@ const glowSize = `${cursorGlow.size}px`;
 			// 星点下标会变，旧连线全部作废
 			links.length = 0;
 			if (!viewW || !viewH) return;
+			const worldW = viewW;
+			const worldArea = worldW * worldHeight;
+			// 数量按整块星域算，但每屏看到的密度保持在原来的水平
 			const count = Math.max(
 				24,
-				Math.min(
-					cfg.starfield.maxParticles,
-					Math.round((viewW * viewH) / cfg.starfield.density),
-				),
+				Math.round(worldArea / cfg.starfield.density),
 			);
 			const paletteSize = Math.max(1, starColors.length);
 			for (let i = 0; i < count; i++) {
@@ -342,8 +360,8 @@ const glowSize = `${cursorGlow.size}px`;
 				const tiny = roll < 0.38;
 				const big = roll > 0.78;
 				stars.push({
-					x: Math.random() * viewW,
-					y: Math.random() * viewH,
+					x: Math.random() * worldW,
+					y: Math.random() * worldHeight,
 					vx: Math.cos(angle) * speed,
 					vy: Math.sin(angle) * speed,
 					r: tiny
@@ -367,17 +385,14 @@ const glowSize = `${cursorGlow.size}px`;
 			// 背景繁星：数量按面积算（~3200px² 一颗），只做闪烁与漂移，不参与连线
 			const bgCount = Math.max(
 				80,
-				Math.min(
-					cfg.starfield.bgMaxParticles,
-					Math.round((viewW * viewH) / cfg.starfield.bgDensity),
-				),
+				Math.round(worldArea / cfg.starfield.bgDensity),
 			);
 			for (let i = 0; i < bgCount; i++) {
 				const angle = Math.random() * Math.PI * 2;
 				const speed = cfg.starfield.drift * (0.4 + Math.random() * 0.6);
 				bgStars.push({
-					x: Math.random() * viewW,
-					y: Math.random() * viewH,
+					x: Math.random() * worldW,
+					y: Math.random() * worldHeight,
 					vx: Math.cos(angle) * speed,
 					vy: Math.sin(angle) * speed,
 					// 小：0.35–1.0px，靠数量堆出满天星
@@ -399,6 +414,7 @@ const glowSize = `${cursorGlow.size}px`;
 			canvas.height = Math.round(viewH * dpr);
 			ctx = canvas.getContext("2d");
 			if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			measureWorld();
 			buildStars();
 		};
 
@@ -414,6 +430,7 @@ const glowSize = `${cursorGlow.size}px`;
 				clearCanvas();
 				return;
 			}
+			scrollOffset = window.scrollY - worldTop;
 			ctx.clearRect(0, 0, viewW, viewH);
 			// 静态模式：背景繁星直接按各自的 alpha 画一遍（不闪烁）
 			const paletteSize = Math.max(1, starColors.length);
@@ -424,19 +441,23 @@ const glowSize = `${cursorGlow.size}px`;
 				ctx.globalAlpha = 0.5;
 				ctx.beginPath();
 				for (const s of list) {
-					ctx.moveTo(s.x + s.r, s.y);
-					ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+					const sy = s.y - scrollOffset;
+					if (sy < -6 || sy > viewH + 6) continue;
+					ctx.moveTo(s.x + s.r, sy);
+					ctx.arc(s.x, sy, s.r, 0, Math.PI * 2);
 				}
 				ctx.fill();
 			}
 			ctx.globalAlpha = 1;
 			drawStarLinks(0.55);
 			for (const s of stars) {
+				const sy = s.y - scrollOffset;
+				if (sy < -40 || sy > viewH + 40) continue;
 				const sprite = s.warm ? warmSprite : glowSprites[s.color];
 				if (sprite) {
 					const R = s.r * s.glow;
 					ctx.globalAlpha = s.alpha * 0.75;
-					ctx.drawImage(sprite, s.x - R, s.y - R, R * 2, R * 2);
+					ctx.drawImage(sprite, s.x - R, sy - R, R * 2, R * 2);
 				}
 			}
 			ctx.globalAlpha = 1;
@@ -462,10 +483,16 @@ const glowSize = `${cursorGlow.size}px`;
 				s.y += s.vy;
 				if (s.x < -3) s.x = viewW + 3;
 				else if (s.x > viewW + 3) s.x = -3;
-				if (s.y < -3) s.y = viewH + 3;
-				else if (s.y > viewH + 3) s.y = -3;
+				if (s.y < -3) s.y = worldHeight + 3;
+				else if (s.y > worldHeight + 3) s.y = -3;
+
+				// 视口外的直接跳过（星域可能比屏幕长很多）
+				const sy = s.y - scrollOffset;
+				if (sy < -6 || sy > viewH + 6) continue;
+
 				const pulse = Math.sin(time * 0.0012 * s.twinkle + s.phase);
-				(bgBuckets[s.color] ?? bgBuckets[0])[pulse > 0 ? 1 : 0].push(s);
+				const bucket = (bgBuckets[s.color] ?? bgBuckets[0])[pulse > 0 ? 1 : 0];
+				bucket.push(s);
 			}
 
 			for (let c = 0; c < paletteSize; c++) {
@@ -476,8 +503,9 @@ const glowSize = `${cursorGlow.size}px`;
 					ctx.globalAlpha = bucket === 1 ? 0.85 : 0.38;
 					ctx.beginPath();
 					for (const s of list) {
-						ctx.moveTo(s.x + s.r, s.y);
-						ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+						const sy = s.y - scrollOffset;
+						ctx.moveTo(s.x + s.r, sy);
+						ctx.arc(s.x, sy, s.r, 0, Math.PI * 2);
 					}
 					ctx.fill();
 				}
@@ -486,31 +514,64 @@ const glowSize = `${cursorGlow.size}px`;
 		};
 
 		/**
-		 * 星点之间的连线（星座）：150px 内两两相连，一次 path 一次 stroke。
-		 * 星点只有几十颗，O(n²) 每帧算距离也就几千次比较，可以忽略。
+		 * 星点之间的连线（星座）：要「少而清楚」。
+		 * 做法：每个节点只连最近的邻居（每点最多 2 条），去重后总量封顶 ——
+		 * 于是得到一条条短链/小三角形，像菜单的层级线，而不是一张密网。
+		 * 只在视口内的节点之间连；世界坐标算距离，绘制时按滚动量平移。
 		 */
+		const visibleNodes: Star[] = [];
 		const drawStarLinks = (alphaScale: number) => {
 			if (!ctx) return;
+			visibleNodes.length = 0;
+			for (const s of stars) {
+				if (s.r < 1) continue;
+				const sy = s.y - scrollOffset;
+				if (sy < -20 || sy > viewH + 20) continue;
+				visibleNodes.push(s);
+			}
+			if (visibleNodes.length < 2) return;
+
 			const maxD = cfg.starfield.starLinkDistance;
 			const maxD2 = maxD * maxD;
-			// 连线颜色单独定：偏冷的蓝白，和参考图那种「细而亮的线」一致
+			const degree = new Map<Star, number>();
+			const seen = new Set<string>();
+			const pairs: Array<[Star, Star]> = [];
+
+			for (const A of visibleNodes) {
+				if (pairs.length >= cfg.starfield.starLinkMax) break;
+				if ((degree.get(A) ?? 0) >= 2) continue;
+				let best: Star | null = null;
+				let bestD2 = maxD2;
+				for (const B of visibleNodes) {
+					if (B === A || (degree.get(B) ?? 0) >= 2) continue;
+					const dx = B.x - A.x;
+					const dy = B.y - A.y;
+					const d2 = dx * dx + dy * dy;
+					if (d2 < bestD2) {
+						bestD2 = d2;
+						best = B;
+					}
+				}
+				if (!best) continue;
+				const key =
+					visibleNodes.indexOf(A) < visibleNodes.indexOf(best)
+						? `${stars.indexOf(A)}-${stars.indexOf(best)}`
+						: `${stars.indexOf(best)}-${stars.indexOf(A)}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				degree.set(A, (degree.get(A) ?? 0) + 1);
+				degree.set(best, (degree.get(best) ?? 0) + 1);
+				pairs.push([A, best]);
+			}
+			if (pairs.length === 0) return;
+
 			ctx.strokeStyle = "rgba(186, 206, 246, 0.62)";
 			ctx.lineWidth = 1;
 			ctx.globalAlpha = alphaScale;
 			ctx.beginPath();
-			for (let a = 0; a < stars.length; a++) {
-				const A = stars[a];
-				// 背景微尘不参与连线，否则整片都是碎线
-				if (A.r < 1) continue;
-				for (let b = a + 1; b < stars.length; b++) {
-					const B = stars[b];
-					if (B.r < 1) continue;
-					const dx = B.x - A.x;
-					const dy = B.y - A.y;
-					if (dx * dx + dy * dy > maxD2) continue;
-					ctx.moveTo(A.x, A.y);
-					ctx.lineTo(B.x, B.y);
-				}
+			for (const [A, B] of pairs) {
+				ctx.moveTo(A.x, A.y - scrollOffset);
+				ctx.lineTo(B.x, B.y - scrollOffset);
 			}
 			ctx.stroke();
 			ctx.globalAlpha = 1;
@@ -526,36 +587,42 @@ const glowSize = `${cursorGlow.size}px`;
 			if (!ctx) return;
 			ctx.clearRect(0, 0, viewW, viewH);
 
-			// 1) 先推进漂移，位置变了连线才对得上
+			// 世界坐标 → 视口：scrollOffset = scrollY - worldTop。
+			// 页面在顶部时它是负值（星域从横幅底下开始），滚动后变大，星点跟着页面上移。
+			scrollOffset = window.scrollY - worldTop;
+
+			// 1) 先推进漂移（世界坐标内环绕）
 			for (const s of stars) {
 				s.x += s.vx;
 				s.y += s.vy;
 				if (s.x < -6) s.x = viewW + 6;
 				else if (s.x > viewW + 6) s.x = -6;
-				if (s.y < -6) s.y = viewH + 6;
-				else if (s.y > viewH + 6) s.y = -6;
+				if (s.y < -6) s.y = worldHeight + 6;
+				else if (s.y > worldHeight + 6) s.y = -6;
 			}
 
 			// 2) 背景繁星（最底层，铺满画面的底噪）
 			drawBgStars(time);
 
-			// 3) 星点之间的星座连线（压在星点下面，微微呼吸）
+			// 3) 星点之间的星座连线（稀疏短链，压在星点下面）
 			drawStarLinks(0.75 + 0.25 * Math.sin(time * 0.0006));
 
-			// 4) 星点本体：柔光贴图 + 实心亮核（有核心才像「星」，不然只是一团雾）
+			// 4) 星点本体：柔光贴图 + 实心亮核（只画视口内的）
 			for (const s of stars) {
+				const sy = s.y - scrollOffset;
+				if (sy < -40 || sy > viewH + 40) continue;
 				const sprite = s.warm ? warmSprite : glowSprites[s.color];
 				if (!sprite) continue;
 				const R = s.r * s.glow;
 				const twinkle = 0.82 + 0.18 * Math.sin(time * 0.0011 * s.twinkle + s.phase);
 				const a = Math.min(1, s.alpha * twinkle);
 				ctx.globalAlpha = a * 0.85;
-				ctx.drawImage(sprite, s.x - R, s.y - R, R * 2, R * 2);
+				ctx.drawImage(sprite, s.x - R, sy - R, R * 2, R * 2);
 				if (s.r >= 1) {
 					ctx.globalAlpha = a;
 					ctx.fillStyle = s.warm ? "rgb(255, 226, 196)" : "rgb(236, 243, 255)";
 					ctx.beginPath();
-					ctx.arc(s.x, s.y, s.r * 0.62, 0, Math.PI * 2);
+					ctx.arc(s.x, sy, s.r * 0.62, 0, Math.PI * 2);
 					ctx.fill();
 				}
 			}
@@ -580,13 +647,15 @@ const glowSize = `${cursorGlow.size}px`;
 			const maxD2 = maxD * maxD;
 			const hasPointer = pointer.seen && pointer.inside;
 
+			// 指针在视口里、星点在世界里：把指针换算到世界坐标再比距离
+			const pointerWY = pointer.y + scrollOffset;
 			if (hasPointer) {
 				// 1) 收集范围内的星点，按距离升序
 				const candidates: Array<{ i: number; d2: number }> = [];
 				for (let k = 0; k < stars.length; k++) {
 					const star = stars[k];
 					const dx = star.x - pointer.x;
-					const dy = star.y - pointer.y;
+					const dy = star.y - pointerWY;
 					const d2 = dx * dx + dy * dy;
 					if (d2 <= maxD2) candidates.push({ i: k, d2 });
 				}
@@ -598,7 +667,7 @@ const glowSize = `${cursorGlow.size}px`;
 					const star = stars[l.star];
 					if (!star) continue;
 					const dx = star.x - pointer.x;
-					const dy = star.y - pointer.y;
+					const dy = star.y - pointerWY;
 					if (dx * dx + dy * dy <= maxD2 * 1.7) target.add(l.star);
 				}
 
@@ -647,8 +716,9 @@ const glowSize = `${cursorGlow.size}px`;
 				if (!star) continue;
 				// easeOutCubic：起步快、末尾收得柔
 				const k = 1 - (1 - l.progress) * (1 - l.progress) * (1 - l.progress);
+				const starScreenY = star.y - scrollOffset;
 				const ex = pointer.x + (star.x - pointer.x) * k;
-				const ey = pointer.y + (star.y - pointer.y) * k;
+				const ey = pointer.y + (starScreenY - pointer.y) * k;
 
 				ctx.globalAlpha = 0.62 * k;
 				ctx.beginPath();
@@ -816,6 +886,27 @@ const glowSize = `${cursorGlow.size}px`;
 				sizeCanvas();
 				schedule();
 			});
+		}
+
+		// 切页后文档高度变了：重新量星域、重建星点（星点铺在「横幅下方 → 页面底部」）
+		const refreshWorld = () => {
+			measureWorld();
+			buildStars();
+			drawStaticStars();
+			schedule();
+		};
+		document.addEventListener("astro:page-load", refreshWorld);
+		document.addEventListener("swup:contentReplaced", refreshWorld);
+		// 图片/字体加载完页面才最终定高，晚一点再量一次
+		window.addEventListener("load", refreshWorld);
+		if ("ResizeObserver" in window) {
+			let lastHeight = document.documentElement.scrollHeight;
+			new ResizeObserver(() => {
+				const height = document.documentElement.scrollHeight;
+				if (Math.abs(height - lastHeight) < 64) return;
+				lastHeight = height;
+				refreshWorld();
+			}).observe(document.body);
 		}
 
 		// 首帧：静态星点先行，之后由 rAF 接管（避免暗色下首屏空白一帧）
