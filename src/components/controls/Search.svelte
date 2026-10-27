@@ -193,7 +193,7 @@ $: if (initialized && (keywordMobile || keywordMobile === "")) {
            aria-controls="search-panel" data-floating-panel-no-expanded
            on:focus={handleDesktopFocus}
            class="transition-all pl-10 text-sm bg-transparent outline-0
-         h-full w-40 active:w-60 focus:w-60 text-black/50 dark:text-white/50"
+         h-full w-52 xl:w-64 focus:w-72 xl:focus:w-80 text-black/50 dark:text-white/50"
     >
 </div>
 

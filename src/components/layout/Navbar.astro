@@ -21,7 +21,6 @@ import { getFallbackFormat, getImageFormats } from "@/utils/image-utils";
 import { isHomePage } from "@/utils/layout-utils";
 import { resolveNavMenuLinks } from "@/utils/nav-menu-utils";
 import { url } from "@/utils/url-utils";
-import DropdownMenu from "./DropdownMenu.astro";
 
 const className = Astro.props.class;
 
@@ -163,7 +162,7 @@ const logoVariants = await Promise.all(
         navbarWidthFull ? "md:px-6 xl:px-8" : ""
     ]}>
         <div class:list={[
-            "mx-auto h-full w-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center",
+            "navbar-row relative mx-auto h-full w-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center",
             navbarWidthFull ? "" : "max-w-(--page-width)"
         ]}>
             {logoIsCat ? (
@@ -219,16 +218,67 @@ const logoVariants = await Promise.all(
                     </div>
                 </a>
             )}
-            {/* 搜索：占中间的弹性列并居中。右侧那一栏（导航链接 + 图标）比左边 logo 宽，
-                所以视觉上会落在页面中线偏左一点点 —— 就是想要的那种"偏左" */}
-            <div class="col-start-2 flex items-center justify-center min-w-0">
+            {/* 搜索：绝对居中在整条导航栏上（col 2 只是占位，不参与对齐） */}
+            <div class="col-start-2 min-w-0"></div>
+            <div class="navbar-search-slot">
                 <Search client:load />
             </div>
-            {/* 右侧：导航链接在前、图标在后，整体贴右 */}
+            {/* 右侧：导航（纯图标）+ 功能图标，整体贴右 */}
             <div class="flex col-start-3 items-center justify-self-end">
-                <div class="hidden lg:flex items-center space-x-1 mr-2">
-                    {links.map((l) => {
-                        return <DropdownMenu link={l} />;
+                <div class="hidden lg:flex items-center gap-2 mr-3">
+                    {links.map((l, index) => {
+                        const hasChildren = Boolean(l.children && l.children.length > 0);
+                        const key = `nav-${index}`;
+                        return (
+                            <div class="nav-compact" data-nav-item data-nav-key={key}>
+                                {hasChildren ? (
+                                    <button
+                                        type="button"
+                                        class="btn-plain scale-animation rounded-xl h-11 w-11 active:scale-90"
+                                        aria-label={l.name}
+                                        aria-expanded="false"
+                                        aria-controls={`${key}-panel`}
+                                        data-nav-trigger
+                                    >
+                                        <Icon name={l.icon || "material-symbols:apps"} class="text-[1.3rem]"></Icon>
+                                    </button>
+                                ) : (
+                                    <a
+                                        href={l.external ? l.url : url(l.url)}
+                                        target={l.external ? "_blank" : undefined}
+                                        rel={l.external ? "noreferrer" : undefined}
+                                        class="btn-plain scale-animation rounded-xl h-11 w-11 active:scale-90"
+                                        aria-label={l.name}
+                                        aria-controls={`${key}-panel`}
+                                        data-nav-trigger
+                                    >
+                                        <Icon name={l.icon || "material-symbols:apps"} class="text-[1.3rem]"></Icon>
+                                    </a>
+                                )}
+                                {/* 右侧抽屉胶囊：锚在导航栏右下方，悬停/点击图标才展开 */}
+                                <div class="nav-capsule" id={`${key}-panel`} data-nav-panel>
+                                    <div class="nav-capsule-head">
+                                        {l.icon && <Icon name={l.icon} class="text-[1.05rem]"></Icon>}
+                                        <span>{l.name}</span>
+                                    </div>
+                                    {hasChildren && (
+                                        <div class="nav-capsule-links">
+                                            {l.children?.map((child) => (
+                                                <a
+                                                    class="nav-capsule-link"
+                                                    href={child.external ? child.url : url(child.url)}
+                                                    target={child.external ? "_blank" : undefined}
+                                                    rel={child.external ? "noreferrer" : undefined}
+                                                >
+                                                    {child.icon && <Icon name={child.icon} class="text-[1.1rem]"></Icon>}
+                                                    <span>{child.name}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
                     })}
                 </div>
                 {musicPlayerConfig.showInNavbar && (
@@ -452,6 +502,82 @@ if (document.readyState === 'loading') {
 } else {
     initSemifullScrollDetection();
 }
+</script>
+
+<script>
+// 导航「纯图标 + 右侧抽屉胶囊」控制器
+//
+// 图标之间留 gap（呼吸感），文字收进胶囊里：
+// 悬停图标立刻展开，移进胶囊保持展开；带子项的项（文章）点击也能固定展开。
+// 胶囊锚在导航栏右下方（.nav-capsule 用 right:0 + top:100%，相对 .navbar-row）。
+(function setupNavCapsule() {
+    const init = () => {
+        const row = document.querySelector<HTMLElement>('.navbar-row');
+        if (!row) return;
+        const items = Array.from(row.querySelectorAll<HTMLElement>('[data-nav-item]'));
+        if (!items.length) return;
+
+        let hideTimer = 0;
+
+        const closeAll = (except: HTMLElement | null) => {
+            for (const item of items) {
+                if (item === except) continue;
+                delete item.dataset.open;
+                item.querySelector('[data-nav-trigger]')?.setAttribute('aria-expanded', 'false');
+            }
+        };
+
+        const open = (item: HTMLElement) => {
+            window.clearTimeout(hideTimer);
+            closeAll(item);
+            item.dataset.open = 'true';
+            item.querySelector('[data-nav-trigger]')?.setAttribute('aria-expanded', 'true');
+        };
+
+        const closeSoon = () => {
+            window.clearTimeout(hideTimer);
+            hideTimer = window.setTimeout(() => closeAll(null), 160);
+        };
+
+        for (const item of items) {
+            const trigger = item.querySelector<HTMLElement>('[data-nav-trigger]');
+            const panel = item.querySelector<HTMLElement>('[data-nav-panel]');
+            if (!trigger) continue;
+
+            const isToggle = trigger.tagName === 'BUTTON';
+
+            item.addEventListener('mouseenter', () => open(item));
+            item.addEventListener('mouseleave', closeSoon);
+            panel?.addEventListener('mouseenter', () => window.clearTimeout(hideTimer));
+            panel?.addEventListener('mouseleave', closeSoon);
+
+            trigger.addEventListener('focus', () => open(item));
+            trigger.addEventListener('click', (event: MouseEvent) => {
+                // 纯图标链接（主页 / 关于我）正常跳转；带子项的按钮负责开关胶囊
+                if (!isToggle) return;
+                event.preventDefault();
+                if (item.dataset.open === 'true') closeAll(null);
+                else open(item);
+            });
+
+            item.addEventListener('keydown', (event: KeyboardEvent) => {
+                if (event.key === 'Escape') {
+                    closeAll(null);
+                    trigger.blur();
+                }
+            });
+        }
+
+        // 点空白处收起
+        document.addEventListener('click', (event) => {
+            const target = event.target as HTMLElement | null;
+            if (target && !target.closest('[data-nav-item]')) closeAll(null);
+        });
+    };
+
+    init();
+    document.addEventListener('astro:page-load', init);
+})();
 </script>
 
 {

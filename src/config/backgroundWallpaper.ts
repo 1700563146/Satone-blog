@@ -102,8 +102,9 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 				// 完全显示后的暂停时间（毫秒）
 				pauseTime: 2000,
 			},
-			// 是否显示标题下方的链接图标
-			linksEnable: true,
+			// 是否显示标题下方的链接图标（GitHub / Email / 赞助 / RSS 那一排）
+			// 关掉：主页横幅只留标题 + 副标题，画面更干净；链接数据保留在下面，随时可以再打开
+			linksEnable: false,
 			// 首页横幅标题下方的链接图标（可选，支持 showName 显示文字）
 			// 图标支持 Iconify 格式：fa7-brands:github、fa7-solid:envelope、mdi:rss 等
 			links: [

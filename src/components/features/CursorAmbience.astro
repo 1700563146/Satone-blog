@@ -110,6 +110,13 @@ const glowSize = `${cursorGlow.size}px`;
 		color: number; // 调色板索引
 	};
 
+	/** 星点与星点之间的连线（星座感）：只连最近邻，数量封顶 */
+	type ConstellationLink = {
+		a: number;
+		b: number;
+		phase: number; // 呼吸相位，让每条线的明暗不同步
+	};
+
 	/** 指针与星点之间的一条连线 */
 	type Link = {
 		star: number; // 星点在 stars 里的下标
@@ -163,6 +170,10 @@ const glowSize = `${cursorGlow.size}px`;
 		// ── 连线状态 ────────────────────────────────────────────
 		// 最多 maxLinks 条，每帧重建（只按距离取最近的几个，成本可忽略）
 		const links: Link[] = [];
+		// 星点之间的连线：resize / 重建星点时算一次，之后每帧只按相位调透明度
+		const constellation: ConstellationLink[] = [];
+		const CONSTELLATION_MAX = 34;
+		const CONSTELLATION_DIST = 150;
 
 		const isDark = () =>
 			document.documentElement.classList.contains("dark");
@@ -244,6 +255,44 @@ const glowSize = `${cursorGlow.size}px`;
 			if (colors.length > 0) starColors = colors;
 		};
 
+		/**
+		 * 星点之间的连线（星座感）：每颗星连到它最近的邻居，去重后封顶。
+		 * 只在星星重建时算一次（O(n²) 但 n≤420 且只在 resize 时跑），
+		 * 之后每帧只按相位改透明度 → 线条会随星点漂移而缓慢游动。
+		 */
+		const buildConstellation = () => {
+			constellation.length = 0;
+			if (stars.length < 2) return;
+			const maxD2 = CONSTELLATION_DIST * CONSTELLATION_DIST;
+			const used = new Set<string>();
+			for (let i = 0; i < stars.length; i++) {
+				if (constellation.length >= CONSTELLATION_MAX) break;
+				const s = stars[i];
+				let best = -1;
+				let bestD2 = maxD2;
+				for (let j = 0; j < stars.length; j++) {
+					if (j === i) continue;
+					const other = stars[j];
+					const dx = other.x - s.x;
+					const dy = other.y - s.y;
+					const d2 = dx * dx + dy * dy;
+					if (d2 < bestD2) {
+						bestD2 = d2;
+						best = j;
+					}
+				}
+				if (best < 0) continue;
+				const key = i < best ? `${i}-${best}` : `${best}-${i}`;
+				if (used.has(key)) continue;
+				used.add(key);
+				constellation.push({
+					a: i,
+					b: best,
+					phase: Math.random() * Math.PI * 2,
+				});
+			}
+		};
+
 		const buildStars = () => {
 			stars.length = 0;
 			// 星点下标会变，旧连线全部作废
@@ -281,6 +330,7 @@ const glowSize = `${cursorGlow.size}px`;
 					color: Math.floor(Math.random() * paletteSize),
 				});
 			}
+			buildConstellation();
 		};
 
 		const sizeCanvas = () => {
@@ -308,6 +358,24 @@ const glowSize = `${cursorGlow.size}px`;
 				return;
 			}
 			ctx.clearRect(0, 0, viewW, viewH);
+			// 静态模式也保留星座连线（只是不呼吸）
+			if (constellation.length > 0) {
+				ctx.strokeStyle = starColors[0] ?? "rgb(180, 240, 255)";
+				ctx.lineWidth = 0.6;
+				ctx.globalAlpha = 0.09;
+				ctx.beginPath();
+				for (const c of constellation) {
+					const A = stars[c.a];
+					const B = stars[c.b];
+					if (!A || !B) continue;
+					const dx = B.x - A.x;
+					const dy = B.y - A.y;
+					if (dx * dx + dy * dy > 36000) continue;
+					ctx.moveTo(A.x, A.y);
+					ctx.lineTo(B.x, B.y);
+				}
+				ctx.stroke();
+			}
 			for (const s of stars) {
 				ctx.fillStyle = starColors[s.color] ?? starColors[0];
 				ctx.globalAlpha = s.alpha * 0.85;
@@ -325,6 +393,33 @@ const glowSize = `${cursorGlow.size}px`;
 		 *    比逐颗设 fillStyle 便宜得多，又保住了每颗自身的闪烁节奏）
 		 * 2) 只画「指针 → 星点」的连线，最多 maxLinks 条，星点彼此不连
 		 */
+		/** 星点之间的星座连线：按相位分三组，每组一次 stroke；透明度随时间缓慢呼吸 */
+		const drawConstellation = (time: number) => {
+			if (!ctx || constellation.length === 0) return;
+			ctx.strokeStyle = starColors[0] ?? "rgb(180, 240, 255)";
+			ctx.lineWidth = 0.6;
+			for (let g = 0; g < 3; g++) {
+				ctx.globalAlpha = 0.08 + 0.14 * (0.5 + 0.5 * Math.sin(time * 0.00045 + g * 2.1));
+				ctx.beginPath();
+				let any = false;
+				for (const c of constellation) {
+					if (Math.floor((c.phase / (Math.PI * 2)) * 3) % 3 !== g) continue;
+					const A = stars[c.a];
+					const B = stars[c.b];
+					if (!A || !B) continue;
+					// 星点会漂移并环绕边界，拉得太长的线不画，避免横穿屏幕的怪线
+					const dx = B.x - A.x;
+					const dy = B.y - A.y;
+					if (dx * dx + dy * dy > 36000) continue;
+					ctx.moveTo(A.x, A.y);
+					ctx.lineTo(B.x, B.y);
+					any = true;
+				}
+				if (any) ctx.stroke();
+			}
+			ctx.globalAlpha = 1;
+		};
+
 		const drawStars = (time: number) => {
 			if (!ctx) return;
 			ctx.clearRect(0, 0, viewW, viewH);
@@ -347,7 +442,10 @@ const glowSize = `${cursorGlow.size}px`;
 				(buckets[s.color] ?? buckets[0])[bucket].push(s);
 			}
 
-			// 1) 星点
+			// 1) 星点之间的星座连线：压在星点下面，按相位缓慢呼吸
+			drawConstellation(time);
+
+			// 2) 星点
 			for (let c = 0; c < paletteSize; c++) {
 				ctx.fillStyle = starColors[c];
 				for (let b = 0; b < 2; b++) {
@@ -367,7 +465,6 @@ const glowSize = `${cursorGlow.size}px`;
 			// 2) 指针连线：最多 maxLinks 条，直接到位（无动画，见 drawLinks）
 			updateLinks();
 			drawLinks();
-
 			ctx.globalAlpha = 1;
 			canvasDirty = true;
 		};
