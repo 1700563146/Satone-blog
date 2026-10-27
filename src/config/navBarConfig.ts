@@ -24,6 +24,13 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 		children: [LinkPresets.Archive, LinkPresets.Categories, LinkPresets.Tags],
 	});
 
+	// 照片墙及其子菜单
+	links.push({
+		name: "照片墙",
+		url: "/wall/",
+		icon: "material-symbols:wall-art-outline",
+	});
+
 	// 关于
 	links.push(LinkPresets.About);
 

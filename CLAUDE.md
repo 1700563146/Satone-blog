@@ -39,16 +39,18 @@ All features are toggled/configured via TypeScript files in `src/config/`, expor
 - `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering)
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
+- `photoWallConfig.ts` — `/wall/` 照片墙（占位版：瀑布流版式 + 空瓦片，图片放 `public/wall/` 后填进 `photos`）
 - `backgroundWallpaper.common.bannerVideo` — theme-switched hero background video (`light` / `dark` paths under `public/assets/videos/`). It only covers the banner behind the home title: the layers are wallpaper image → video (`z-6`) → scrim (`z-7`) → dim (`z-10`) → waves (`z-15`) → banner text (`z-20`), so the starfield/page background below the waves is untouched. Skipped under `prefers-reduced-motion` and `saveData`.
 
 ### Interactive Effects
 
 Mounted in `Layout.astro`, outside the Swup container, each idempotent via a `window.__*Ready` guard:
 
-- `CursorAmbience.astro` — dark-mode starfield canvas (multi-colour stars, cursor-to-star links only, drawn under the cards at `z-1`) + cursor glow (`z-25`)
+- `CursorAmbience.astro` — dark-mode starfield canvas drawn under the cards at `z-1`: multi-colour stars, cursor-to-star links capped at `maxLinks`, plus a slowly breathing star-to-star "constellation" layer (≤34 nearest-neighbour pairs, computed once per rebuild) + cursor glow (`z-25`)
 - `MagneticHover.astro` — pointer-proximity offset for buttons/cards via the `translate` property (never `transform`; that is reserved for entrance/hover animations)
 - `ReadingProgress.astro` — top 3px progress bar, only on pages that contain `.custom-md`
 - `StarfieldToggle.astro` — floating star button; hidden outside dark mode because stars are dark-only
+- `AdminEntry.astro` — floating "write a post" pencil that links to `/admin/publish/` (default on, toggle stored in `localStorage.adminEntry`); also owns the `Ctrl/⌘+Shift+P` shortcut
 
 All of them respect `prefers-reduced-motion`, stop their rAF loops when idle or the tab is hidden, and skip touch devices where a pointer is required.
 
