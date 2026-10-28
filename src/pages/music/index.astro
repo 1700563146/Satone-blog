@@ -250,32 +250,31 @@ const sourceLabel = library.source.startsWith("meting")
 		flex: none;
 		width: clamp(11rem, 26vw, 17rem);
 		aspect-ratio: 1;
-		perspective: 1100px;
+		/* 2D 正面圆盘：给唱针留出右侧空间 */
+		margin-right: clamp(1.5rem, 5vw, 3rem);
 	}
 
 	.disc-shadow {
 		position: absolute;
-		left: 8%;
-		right: 8%;
-		bottom: -6%;
-		height: 16%;
+		left: 4%;
+		right: 4%;
+		bottom: -3%;
+		height: 10%;
 		border-radius: 50%;
-		background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent 78%);
-		filter: blur(6px);
+		background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), transparent 76%);
+		filter: blur(7px);
 	}
 
-	/* 盘体：略倾斜的椭圆，像随手摊在桌上 */
+	/* 盘体：正面圆盘（2D），悬停只做轻微放大，不做透视倾斜 */
 	.disc {
 		position: absolute;
 		inset: 0;
 		border-radius: 50%;
-		transform: rotateX(54deg) rotateZ(-16deg);
-		transform-style: preserve-3d;
 		transition:
-			transform 520ms cubic-bezier(0.33, 0, 0.25, 1),
-			box-shadow 520ms ease;
+			transform 420ms cubic-bezier(0.33, 0, 0.25, 1),
+			box-shadow 420ms ease;
 		background:
-			radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.16), transparent 42%),
+			radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.13), transparent 40%),
 			repeating-radial-gradient(
 				circle at 50% 50%,
 				#0b0c10 0 2px,
@@ -283,13 +282,17 @@ const sourceLabel = library.source.startsWith("meting")
 				#0b0c10 3px 5px
 			);
 		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-			inset 0 0 42px rgba(0, 0, 0, 0.9),
-			0 18px 34px rgba(0, 0, 0, 0.45);
+			inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+			inset 0 0 40px rgba(0, 0, 0, 0.85),
+			0 14px 30px rgba(0, 0, 0, 0.45);
 	}
 
 	.disc-stage:hover .disc {
-		transform: rotateX(46deg) rotateZ(-10deg) translateZ(10px);
+		transform: scale(1.02);
+		box-shadow:
+			inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+			inset 0 0 40px rgba(0, 0, 0, 0.85),
+			0 20px 40px rgba(0, 0, 0, 0.5);
 	}
 
 	.disc-grooves {
@@ -348,11 +351,12 @@ const sourceLabel = library.source.startsWith("meting")
 		display: none;
 	}
 
-	/* 唱针：支点在唱片右上方，arm 绕支点旋转 */
+	/* 唱针：支点在唱片右上方外侧，arm 绕支点旋转 */
 	.tonearm {
 		position: absolute;
-		left: 88%;
-		top: 30%;
+		/* 支点落在圆盘右侧偏上，圆盘半径的 ~1.15 倍处 */
+		left: 104%;
+		top: 16%;
 		width: 0;
 		height: 0;
 		pointer-events: none;
@@ -361,49 +365,69 @@ const sourceLabel = library.source.startsWith("meting")
 
 	.tonearm-base {
 		position: absolute;
-		left: -0.55rem;
-		top: -0.55rem;
-		width: 1.1rem;
-		height: 1.1rem;
+		left: -0.7rem;
+		top: -0.7rem;
+		width: 1.4rem;
+		height: 1.4rem;
 		border-radius: 50%;
-		background: radial-gradient(circle at 35% 30%, #c8ced8, #6b7280 55%, #2b303a);
+		background: radial-gradient(circle at 35% 30%, #dfe4ec, #8a919e 52%, #2b303a);
 		box-shadow:
-			0 0 0 2px rgba(10, 12, 18, 0.65),
-			0 4px 10px rgba(0, 0, 0, 0.5);
+			0 0 0 3px rgba(10, 12, 18, 0.7),
+			0 5px 12px rgba(0, 0, 0, 0.55);
 	}
 
 	.tonearm-arm {
 		position: absolute;
 		left: 0;
 		top: 50%;
-		width: clamp(4.5rem, 11vw, 7.5rem);
-		height: 0.32rem;
+		width: clamp(6rem, 15vw, 9.5rem);
+		height: 0.38rem;
 		border-radius: 999px;
-		background: linear-gradient(90deg, #d7dbe4, #9aa2b0 45%, #5b6270);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+		background: linear-gradient(90deg, #e2e6ee, #a8b0be 45%, #5b6270);
+		box-shadow: 0 2px 7px rgba(0, 0, 0, 0.5);
 		transform-origin: 0 50%;
-		/* 默认：抬起、摆到唱片外侧（暂停态） */
-		transform: rotate(116deg);
-		transition: transform 620ms cubic-bezier(0.33, 0, 0.25, 1);
+		/* 暂停：几乎垂在盘外（-90° 向下的方向稍微外摆） */
+		transform: rotate(84deg);
+		transition: transform 720ms cubic-bezier(0.34, 1.4, 0.32, 1);
 	}
 
-	/* 落到唱片纹路上（朝内、略低于水平） */
+	/* 播放：扫进来搭到盘面内侧（接近盘中心右侧） */
 	.music-hero[data-playing="true"] .tonearm-arm {
-		transform: rotate(155deg);
+		/* 落在封面外侧的纹路上，不是压在标签上 */
+		transform: rotate(137deg);
 	}
 
 	.tonearm-head {
 		position: absolute;
-		right: -0.28rem;
+		right: -0.34rem;
 		top: 50%;
-		width: 1.5rem;
-		height: 0.62rem;
+		width: 1.9rem;
+		height: 0.72rem;
 		transform: translateY(-50%);
-		border-radius: 0.18rem;
-		background: linear-gradient(160deg, #3b4250, #1b1f27);
+		border-radius: 0.2rem;
+		background: linear-gradient(160deg, #4a5262, #1b1f27);
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.18),
-			0 2px 5px rgba(0, 0, 0, 0.5);
+			inset 0 1px 0 rgba(255, 255, 255, 0.22),
+			0 3px 6px rgba(0, 0, 0, 0.55);
+	}
+
+	/* 暂停时抬起的「小支架」，让唱针停靠位置有落点 */
+	.tonearm-rest {
+		position: absolute;
+		right: -0.15rem;
+		bottom: -2.1rem;
+		width: 0.5rem;
+		height: 1.5rem;
+		border-radius: 0.2rem;
+		background: linear-gradient(180deg, #6f7684, #2f343d);
+		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
+		transform: rotate(12deg);
+		transform-origin: 50% 100%;
+	}
+
+	/* 播放时支架微微让开（视觉上被臂架遮住） */
+	.music-hero[data-playing="true"] .tonearm-rest {
+		opacity: 0.55;
 	}
 
 	.disc-spindle {

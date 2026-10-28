@@ -32,6 +32,32 @@ pnpm music:sync --meting
 3. 写入 `src/constants/music-library.json`：`{ generatedAt, source, tracks[] }`；
 4. 全部接口都失败时，退回 `local.playlist`（本地曲目），保证页面不空。
 
+## 导入自己的网易云歌单
+
+Meting 是**匿名接口**：能读公开歌单，读不到你私人的「我喜欢的音乐」「最近播放」这类带登录态的数据。
+所以流程是「把歌单设成公开 → 拿 id → 同步」，**不需要**登录、不需要 cookie。
+
+1. 打开网易云网页版，进入目标歌单，地址栏形如
+   `https://music.163.com/#/playlist?id=123456789`（移动端分享链接里也有 `id=`）；
+2. 确认这个歌单是**公开**的（歌单右上角「分享」能复制链接就说明公开）；
+   「我喜欢的音乐」没有公开 id，想在站内放这些歌，就另建一个公开歌单把它们加进去；
+3. 取到 id 后，二选一：
+
+   ```bash
+   # A. 直接粘链接（脚本会自动解析 id，--playlist= 或 MUSIC_PLAYLIST 都可以）
+   pnpm music:sync --playlist="https://music.163.com/playlist?id=123456789"
+   MUSIC_PLAYLIST=123456789 pnpm music:sync
+
+   # B. 写进配置再同步
+   #   src/config/musicConfig.ts → meting.id: "123456789"
+   pnpm music:sync
+   ```
+
+4. 把更新后的 `src/constants/music-library.json` 一起提交。
+
+> 想换平台就把 `meting.server` 改成 `tencent` / `kugou`，`type` 改成 `playlist` / `album` / `search`，
+> 其余流程不变。
+
 ## 界面
 
 `/music/` 读取这份 JSON 渲染：

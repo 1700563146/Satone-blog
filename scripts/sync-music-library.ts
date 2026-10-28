@@ -17,6 +17,7 @@ import { musicPlayerConfig } from "../src/config/musicConfig";
 import type { MusicLibrary, MusicLibraryTrack } from "../src/types/musicLibrary";
 
 const OUT_FILE = path.join("src", "constants", "music-library.json");
+
 const TIMEOUT_MS = 15000;
 
 interface RawMetingItem {
@@ -58,6 +59,24 @@ const pick = (item: RawMetingItem): MusicLibraryTrack | null => {
 	};
 };
 
+/**
+ * 解析歌单来源：支持直接粘网易云歌单链接或纯 id。
+ *   https://music.163.com/playlist?id=10046455237
+ *   https://music.163.com/#/playlist?id=10046455237
+ *   .../playlist/10046455237
+ *   10046455237
+ */
+const parsePlaylistId = (input: string): string | null => {
+	const trimmed = input.trim();
+	if (/^\d{4,}$/.test(trimmed)) return trimmed;
+	const byQuery = trimmed.match(/[?&]id=(\d+)/);
+	if (byQuery) return byQuery[1] ?? null;
+	const byPath = trimmed.match(/playlist\/(\d+)/);
+	if (byPath) return byPath[1] ?? null;
+	const anyDigits = trimmed.match(/(\d{6,})/);
+	return anyDigits ? (anyDigits[1] ?? null) : null;
+};
+
 const fetchPlaylist = async (api: string): Promise<RawMetingItem[]> => {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,7 +106,14 @@ const buildFromMeting = async (): Promise<MusicLibrary | null> => {
 	// 这几个字段在类型里是可选的，这里统一兜一下默认值
 	const server = meting.server ?? "netease";
 	const type = meting.type ?? "playlist";
-	const playlistId = meting.id ?? "";
+	// 优先用 MUSIC_PLAYLIST=链接或id / --playlist=链接或id 覆盖配置里的歌单
+	const cliArg = process.argv.find((arg) => arg.startsWith("--playlist="));
+	const rawPlaylist =
+		cliArg?.slice("--playlist=".length) ?? process.env.MUSIC_PLAYLIST ?? meting.id ?? "";
+	const playlistId = parsePlaylistId(rawPlaylist) ?? rawPlaylist;
+	if (rawPlaylist && playlistId !== rawPlaylist) {
+		console.log(`[music:sync] 从「${rawPlaylist}」解析出歌单 id：${playlistId}`);
+	}
 	const apis = [meting.api, ...(meting.fallbackApis ?? [])].map((template) =>
 		template
 			.replace(/:server/g, server)
