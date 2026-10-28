@@ -1,5 +1,5 @@
 /**
- * 音乐库同步：把播放列表拉成一份静态 JSON（src/constants/music-library.json）。
+ * 音乐库同步：把播放列表拉成一份静态 JSON（public/music/library.json）。
  *
  * 为什么在构建期拉：
  *   页面运行时不再依赖第三方接口 —— 没有 CORS、没有限流、接口挂了页面也照常显示。
@@ -16,7 +16,9 @@ import path from "node:path";
 import { musicPlayerConfig } from "../src/config/musicConfig";
 import type { MusicLibrary, MusicLibraryTrack } from "../src/types/musicLibrary";
 
-const OUT_FILE = path.join("src", "constants", "music-library.json");
+// 输出到 public/，页面运行时 fetch 这份 JSON：
+// 曲库可能有几百首，直接内联进 HTML 会让音乐页首包变得很大。
+const OUT_FILE = path.join("public", "music", "library.json");
 
 const TIMEOUT_MS = 15000;
 
@@ -106,42 +108,76 @@ const buildFromMeting = async (): Promise<MusicLibrary | null> => {
 	// 这几个字段在类型里是可选的，这里统一兜一下默认值
 	const server = meting.server ?? "netease";
 	const type = meting.type ?? "playlist";
-	// 优先用 MUSIC_PLAYLIST=链接或id / --playlist=链接或id 覆盖配置里的歌单
-	const cliArg = process.argv.find((arg) => arg.startsWith("--playlist="));
-	const rawPlaylist =
-		cliArg?.slice("--playlist=".length) ?? process.env.MUSIC_PLAYLIST ?? meting.id ?? "";
-	const playlistId = parsePlaylistId(rawPlaylist) ?? rawPlaylist;
-	if (rawPlaylist && playlistId !== rawPlaylist) {
-		console.log(`[music:sync] 从「${rawPlaylist}」解析出歌单 id：${playlistId}`);
-	}
-	const apis = [meting.api, ...(meting.fallbackApis ?? [])].map((template) =>
-		template
-			.replace(/:server/g, server)
-			.replace(/:type/g, type)
-			.replace(/:id/g, playlistId),
-	);
 
-	for (const api of apis) {
-		try {
-			console.log(`[music:sync] 尝试 ${api}`);
-			const raw = await fetchPlaylist(api);
-			const tracks = raw
-				.map(pick)
-				.filter((track): track is MusicLibraryTrack => track !== null);
-			if (tracks.length === 0) throw new Error("没有可用曲目");
-			console.log(`[music:sync] ${api} 返回 ${tracks.length} 首`);
-			return {
-				generatedAt: new Date().toISOString(),
-				source: `meting:${meting.server}:${meting.type}:${playlistId} (${new URL(api).host})`,
-				tracks,
-			};
-		} catch (error) {
-			console.warn(
-				`[music:sync] 失败：${api} → ${error instanceof Error ? error.message : String(error)}`,
+	// 歌单来源优先级：--playlist= / MUSIC_PLAYLIST（可逗号分隔）> meting.playlistIds > meting.id
+	const cliArg = process.argv.find((arg) => arg.startsWith("--playlist="));
+	const rawList =
+		cliArg?.slice("--playlist=".length) ?? process.env.MUSIC_PLAYLIST ?? null;
+	const ids = (
+		rawList
+			? rawList.split(/[\s,]+/).map((item) => parsePlaylistId(item) ?? item)
+			: (meting.playlistIds?.length ? meting.playlistIds : [meting.id ?? ""])
+	).filter(Boolean);
+
+	if (ids.length === 0) return null;
+	if (rawList) console.log(`[music:sync] 使用命令行指定的歌单：${ids.join(", ")}`);
+
+	const apisFor = (playlistId: string): string[] =>
+		[meting.api, ...(meting.fallbackApis ?? [])]
+			.filter((template): template is string => typeof template === "string")
+			.map((template) =>
+				template
+					.replace(/:server/g, server)
+					.replace(/:type/g, type)
+					.replace(/:id/g, playlistId),
 			);
+
+	const tracks: MusicLibraryTrack[] = [];
+	const seen = new Set<string>();
+	const usedHosts = new Set<string>();
+	const usedIds: string[] = [];
+
+	for (const playlistId of ids) {
+		let merged = false;
+		for (const api of apisFor(playlistId)) {
+			try {
+				console.log(`[music:sync] 尝试 ${api}`);
+				const raw = await fetchPlaylist(api);
+				const picked = raw
+					.map(pick)
+					.filter((track): track is MusicLibraryTrack => track !== null);
+				if (picked.length === 0) throw new Error("没有可用曲目");
+
+				let added = 0;
+				for (const track of picked) {
+					const key = `${track.name}|${track.artist}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					tracks.push(track);
+					added += 1;
+				}
+				usedHosts.add(new URL(api).host);
+				usedIds.push(playlistId);
+				console.log(
+					`[music:sync] 歌单 ${playlistId}：${picked.length} 首，新增 ${added} 首`,
+				);
+				merged = true;
+				break;
+			} catch (error) {
+				console.warn(
+					`[music:sync] 失败：${api} → ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
 		}
+		if (!merged) console.warn(`[music:sync] 歌单 ${playlistId} 全部实例都失败，跳过`);
 	}
-	return null;
+
+	if (tracks.length === 0) return null;
+	return {
+		generatedAt: new Date().toISOString(),
+		source: `meting:${server}:${type}:${usedIds.join("+")} (${[...usedHosts].join(", ")})`,
+		tracks,
+	};
 };
 
 const buildFromLocal = (): MusicLibrary | null => {
@@ -184,6 +220,7 @@ const main = async (): Promise<void> => {
 		tracks: library.tracks,
 	};
 
+	fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
 	fs.writeFileSync(OUT_FILE, `${JSON.stringify(normalized, null, "\t")}\n`, "utf8");
 	console.log(
 		`[music:sync] 写入 ${OUT_FILE}：${normalized.tracks.length} 首（来源 ${normalized.source}）`,

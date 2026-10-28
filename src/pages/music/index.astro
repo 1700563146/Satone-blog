@@ -2,23 +2,16 @@
 import { Icon } from "astro-icon/components";
 import WidgetLayout from "@/components/common/WidgetLayout.astro";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
-import musicLibrary from "@/constants/music-library.json";
-import type { MusicLibrary } from "@/types/musicLibrary";
-
 // 音乐页：黑胶唱片牌面 + 可切换的盘廊 + 曲目列表。
-// 曲目来自构建期生成的 src/constants/music-library.json（`pnpm music:sync`），
-// 页面运行时不请求任何第三方接口；音频直链由 JSON 提供。
-const library = musicLibrary as MusicLibrary;
-const tracks = library.tracks;
-const sourceLabel = library.source.startsWith("meting")
-	? "在线歌单（Meting · 构建期同步）"
-	: "本地曲目";
+// 曲库由 `pnpm music:sync` 生成到 public/music/library.json，
+// 页面运行时只 fetch 这一个静态文件（不碰第三方接口），几百首也不会撑大 HTML。
+const LIBRARY_URL = "/music/library.json";
 ---
 
 <MainGridLayout title="音乐" description="站内音乐播放与曲目列表">
 	<div class="flex flex-col gap-4">
 		<WidgetLayout id="music-disc-hero" name="正在播放">
-			<div id="music-hero" class="music-hero" data-tracks={JSON.stringify(tracks)}>
+			<div id="music-hero" class="music-hero" data-library={LIBRARY_URL}>
 				<div class="disc-stage">
 					<div class="disc-shadow" aria-hidden="true"></div>
 					<div class="disc" id="music-disc" aria-hidden="true">
@@ -41,7 +34,9 @@ const sourceLabel = library.source.startsWith("meting")
 				<div class="music-info">
 					<p class="music-eyebrow">
 						<Icon name="material-symbols:album-rounded" class="text-[1rem]" />
-						{sourceLabel} · {tracks.length} 首
+						<span id="music-source">在线歌单（Meting · 构建期同步）</span>
+						<span class="music-dot">·</span>
+						<span id="music-count">曲库载入中…</span>
 					</p>
 					<h2 class="music-title" id="music-now-title">—</h2>
 					<p class="music-artist" id="music-now-artist">—</p>
@@ -68,7 +63,7 @@ const sourceLabel = library.source.startsWith("meting")
 							<Icon name="material-symbols:skip-next-rounded" class="text-[1.35rem]" />
 						</button>
 					</div>
-					<p class="music-hint" id="music-hint">点唱片或列表任意一首开始播放</p>
+					<p class="music-hint" id="music-hint">正在载入曲库…</p>
 				</div>
 			</div>
 
@@ -77,20 +72,17 @@ const sourceLabel = library.source.startsWith("meting")
 
 		<WidgetLayout id="music-track-list" name="曲目">
 			<ol class="music-list" id="music-list"></ol>
-			{
-				tracks.length === 0 && (
-					<div class="music-empty">
-						<Icon name="material-symbols:music-off-rounded" class="text-[2rem]" />
-						<p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-							还没有曲目：配好 <code>src/config/musicConfig.ts</code> 后运行
-							<code>pnpm music:sync</code> 生成曲库。
-						</p>
-					</div>
-				)
-			}
+			<div class="music-empty" id="music-empty" hidden>
+				<Icon name="material-symbols:music-off-rounded" class="text-[2rem]" />
+				<p class="mt-2 text-sm">
+					曲库是空的：配好 <code>src/config/musicConfig.ts</code> 后运行
+					<code>pnpm music:sync</code>。
+				</p>
+			</div>
+			<button type="button" class="music-more" id="music-more" hidden>显示更多</button>
 			<p class="music-footnote">
-				曲目来自 <code>src/constants/music-library.json</code>（构建期同步，页面运行时不请求接口）；
-				来源：<code>{library.source}</code>
+				曲目来自 <code>public/music/library.json</code>（<code>pnpm music:sync</code> 构建期同步，
+				页面运行时不请求第三方接口）；来源：<code id="music-source-detail">—</code>
 			</p>
 		</WidgetLayout>
 	</div>
@@ -543,9 +535,9 @@ const sourceLabel = library.source.startsWith("meting")
 		width: 2.6rem;
 		height: 2.6rem;
 		border-radius: 999px;
-		border: 1px solid color-mix(in oklch, currentColor 16%, transparent);
-		background: color-mix(in oklch, currentColor 6%, transparent);
-		color: inherit;
+		border: 1px solid rgba(90, 100, 120, 0.28);
+		background: rgba(90, 100, 120, 0.08);
+		color: rgb(40, 46, 60);
 		cursor: pointer;
 		transition:
 			background-color 180ms ease,
@@ -553,9 +545,19 @@ const sourceLabel = library.source.startsWith("meting")
 			transform 180ms ease;
 	}
 
+	:global(html.dark) .music-btn {
+		border-color: rgba(208, 220, 244, 0.32);
+		background: rgba(208, 220, 244, 0.1);
+		color: rgb(232, 239, 252);
+	}
+
 	.music-btn:hover {
 		border-color: var(--primary);
 		transform: translateY(-1px);
+	}
+
+	:global(html.dark) .music-btn:hover {
+		background: rgba(208, 220, 244, 0.18);
 	}
 
 	.music-btn:focus-visible {
@@ -590,14 +592,67 @@ const sourceLabel = library.source.startsWith("meting")
 		border: 1px dashed var(--card-border);
 		border-radius: 0.9rem;
 		text-align: center;
-		color: color-mix(in oklch, currentColor 45%, transparent);
+		color: rgb(96, 104, 124);
+	}
+
+	:global(html.dark) .music-empty {
+		color: rgb(190, 200, 220);
+	}
+
+	/* 「显示更多」 */
+	.music-more {
+		display: block;
+		width: 100%;
+		margin-top: 0.6rem;
+		padding: 0.6rem 0;
+		border: 1px dashed rgba(90, 100, 120, 0.35);
+		border-radius: 0.8rem;
+		background: transparent;
+		color: rgb(64, 72, 92);
+		font-size: 0.78rem;
+		cursor: pointer;
+		transition:
+			border-color 180ms ease,
+			color 180ms ease,
+			background-color 180ms ease;
+	}
+
+	:global(html.dark) .music-more {
+		border-color: rgba(208, 220, 244, 0.3);
+		color: rgb(214, 224, 244);
+	}
+
+	.music-more:hover {
+		border-color: var(--primary);
+		color: var(--primary);
+		background: color-mix(in oklch, var(--primary) 8%, transparent);
+	}
+
+	.music-more[hidden] {
+		display: none;
+	}
+
+	.music-dot {
+		opacity: 0.6;
 	}
 
 	.music-footnote {
 		margin: 0.75rem 0 0;
-		font-size: 0.68rem;
-		line-height: 1.6;
-		color: color-mix(in oklch, currentColor 42%, transparent);
+		font-size: 0.7rem;
+		line-height: 1.7;
+		color: rgb(96, 104, 124);
+	}
+
+	:global(html.dark) .music-footnote {
+		color: rgb(178, 190, 212);
+	}
+
+	.music-footnote code {
+		color: rgb(64, 72, 92);
+	}
+
+	:global(html.dark) .music-footnote code {
+		color: rgb(206, 216, 238);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -620,7 +675,7 @@ const sourceLabel = library.source.startsWith("meting")
 		url: string;
 	}
 
-	function setupMusicPage(): void {
+	async function setupMusicPage(): Promise<void> {
 		const hero = document.getElementById("music-hero") as HTMLElement | null;
 		const audio = document.getElementById("music-audio") as HTMLAudioElement | null;
 		const list = document.getElementById("music-list");
@@ -629,16 +684,13 @@ const sourceLabel = library.source.startsWith("meting")
 		if (hero.dataset.ready === "true") return;
 		hero.dataset.ready = "true";
 
+		const libraryUrl = hero.dataset.library ?? "/music/library.json";
 		let tracks: Track[] = [];
-		try {
-			tracks = JSON.parse(hero.dataset.tracks ?? "[]") as Track[];
-		} catch {
-			tracks = [];
-		}
-		if (tracks.length === 0) return;
-
 		let index = 0;
 		let ready = false;
+		// 列表分页渲染：曲库可能几百首，一次只铺一页
+		const PAGE_SIZE = 80;
+		let visibleCount = PAGE_SIZE;
 
 		const get = <T extends HTMLElement>(id: string): T | null =>
 			document.getElementById(id) as T | null;
@@ -665,7 +717,7 @@ const sourceLabel = library.source.startsWith("meting")
 
 		const renderStrip = (): void => {
 			strip.innerHTML = "";
-			tracks.forEach((track, i) => {
+			stripWindow().forEach(({ track, i }) => {
 				const button = document.createElement("button");
 				button.type = "button";
 				button.className = "disc-mini";
@@ -687,7 +739,8 @@ const sourceLabel = library.source.startsWith("meting")
 
 		const renderList = (): void => {
 			list.innerHTML = "";
-			tracks.forEach((track, i) => {
+			const limit = Math.min(tracks.length, visibleCount);
+			tracks.slice(0, limit).forEach((track, i) => {
 				const li = document.createElement("li");
 				li.className = "music-row";
 				li.dataset.index = String(i);
@@ -727,11 +780,29 @@ const sourceLabel = library.source.startsWith("meting")
 				}
 				list.appendChild(li);
 			});
+
+			const more = document.getElementById("music-more");
+			if (more) more.hidden = tracks.length <= limit;
+		};
+
+		/** 盘廊只铺当前曲目附近的窗口，避免几百个唱片节点 */
+		const stripWindow = (): Array<{ track: Track; i: number }> => {
+			const span = 8;
+			const start = Math.max(0, index - span);
+			const end = Math.min(tracks.length, index + span + 1);
+			const out: Array<{ track: Track; i: number }> = [];
+			for (let i = start; i < end; i++) {
+				const track = tracks[i];
+				if (track) out.push({ track, i });
+			}
+			return out;
 		};
 
 		const paint = (): void => {
 			const track = tracks[index];
 			if (!track) return;
+			const countEl = document.getElementById("music-count");
+			if (countEl) countEl.textContent = `${tracks.length} 首`;
 			if (titleEl) titleEl.textContent = track.name;
 			if (artistEl) artistEl.textContent = track.artist;
 			if (initialEl) initialEl.textContent = track.name.slice(0, 1) || "♪";
@@ -864,10 +935,45 @@ const sourceLabel = library.source.startsWith("meting")
 		audio.addEventListener("pause", () => setPlayingUi(false));
 		audio.addEventListener("ended", () => step(1));
 
+		// ── 载入曲库（自家静态 JSON） ──────────────────────────────
+		try {
+			const response = await fetch(libraryUrl);
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const library = (await response.json()) as {
+				source?: string;
+				tracks?: Track[];
+			};
+			tracks = Array.isArray(library.tracks) ? library.tracks : [];
+			const sourceEl = document.getElementById("music-source");
+			if (sourceEl) {
+				sourceEl.textContent = (library.source ?? "").startsWith("meting")
+					? "在线歌单（Meting · 构建期同步）"
+					: "本地曲目";
+			}
+			const detailEl = document.getElementById("music-source-detail");
+			if (detailEl) detailEl.textContent = library.source ?? "—";
+		} catch {
+			if (hint) hint.textContent = "曲库载入失败：检查 public/music/library.json 是否存在";
+		}
+
+		if (tracks.length === 0) {
+			const empty = document.getElementById("music-empty");
+			if (empty) empty.hidden = false;
+			if (hint) hint.textContent = "曲库是空的，先跑 pnpm music:sync 生成";
+			return;
+		}
+
+		document.getElementById("music-more")?.addEventListener("click", () => {
+			visibleCount += PAGE_SIZE;
+			renderList();
+		});
+
 		paint();
 		setPlayingUi(false);
 	}
 
-	setupMusicPage();
-	document.addEventListener("astro:page-load", setupMusicPage);
+	void setupMusicPage();
+	document.addEventListener("astro:page-load", () => {
+		void setupMusicPage();
+	});
 </script>

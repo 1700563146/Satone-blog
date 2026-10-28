@@ -9,7 +9,8 @@
 | Spotify / Apple Music API | 曲库正版、元数据规范 | 需要 OAuth + client secret，且**没有**可直接播放的直链 | ❌ |
 | 自己托管音频（本地 mp3） | 完全可控、无外部依赖、可离线 | 需要自己拥有音频文件 | ✅ 作为兜底 / 长期方案 |
 
-**本项目采用：构建期同步 + 提交静态 JSON。**
+**本项目采用：构建期同步 + 提交静态 JSON。** 输出到 `public/music/library.json`，
+页面运行时只 fetch 这一个静态文件（几百首也不会撑大 HTML），列表按 80 首分页、盘廊只铺当前曲目附近 17 张。
 页面运行时**不请求任何第三方接口** —— 没有 CORS、没有限流、接口挂了页面也照常显示。
 需要更新歌单时手动跑一次 `pnpm music:sync`，把生成的 JSON 一起提交。
 
@@ -29,8 +30,26 @@ pnpm music:sync --meting
 
 1. 依次尝试 `meting.api` 与 `meting.fallbackApis`（把 `:server/:type/:id` 替换成配置值）；
 2. 兼容两种字段风格（`title/author` / `name/artist`），没名字或没直链的条目丢弃；
-3. 写入 `src/constants/music-library.json`：`{ generatedAt, source, tracks[] }`；
+3. 写入 `public/music/library.json`：`{ generatedAt, source, tracks[] }`；
 4. 全部接口都失败时，退回 `local.playlist`（本地曲目），保证页面不空。
+
+## 多个歌单一起导
+
+`meting.playlistIds` 是数组，按顺序逐个拉取后**合并去重**（同名 + 同歌手算重复）：
+
+```ts
+meting: {
+  playlistIds: ["18344910739", "17840783642", "17896692465"],
+}
+```
+
+命令行也可以一次给多个（逗号或空格分隔，链接和纯 id 混着写都行）：
+
+```bash
+pnpm music:sync --playlist="https://music.163.com/#/my/m/music/playlist?id=18344910739,17840783642,17896692465"
+```
+
+仓库当前就是这三张公开歌单，合并去重后 378 首（44 + 270 + 120，重复 56 首）。
 
 ## 导入自己的网易云歌单
 
@@ -53,7 +72,7 @@ Meting 是**匿名接口**：能读公开歌单，读不到你私人的「我喜
    pnpm music:sync
    ```
 
-4. 把更新后的 `src/constants/music-library.json` 一起提交。
+4. 把更新后的 `public/music/library.json` 一起提交。
 
 > 想换平台就把 `meting.server` 改成 `tencent` / `kugou`，`type` 改成 `playlist` / `album` / `search`，
 > 其余流程不变。

@@ -30,7 +30,9 @@ export const musicPlayerConfig: MusicPlayerConfig = {
 		// 类型：song=单曲, playlist=歌单, album=专辑, search=搜索, artist=艺术家
 		type: "playlist",
 		// 歌单/专辑/单曲 ID 或搜索关键词
-		id: "10046455237",
+		id: "18344910739",
+		// 多个公开歌单：按顺序拉取后合并去重（id 保留给单歌单的老用法）
+		playlistIds: ["18344910739", "17840783642", "17896692465"],
 		// 认证 token（可选）
 		auth: "",
 		// 备用 API 配置（当主 API 失败时使用）

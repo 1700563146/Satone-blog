@@ -33,6 +33,7 @@ export type MusicPlayerConfig = {
 		id?: string;
 
 		// 认证 token（可选）
+	playlistIds?: string[]; // 多个公开歌单 id（会合并去重），优先于 id
 		auth?: string;
 
 		// 备用 API 配置（当主 API 失败时使用）
