@@ -5,7 +5,8 @@ import { photoWallConfig } from "@/config/photoWallConfig";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
 
 // 单个相册：/wall/<id>/
-// 一组照片按「摊开的相纸」排列，每张带轻微倾斜；点开是大图（Fancybox 接管 data-fancybox）。
+// 一组照片按「摊开的相纸」排列，每张带轻微倾斜；点开用本页自带的灯箱放大预览
+// （不依赖站点的 Fancybox：那套绑定在本页没有生效）。
 if (!photoWallConfig.enable) {
 	return Astro.redirect("/404/");
 }
@@ -52,8 +53,13 @@ const cover = album.cover ?? album.photos[0]?.src;
 							<a
 								class="wall-frame-link"
 								href={photo.src}
-								data-fancybox={`album-${album.id}`}
-								data-caption={photo.meta ? `${photo.caption ?? ""} · ${photo.meta}` : photo.caption}
+								data-wall-open={index}
+								data-wall-src={photo.src}
+								data-wall-caption={
+									photo.meta
+										? `${photo.caption ?? ""} · ${photo.meta}`
+										: (photo.caption ?? "")
+								}
 							>
 								<img
 									src={photo.src}
@@ -85,6 +91,21 @@ const cover = album.cover ?? album.photos[0]?.src;
 		</WidgetLayout>
 	</div>
 </MainGridLayout>
+
+{/* 灯箱：点照片放大预览，← → 切换，Esc / 点背景关闭 */}
+<div id="wall-lightbox" class="wall-lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="照片预览">
+	<button type="button" class="wall-lb-btn wall-lb-close" data-wall-close aria-label="关闭预览">
+		<Icon name="material-symbols:close-rounded" class="text-[1.4rem]" />
+	</button>
+	<button type="button" class="wall-lb-btn wall-lb-prev" data-wall-prev aria-label="上一张">
+		<Icon name="material-symbols:chevron-left-rounded" class="text-[1.6rem]" />
+	</button>
+	<img class="wall-lb-img" data-wall-img alt="" />
+	<button type="button" class="wall-lb-btn wall-lb-next" data-wall-next aria-label="下一张">
+		<Icon name="material-symbols:chevron-right-rounded" class="text-[1.6rem]" />
+	</button>
+	<p class="wall-lb-caption" data-wall-caption></p>
+</div>
 
 <style>
 	/* 卡片底色随主题变，文字颜色直接写两套：a / h1 默认继承到黑色 */
@@ -217,6 +238,113 @@ const cover = album.cover ?? album.photos[0]?.src;
 		color: color-mix(in oklch, currentColor 45%, transparent);
 	}
 
+	/* ── 灯箱 ─────────────────────────────────────────────── */
+	.wall-lightbox {
+		position: fixed;
+		inset: 0;
+		z-index: 20000;
+		display: none;
+		place-items: center;
+		background: rgba(6, 8, 14, 0.82);
+		backdrop-filter: blur(10px) saturate(1.1);
+		padding: clamp(1rem, 4vw, 3rem);
+		opacity: 0;
+		transition: opacity 240ms ease;
+	}
+
+	.wall-lightbox.open {
+		display: grid;
+		opacity: 1;
+	}
+
+	.wall-lb-img {
+		max-width: min(92vw, 1400px);
+		max-height: 84vh;
+		width: auto;
+		height: auto;
+		border-radius: 6px;
+		box-shadow:
+			0 2px 6px rgba(0, 0, 0, 0.4),
+			0 24px 60px rgba(0, 0, 0, 0.5);
+		background: #0d1018;
+		cursor: zoom-out;
+	}
+
+	.wall-lb-btn {
+		position: absolute;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 44px;
+		min-height: 44px;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.22);
+		background: rgba(18, 22, 32, 0.6);
+		color: rgba(232, 238, 250, 0.9);
+		cursor: pointer;
+		transition:
+			background-color 180ms ease,
+			border-color 180ms ease,
+			transform 180ms ease;
+	}
+
+	.wall-lb-btn:hover {
+		background: rgba(30, 38, 54, 0.85);
+		border-color: var(--primary);
+		transform: scale(1.05);
+	}
+
+	.wall-lb-btn:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 3px;
+	}
+
+	.wall-lb-close {
+		top: clamp(0.75rem, 3vh, 1.75rem);
+		right: clamp(0.75rem, 3vw, 1.75rem);
+	}
+
+	.wall-lb-prev,
+	.wall-lb-next {
+		top: 50%;
+		transform: translateY(-50%);
+	}
+
+	.wall-lb-prev {
+		left: clamp(0.5rem, 2vw, 1.5rem);
+	}
+
+	.wall-lb-next {
+		right: clamp(0.5rem, 2vw, 1.5rem);
+	}
+
+	.wall-lb-prev:hover,
+	.wall-lb-next:hover {
+		transform: translateY(-50%) scale(1.05);
+	}
+
+	.wall-lb-caption {
+		position: absolute;
+		left: 50%;
+		bottom: clamp(0.9rem, 4vh, 2.25rem);
+		transform: translateX(-50%);
+		margin: 0;
+		max-width: min(80vw, 900px);
+		text-align: center;
+		font-size: 0.8rem;
+		letter-spacing: 0.02em;
+		color: rgba(226, 234, 250, 0.82);
+	}
+
+	.wall-lb-caption:empty {
+		display: none;
+	}
+
+	.wall-lightbox ~ * ,
+	:global(body.wall-lb-locked) {
+		overflow: hidden;
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.wall-frame,
 		.wall-frame-link img {
@@ -226,5 +354,143 @@ const cover = album.cover ?? album.photos[0]?.src;
 		.wall-frame {
 			transform: none;
 		}
+
+		.wall-lightbox {
+			transition: none;
+		}
 	}
 </style>
+
+<script>
+	// 相册页自带的灯箱：不依赖站点 Fancybox（那套绑定在本页没生效）。
+	// 用事件委托绑定一次，Swup 换页后 DOM 换了也能用。
+	(function setupWallLightbox() {
+		if (window.__wallLightboxReady) return;
+		window.__wallLightboxReady = true;
+
+		const SELECTOR = "[data-wall-open]";
+		let index = 0;
+		let items: Array<{ src: string; caption: string; alt: string }> = [];
+		let lastFocus: HTMLElement | null = null;
+
+		const collect = (): void => {
+			items = Array.from(
+				document.querySelectorAll<HTMLAnchorElement>(SELECTOR),
+			).map((anchor) => ({
+				src: anchor.dataset.wallSrc ?? anchor.getAttribute("href") ?? "",
+				caption: anchor.dataset.wallCaption ?? "",
+				alt:
+					anchor.querySelector("img")?.getAttribute("alt") ??
+					"照片",
+			}));
+		};
+
+		const box = () => document.getElementById("wall-lightbox");
+		const img = () =>
+			document.querySelector<HTMLImageElement>("[data-wall-img]");
+		const captionEl = () =>
+			document.querySelector<HTMLElement>("[data-wall-caption]");
+
+		const paint = (): void => {
+			const item = items[index];
+			const image = img();
+			const caption = captionEl();
+			if (!item || !image) return;
+			image.src = item.src;
+			image.alt = item.alt;
+			if (caption) caption.textContent = item.caption;
+		};
+
+		const open = (next: number): void => {
+			collect();
+			if (items.length === 0) return;
+			index = (next + items.length) % items.length;
+			lastFocus = document.activeElement as HTMLElement | null;
+			paint();
+			const dialog = box();
+			if (!dialog) return;
+			dialog.classList.add("open");
+			dialog.setAttribute("aria-hidden", "false");
+			document.body.classList.add("wall-lb-locked");
+			dialog.querySelector<HTMLElement>("[data-wall-close]")?.focus();
+		};
+
+		const close = (): void => {
+			const dialog = box();
+			if (!dialog) return;
+			dialog.classList.remove("open");
+			dialog.setAttribute("aria-hidden", "true");
+			document.body.classList.remove("wall-lb-locked");
+			const image = img();
+			if (image) image.removeAttribute("src");
+			lastFocus?.focus();
+		};
+
+		const step = (delta: number): void => {
+			if (items.length === 0) return;
+			index = (index + delta + items.length) % items.length;
+			paint();
+		};
+
+		// 捕获阶段：Swup 先绑了 document 的 click，气泡阶段会被它先拿去导航
+		document.addEventListener(
+			"click",
+			(event) => {
+				const target = event.target;
+				if (!(target instanceof Element)) return;
+
+				const trigger = target.closest<HTMLAnchorElement>(SELECTOR);
+				if (trigger) {
+					event.preventDefault();
+					event.stopPropagation();
+					open(Number(trigger.dataset.wallOpen ?? "0"));
+					return;
+				}
+
+				if (target.closest("[data-wall-close]")) {
+					event.preventDefault();
+					event.stopPropagation();
+					close();
+					return;
+				}
+				if (target.closest("[data-wall-prev]")) {
+					event.preventDefault();
+					event.stopPropagation();
+					step(-1);
+					return;
+				}
+				if (target.closest("[data-wall-next]")) {
+					event.preventDefault();
+					event.stopPropagation();
+					step(1);
+					return;
+				}
+				// 点背景或图片本身关闭
+				const dialog = box();
+				if (
+					dialog?.classList.contains("open") &&
+					(target === dialog || target.closest(".wall-lb-img"))
+				) {
+					event.stopPropagation();
+					close();
+				}
+			},
+			true,
+		);
+
+		document.addEventListener("keydown", (event) => {
+			const dialog = box();
+			if (!dialog?.classList.contains("open")) return;
+			if (event.key === "Escape") {
+				event.preventDefault();
+				close();
+			} else if (event.key === "ArrowLeft") {
+				event.preventDefault();
+				step(-1);
+			} else if (event.key === "ArrowRight") {
+				event.preventDefault();
+				step(1);
+			}
+		});
+	})();
+</script>

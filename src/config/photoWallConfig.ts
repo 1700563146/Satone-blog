@@ -22,17 +22,17 @@ export const photoWallConfig: PhotoWallConfig = {
 			description: "天还没亮就出门的那几次，山顶只有风声。",
 			photos: [
 				{
-					src: "/wall/demo/night-1.jpg",
+					src: "/wall/demo/night-1.webp",
 					caption: "月亮升起来之前",
 					meta: "2026-04-12 · 山脊",
 				},
 				{
-					src: "/wall/demo/night-2.jpg",
+					src: "/wall/demo/night-2.webp",
 					caption: "等一场流星",
 					meta: "2026-04-12 · 北坡",
 				},
 				{
-					src: "/wall/demo/night-3.jpg",
+					src: "/wall/demo/night-3.webp",
 					caption: "回程的 blue hour",
 					meta: "2026-04-13 · 山口",
 				},
@@ -45,17 +45,17 @@ export const photoWallConfig: PhotoWallConfig = {
 			description: "太阳落下去之后的那二十分钟，橘色会漫上来。",
 			photos: [
 				{
-					src: "/wall/demo/dusk-1.jpg",
+					src: "/wall/demo/dusk-1.webp",
 					caption: "橘紫交界",
 					meta: "2026-03-21 · 江边",
 				},
 				{
-					src: "/wall/demo/dusk-2.jpg",
+					src: "/wall/demo/dusk-2.webp",
 					caption: "最后一格电",
 					meta: "2026-03-21 · 江边",
 				},
 				{
-					src: "/wall/demo/dusk-3.jpg",
+					src: "/wall/demo/dusk-3.webp",
 					caption: "路灯亮起的一瞬",
 					meta: "2026-03-28 · 老街",
 				},
@@ -68,17 +68,17 @@ export const photoWallConfig: PhotoWallConfig = {
 			description: "下过雨的空气是青灰色的，什么都像被擦过一遍。",
 			photos: [
 				{
-					src: "/wall/demo/rain-1.jpg",
+					src: "/wall/demo/rain-1.webp",
 					caption: "青灰",
 					meta: "2026-02-09 · 天台",
 				},
 				{
-					src: "/wall/demo/rain-2.jpg",
+					src: "/wall/demo/rain-2.webp",
 					caption: "雨丝",
 					meta: "2026-02-09 · 天台",
 				},
 				{
-					src: "/wall/demo/rain-3.jpg",
+					src: "/wall/demo/rain-3.webp",
 					caption: "放晴前的五分钟",
 					meta: "2026-02-17 · 门口",
 				},

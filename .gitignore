@@ -51,3 +51,6 @@ package/
 # 横幅视频原始文件（只用于转码，网页用的是 public/assets/videos/ 下的压缩版）
 /lemon.mp4
 /Chill Cat Coffe.mp4
+
+# 照片墙原图（用 pnpm wall:opt 压到 public/wall/）
+/wall-src/

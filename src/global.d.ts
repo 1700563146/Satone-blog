@@ -103,6 +103,8 @@ declare global {
 		__ringTransitionReady?: boolean;
 		/** 星空背景（视差繁星层）初始化守卫,确保 Swup 切页不重复注册监听器 */
 		__parallaxStarsReady?: boolean;
+		/** 照片墙灯箱初始化守卫,确保 Swup 切页不重复绑定事件 */
+		__wallLightboxReady?: boolean;
 		/** 「写文章」悬浮入口初始化守卫,确保 Swup 切页不重复注册监听器 */
 		__adminEntryReady?: boolean;
 	}

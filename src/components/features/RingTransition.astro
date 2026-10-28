@@ -608,9 +608,17 @@
 			if (next.origin !== window.location.origin) return;
 			if (normalize(next.pathname) === normalize(window.location.pathname)) return;
 
+			// 相册详情页（/wall/<id>/）不算「特殊页」：点进某一组、组间切换都不应该
+			// 被全屏圆环盖住，留给默认 Swup 过渡
+			const isAlbumDetail = (path: string): boolean => {
+				const normalized = normalize(path);
+				return normalized.startsWith("/wall/") && normalized !== normalize(url("/wall/"));
+			};
+			if (isAlbumDetail(next.pathname)) return;
+
 			const fromSpecial = normalize(window.location.pathname) in specialPages;
 			const toSpecial = normalize(next.pathname) in specialPages;
-			// 只有涉及照片墙 / 音乐的跳转才接管
+			// 只有涉及照片墙首页 / 音乐页的跳转才接管
 			if (!fromSpecial && !toSpecial) return;
 
 			event.preventDefault();
