@@ -79,7 +79,10 @@ const banner = getBannerVisibilityState({
 	title,
 	bannerPostMeta,
 });
-const sidebar = getEffectiveSidebarState({ isPostPage });
+const sidebar = getEffectiveSidebarState({
+	isPostPage,
+	isHomePage: isHomePageCheck,
+});
 
 const { hasWallpaper } = banner;
 const {
@@ -142,7 +145,8 @@ const {
             </main>
 
                 {/* 移动端底部组件：<768px 时 #main-grid 是 display:block，必须排在页脚之前 */}
-                {sidebarLayoutConfig.mobileBottomComponents && sidebarLayoutConfig.mobileBottomComponents.length > 0 && (
+                {/* 首页只显示中间内容：移动端底部组件也一起收起 */}
+                {!isHomePageCheck && sidebarLayoutConfig.mobileBottomComponents && sidebarLayoutConfig.mobileBottomComponents.length > 0 && (
                     <div id="mobile-bottom-sidebar" class="block md:hidden mt-5">
                         <SideBar side="bottom" headings={headings} encrypted={encrypted}></SideBar>
                     </div>

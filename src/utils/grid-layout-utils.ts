@@ -34,6 +34,10 @@ export function updateMainGridCols(): void {
 	if (!mainGrid || !varHost) return;
 
 	const isPostPage = isCurrentPagePost();
+	// 首页判定走 URL：切页时 #main-grid 不重建，SSR 属性会过期
+	const onHomePage =
+		window.location.pathname === "/" ||
+		window.location.pathname === "";
 	// 缺省视为 true（fail-open）：属性缺失时不要误把整列折叠掉
 	const flag = (name: string): boolean =>
 		mainGrid.getAttribute(name) !== "false";
@@ -55,6 +59,9 @@ export function updateMainGridCols(): void {
 		hideSidebarOnPostPage:
 			mainGrid.getAttribute("data-grid-hide-sidebar-on-post") === "true",
 		isPostPage,
+		isHomePage: onHomePage,
+		hideSidebarOnHomePage:
+			mainGrid.getAttribute("data-grid-hide-sidebar-on-home") === "true",
 		hasLeftWidgets: flag(
 			isPostPage ? "data-has-left-on-post" : "data-has-left-on-non-post",
 		),

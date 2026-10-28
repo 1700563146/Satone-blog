@@ -21,6 +21,9 @@ export const sidebarLayoutConfig: SidebarLayoutConfig = {
 	// 文章详情页隐藏侧边栏，设为 true 则只在首页等非文章页显示
 	hideSidebarOnPostPage: false,
 
+	// 首页隐藏左右侧边栏，只显示中间内容（头像 / 番茄钟 / 音乐等卡片都不出现）
+	hideSidebarOnHomePage: true,
+
 	// 本页没有侧栏列时，内容栏占「侧栏 + 内容栏」总宽的比例（0–1），不设置或 ≥1 则铺满
 	noSidebarContentWidth: 0.6,
 

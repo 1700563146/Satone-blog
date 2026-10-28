@@ -36,9 +36,11 @@ Package manager is **pnpm** (enforced). Node.js >= 22 required.
 All features are toggled/configured via TypeScript files in `src/config/`, exported through the barrel at `src/config/index.ts`. Key configs:
 
 - `siteConfig.ts` — core site settings, theme, pagination
-- `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering)
+- Navbar items are all anchors now: clicking 「文章」 goes straight to `/archive/` while its 归档/分类/标签 children open on hover/focus.
+- `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering). `hideSidebarOnHomePage` (default `true`) renders the home page as a single centered column — no profile card, pomodoro, music widget or stats; other pages keep both sidebars.
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
+- `musicConfig.ts` — `/music/` 音乐页（与照片墙同形态：播放器卡片 + 歌单列表，曲目读 `local.playlist`，音频/封面放 `public/assets/music/`）
 - `photoWallConfig.ts` — `/wall/` 照片墙（占位版：瀑布流版式 + 空瓦片，图片放 `public/wall/` 后填进 `photos`）
 - `backgroundWallpaper.common.bannerVideo` — theme-switched hero background video (`light` / `dark` paths under `public/assets/videos/`). It only covers the banner behind the home title: the layers are wallpaper image → video (`z-6`) → scrim (`z-7`) → dim (`z-10`) → waves (`z-15`) → banner text (`z-20`), so the starfield/page background below the waves is untouched. Skipped under `prefers-reduced-motion` and `saveData`.
 

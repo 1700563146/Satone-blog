@@ -94,6 +94,10 @@ export interface GridColumnsInput {
 	tabletSidebar: "left" | "right";
 	hideSidebarOnPostPage: boolean;
 	isPostPage: boolean;
+	/** 是否首页（首页可以只留中间内容） */
+	isHomePage?: boolean;
+	/** 首页是否隐藏左右侧栏 */
+	hideSidebarOnHomePage?: boolean;
 	hasLeftWidgets: boolean;
 	hasRightWidgets: boolean;
 	/** 无侧栏列时内容栏占包裹层总宽的比例（0–1），不设置或 ≥1 则铺满 */
@@ -128,9 +132,12 @@ function trackSegments(left: boolean, right: boolean): string {
  * 侧栏包裹层是 display:contents，真正的 grid item 是内层元素，按 DOM 顺序自动放置即可。
  */
 export function computeGridColumns(input: GridColumnsInput): GridColumnVars {
-	// 整站禁用，或文章页整体隐藏侧栏
+	// 整站禁用、文章页整体隐藏侧栏、或首页只保留中间内容
+	const hideOnHome = input.isHomePage === true && input.hideSidebarOnHomePage === true;
 	const sidebarActive =
-		input.enabled && !(input.isPostPage && input.hideSidebarOnPostPage);
+		input.enabled &&
+		!(input.isPostPage && input.hideSidebarOnPostPage) &&
+		!hideOnHome;
 
 	const leftIn =
 		sidebarActive && input.hasLeftWidgets && input.position !== "right";
@@ -149,11 +156,14 @@ export function computeGridColumns(input: GridColumnsInput): GridColumnVars {
 
 	// 侧栏已启用但本断点无侧栏列 → 内容栏按比例收窄；比例钳到 [0,1]，1 即不收窄
 	// 闸门用 enabled 而非 sidebarActive：enable: false 时仍铺满。md 与 xl 需各自判定
+	// 首页整体收起侧栏时不再收窄，内容直接铺满整行
 	const raw = input.noSidebarContentWidth;
 	const ratio =
 		raw == null || !Number.isFinite(raw) ? 1 : Math.min(1, Math.max(0, raw));
-	const ratioMd = input.enabled && !mdLeft && !mdRight ? ratio : 1;
-	const ratioXl = input.enabled && !leftIn && !rightIn ? ratio : 1;
+	const ratioMd =
+		input.enabled && !hideOnHome && !mdLeft && !mdRight ? ratio : 1;
+	const ratioXl =
+		input.enabled && !hideOnHome && !leftIn && !rightIn ? ratio : 1;
 
 	return {
 		"--cols-md": trackSegments(mdLeft, mdRight),

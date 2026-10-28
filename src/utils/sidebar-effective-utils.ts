@@ -7,6 +7,8 @@ import {
 
 export interface EffectiveSidebarContext {
 	isPostPage: boolean;
+	/** 首页：只显示中间内容，不渲染左右侧栏卡片 */
+	isHomePage?: boolean;
 }
 
 export interface EffectiveSidebarState {
@@ -27,12 +29,14 @@ export interface EffectiveSidebarState {
 export function getEffectiveSidebarState(
 	ctx: EffectiveSidebarContext,
 ): EffectiveSidebarState {
-	const { isPostPage } = ctx;
+	const { isPostPage, isHomePage = false } = ctx;
 
 	const sidebarConfig = getResponsiveSidebarConfig();
 
 	const hideSidebarOnPostPage =
 		sidebarLayoutConfig.hideSidebarOnPostPage === true;
+	const hideSidebarOnHomePage =
+		sidebarLayoutConfig.hideSidebarOnHomePage === true;
 
 	const gridColumnVars = computeGridColumns({
 		enabled: sidebarLayoutConfig.enable,
@@ -40,6 +44,8 @@ export function getEffectiveSidebarState(
 		tabletSidebar: sidebarConfig.tabletSidebar,
 		hideSidebarOnPostPage,
 		isPostPage,
+		isHomePage,
+		hideSidebarOnHomePage,
 		hasLeftWidgets: isPostPage
 			? sidebarConfig.hasLeftWidgetsOnPost
 			: sidebarConfig.hasLeftWidgetsOnNonPost,
@@ -62,6 +68,9 @@ export function getEffectiveSidebarState(
 		gridDataAttrs: {
 			"data-sidebar-enable": sidebarLayoutConfig.enable ? "true" : "false",
 			"data-grid-hide-sidebar-on-post": hideSidebarOnPostPage
+				? "true"
+				: "false",
+			"data-grid-hide-sidebar-on-home": hideSidebarOnHomePage
 				? "true"
 				: "false",
 			"data-sidebar-position": sidebarLayoutConfig.position,

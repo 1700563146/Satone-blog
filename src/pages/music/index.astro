@@ -1,0 +1,155 @@
+---
+import { Icon } from "astro-icon/components";
+import WidgetLayout from "@/components/common/WidgetLayout.astro";
+import MusicPlayer from "@/components/features/MusicPlayer.astro";
+import { musicPlayerConfig } from "@/config/musicConfig";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+// 音乐页：和照片墙同一种形态（独立页面 + WidgetLayout 卡片），
+// 播放器就是侧栏里那一个，脚本由 Layout.astro 里的 <MusicPlayerView /> 统一发一份。
+const localPlaylist = musicPlayerConfig.local?.playlist ?? [];
+const metingMode = musicPlayerConfig.mode === "meting";
+const tracks = localPlaylist;
+
+const totalLabel = metingMode
+	? `在线歌单（${musicPlayerConfig.meting?.server ?? "netease"} · ${musicPlayerConfig.meting?.type ?? "playlist"}）`
+	: `${tracks.length} 首本地曲目`;
+---
+
+<MainGridLayout title="音乐" description="站内播放器与歌单">
+	<div class="flex flex-col gap-4">
+		<WidgetLayout id="music-page-player" name="播放器">
+			<MusicPlayer id="music-page-widget" />
+			<p class="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
+					<Icon name="material-symbols:music-note-rounded" class="text-[0.95rem]"></Icon>
+					{totalLabel}
+				</span>
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
+					<Icon name="material-symbols:headphones-rounded" class="text-[0.95rem]"></Icon>
+					导航栏右上角的音符按钮是同一份播放状态
+				</span>
+			</p>
+		</WidgetLayout>
+
+		{
+			tracks.length > 0 && (
+				<WidgetLayout id="music-page-playlist" name="歌单">
+					<ol class="music-track-list">
+						{tracks.map((track, index) => (
+							<li class="music-track">
+								<span class="music-track-index">{String(index + 1).padStart(2, "0")}</span>
+								<div class="music-track-info">
+									<p class="music-track-name">{track.name}</p>
+									<p class="music-track-artist">{track.artist}</p>
+								</div>
+								{track.cover && (
+									<img
+										src={track.cover}
+										alt={`${track.name} 封面`}
+										class="music-track-cover"
+										loading="lazy"
+									/>
+								)}
+							</li>
+						))}
+					</ol>
+					<p class="mt-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+						歌单在 <code>src/config/musicConfig.ts</code> 的 <code>local.playlist</code> 里维护；
+						音频与封面放 <code>public/assets/music/</code>，播放器、导航栏面板与这一页共用同一份配置。
+					</p>
+				</WidgetLayout>
+			)
+		}
+
+		{
+			tracks.length === 0 && !metingMode && (
+				<WidgetLayout id="music-page-empty" name="歌单">
+					<div class="music-empty">
+						<Icon name="material-symbols:music-off-rounded" class="text-[2rem]"></Icon>
+						<p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+							还没有曲目：在 <code>src/config/musicConfig.ts</code> 的
+							<code>local.playlist</code> 里登记后即可显示。
+						</p>
+					</div>
+				</WidgetLayout>
+			)
+		}
+	</div>
+</MainGridLayout>
+
+<style>
+	.music-track-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.music-track {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.55rem 0.7rem;
+		border-radius: 0.8rem;
+		background-color: var(--btn-regular-bg);
+		transition: background-color 160ms ease;
+	}
+
+	.music-track:hover {
+		background-color: var(--btn-regular-bg-hover);
+	}
+
+	.music-track-index {
+		font-variant-numeric: tabular-nums;
+		font-size: 0.72rem;
+		color: color-mix(in oklch, currentColor 45%, transparent);
+	}
+
+	.music-track-info {
+		min-width: 0;
+		flex: 1;
+	}
+
+	.music-track-name {
+		margin: 0;
+		font-size: 0.86rem;
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.music-track-artist {
+		margin: 0.1rem 0 0;
+		font-size: 0.72rem;
+		color: color-mix(in oklch, currentColor 55%, transparent);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.music-track-cover {
+		width: 2.4rem;
+		height: 2.4rem;
+		border-radius: 0.6rem;
+		object-fit: cover;
+		flex: none;
+	}
+
+	.music-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 1.5rem 1rem;
+		border-radius: 0.9rem;
+		border: 1px dashed var(--card-border);
+		color: color-mix(in oklch, currentColor 45%, transparent);
+		text-align: center;
+	}
+</style>

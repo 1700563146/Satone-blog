@@ -238,29 +238,21 @@ const logoVariants = await Promise.all(
                         );
                         return (
                             <div class="nav-compact" data-nav-item data-nav-key={key}>
-                                {hasChildren ? (
-                                    <button
-                                        type="button"
-                                        class={triggerClass}
-                                        aria-label={l.name}
-                                        aria-expanded="false"
-                                        aria-controls={`${key}-panel`}
-                                        data-nav-trigger
-                                    >
-                                        {triggerInner}
-                                    </button>
-                                ) : (
-                                    <a
-                                        href={l.external ? l.url : url(l.url)}
-                                        target={l.external ? "_blank" : undefined}
-                                        rel={l.external ? "noreferrer" : undefined}
-                                        class={triggerClass}
-                                        aria-label={l.name}
-                                        data-nav-trigger
-                                    >
-                                        {triggerInner}
-                                    </a>
-                                )}
+                                {/* 统一用链接：点一下直接进页面（文章 → /archive/），
+                                    子菜单靠悬停/键盘聚焦展开，不需要先点开再选 */}
+                                <a
+                                    href={l.external ? l.url : url(l.url)}
+                                    target={l.external ? "_blank" : undefined}
+                                    rel={l.external ? "noreferrer" : undefined}
+                                    class={triggerClass}
+                                    aria-label={l.name}
+                                    aria-haspopup={hasChildren ? "true" : undefined}
+                                    aria-expanded={hasChildren ? "false" : undefined}
+                                    aria-controls={hasChildren ? `${key}-panel` : undefined}
+                                    data-nav-trigger
+                                >
+                                    {triggerInner}
+                                </a>
                                 {hasChildren && (
                                     <div class="nav-children" id={`${key}-panel`} data-nav-panel>
                                         {l.children?.map((child) => (
@@ -535,7 +527,7 @@ if (document.readyState === 'loading') {
             const panel = item.querySelector<HTMLElement>('[data-nav-panel]');
             if (!trigger) continue;
 
-            const isToggle = trigger.tagName === 'BUTTON';
+            const isToggle = false;
 
             item.addEventListener('mouseenter', () => open(item));
             item.addEventListener('mouseleave', closeSoon);
@@ -544,8 +536,9 @@ if (document.readyState === 'loading') {
 
             trigger.addEventListener('focus', () => open(item));
             trigger.addEventListener('click', (event: MouseEvent) => {
-                // 纯图标链接（主页 / 关于我）正常跳转；带子项的按钮负责开关胶囊
-                if (!isToggle) return;
+                // 所有项都是链接：点击一律直接跳转，子菜单只靠悬停 / 键盘聚焦展开
+                const href = (trigger as HTMLAnchorElement).getAttribute('href');
+                if (href && href !== '#') return;
                 event.preventDefault();
                 if (item.dataset.open === 'true') closeAll(null);
                 else open(item);
