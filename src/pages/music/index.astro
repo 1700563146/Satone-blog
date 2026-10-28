@@ -29,6 +29,13 @@ const sourceLabel = library.source.startsWith("meting")
 						</div>
 						<div class="disc-spindle"></div>
 					</div>
+					<!-- 唱针：播放时落到唱片上，暂停时摆回外侧 -->
+					<div class="tonearm" id="music-tonearm" aria-hidden="true">
+						<span class="tonearm-base"></span>
+						<span class="tonearm-arm">
+							<span class="tonearm-head"></span>
+						</span>
+					</div>
 				</div>
 
 				<div class="music-info">
@@ -341,6 +348,64 @@ const sourceLabel = library.source.startsWith("meting")
 		display: none;
 	}
 
+	/* 唱针：支点在唱片右上方，arm 绕支点旋转 */
+	.tonearm {
+		position: absolute;
+		left: 88%;
+		top: 30%;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		z-index: 3;
+	}
+
+	.tonearm-base {
+		position: absolute;
+		left: -0.55rem;
+		top: -0.55rem;
+		width: 1.1rem;
+		height: 1.1rem;
+		border-radius: 50%;
+		background: radial-gradient(circle at 35% 30%, #c8ced8, #6b7280 55%, #2b303a);
+		box-shadow:
+			0 0 0 2px rgba(10, 12, 18, 0.65),
+			0 4px 10px rgba(0, 0, 0, 0.5);
+	}
+
+	.tonearm-arm {
+		position: absolute;
+		left: 0;
+		top: 50%;
+		width: clamp(4.5rem, 11vw, 7.5rem);
+		height: 0.32rem;
+		border-radius: 999px;
+		background: linear-gradient(90deg, #d7dbe4, #9aa2b0 45%, #5b6270);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+		transform-origin: 0 50%;
+		/* 默认：抬起、摆到唱片外侧（暂停态） */
+		transform: rotate(116deg);
+		transition: transform 620ms cubic-bezier(0.33, 0, 0.25, 1);
+	}
+
+	/* 落到唱片纹路上（朝内、略低于水平） */
+	.music-hero[data-playing="true"] .tonearm-arm {
+		transform: rotate(155deg);
+	}
+
+	.tonearm-head {
+		position: absolute;
+		right: -0.28rem;
+		top: 50%;
+		width: 1.5rem;
+		height: 0.62rem;
+		transform: translateY(-50%);
+		border-radius: 0.18rem;
+		background: linear-gradient(160deg, #3b4250, #1b1f27);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.18),
+			0 2px 5px rgba(0, 0, 0, 0.5);
+	}
+
 	.disc-spindle {
 		position: absolute;
 		left: 50%;
@@ -366,13 +431,13 @@ const sourceLabel = library.source.startsWith("meting")
 		align-items: center;
 		gap: 0.35rem;
 		margin: 0;
-		font-size: 0.72rem;
+		font-size: 0.74rem;
 		letter-spacing: 0.04em;
-		color: rgb(96, 104, 124);
+		color: rgb(84, 92, 112);
 	}
 
 	:global(html.dark) .music-eyebrow {
-		color: rgb(150, 162, 184);
+		color: rgb(186, 198, 222);
 	}
 
 	.music-title {
@@ -405,13 +470,17 @@ const sourceLabel = library.source.startsWith("meting")
 	.music-progress-track {
 		display: block;
 		width: 100%;
-		height: 0.4rem;
+		height: 0.45rem;
 		padding: 0;
 		border: 0;
 		border-radius: 999px;
-		background: color-mix(in oklch, currentColor 14%, transparent);
+		background: rgba(120, 130, 150, 0.28);
 		cursor: pointer;
 		overflow: hidden;
+	}
+
+	:global(html.dark) .music-progress-track {
+		background: rgba(200, 212, 236, 0.24);
 	}
 
 	.music-progress-fill {
@@ -427,9 +496,13 @@ const sourceLabel = library.source.startsWith("meting")
 		display: flex;
 		justify-content: space-between;
 		margin-top: 0.3rem;
-		font-size: 0.68rem;
+		font-size: 0.72rem;
 		font-variant-numeric: tabular-nums;
-		color: color-mix(in oklch, currentColor 52%, transparent);
+		color: rgb(92, 100, 120);
+	}
+
+	:global(html.dark) .music-times {
+		color: rgb(214, 224, 244);
 	}
 
 	.music-controls {
@@ -476,8 +549,12 @@ const sourceLabel = library.source.startsWith("meting")
 
 	.music-hint {
 		margin: 0.35rem 0 0;
-		font-size: 0.7rem;
-		color: color-mix(in oklch, currentColor 45%, transparent);
+		font-size: 0.72rem;
+		color: rgb(104, 112, 132);
+	}
+
+	:global(html.dark) .music-hint {
+		color: rgb(198, 210, 234);
 	}
 
 	.music-empty {
@@ -750,6 +827,13 @@ const sourceLabel = library.source.startsWith("meting")
 
 		audio.addEventListener("loadedmetadata", () => {
 			if (timeTotal) timeTotal.textContent = fmt(audio.duration);
+		});
+
+		audio.addEventListener("error", () => {
+			hero.dataset.playing = "false";
+			playIcon?.classList.remove("hidden");
+			pauseIcon?.classList.add("hidden");
+			if (hint) hint.textContent = "这一首的直链不可用（可能已被限流或过期），点下一首重试";
 		});
 
 		audio.addEventListener("play", () => setPlayingUi(true));

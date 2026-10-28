@@ -4,7 +4,7 @@
 
 | 方案 | 优点 | 缺点 | 本项目 |
 |---|---|---|---|
-| **Meting API**（公开实例） | 免后端、免 key；一次请求拿到「曲名/歌手/封面/音频直链/歌词」；支持网易云/QQ/酷狗/虾米 | 公共实例会限流、偶尔挂；直链带签名会过期；字段风格有两种（`title/author` 与 `name/artist`） | ✅ 用来**构建期**同步 |
+| **Meting API**（公开实例，本项目选 `api.injahow.cn`） | 免后端、免 key；一次请求拿到「曲名/歌手/封面/音频直链/歌词」；支持网易云/QQ/酷狗/虾米 | 公共实例会限流、偶尔挂；直链带签名会过期；字段风格有两种（`title/author` 与 `name/artist`） | ✅ 用来**构建期**同步 |
 | NeteaseCloudMusicApi（自建） | 功能最全、稳定可控 | 要长期跑一个 Node 服务，静态站（Vercel / CF Pages）扛不住 | ❌ |
 | Spotify / Apple Music API | 曲库正版、元数据规范 | 需要 OAuth + client secret，且**没有**可直接播放的直链 | ❌ |
 | 自己托管音频（本地 mp3） | 完全可控、无外部依赖、可离线 | 需要自己拥有音频文件 | ✅ 作为兜底 / 长期方案 |
@@ -42,6 +42,24 @@ pnpm music:sync --meting
 - **播放器**：页面自带 `<audio>`，上一首 / 播放暂停 / 下一首 / 进度条（可点击跳转）+ 时间。
 
 导航栏面板和侧栏那个 `MusicPlayer` 仍按 `musicConfig` 的本地/在线模式工作，互不影响。
+
+## 音频直链实例要挑
+
+同一个 Meting 接口，**列表**和**音频直链**的可用性不一样，实测（NetEase 歌单）：
+
+| 实例 | 列表 | `type=url` 音频在 `<audio>` 里 |
+|---|---|---|
+| `api.i-meto.com` | ✅ `title/author` | ❌ 报 `MEDIA_ERR_SRC_NOT_SUPPORTED`（返回的是带签名的跳转，浏览器不认） |
+| `api.injahow.cn` | ✅ `name/artist` | ✅ 正常播放 |
+
+所以 `musicConfig.meting.api` 指向 **injahow**，i-meto 与 moeyao 作为 fallback 只用于拉列表。
+如果之后 injahow 也挂了，优先换成"能代理转发的实例"，而不是直连 CDN 签名的那个。
+
+## 唱针
+
+唱片右上方是唱针：暂停时抬起摆在外侧（`rotate(116deg)`），播放时落到纹路上（`rotate(155deg)`），
+620ms 缓动，配合纹路旋转一起给人"真的在放唱片"的感觉。状态由 `.music-hero[data-playing]` 驱动，
+和播放/暂停、上一首/下一首完全同步。
 
 ## 已知限制
 
