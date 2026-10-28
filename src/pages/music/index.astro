@@ -1,122 +1,205 @@
 ---
 import { Icon } from "astro-icon/components";
 import WidgetLayout from "@/components/common/WidgetLayout.astro";
-import MusicPlayer from "@/components/features/MusicPlayer.astro";
-import { musicPlayerConfig } from "@/config/musicConfig";
-import I18nKey from "@/i18n/i18nKey";
-import { i18n } from "@/i18n/translation";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import musicLibrary from "@/constants/music-library.json";
+import type { MusicLibrary } from "@/types/musicLibrary";
 
-// 音乐页：和照片墙同一种形态（独立页面 + WidgetLayout 卡片），
-// 播放器就是侧栏里那一个，脚本由 Layout.astro 里的 <MusicPlayerView /> 统一发一份。
-const localPlaylist = musicPlayerConfig.local?.playlist ?? [];
-const metingMode = musicPlayerConfig.mode === "meting";
-const tracks = localPlaylist;
-
-const totalLabel = metingMode
-	? `在线歌单（${musicPlayerConfig.meting?.server ?? "netease"} · ${musicPlayerConfig.meting?.type ?? "playlist"}）`
-	: `${tracks.length} 首本地曲目`;
+// 音乐页：黑胶唱片牌面 + 可切换的盘廊 + 曲目列表。
+// 曲目来自构建期生成的 src/constants/music-library.json（`pnpm music:sync`），
+// 页面运行时不请求任何第三方接口；音频直链由 JSON 提供。
+const library = musicLibrary as MusicLibrary;
+const tracks = library.tracks;
+const sourceLabel = library.source.startsWith("meting")
+	? "在线歌单（Meting · 构建期同步）"
+	: "本地曲目";
 ---
 
-<MainGridLayout title="音乐" description="站内播放器与歌单">
+<MainGridLayout title="音乐" description="站内音乐播放与曲目列表">
 	<div class="flex flex-col gap-4">
-		<WidgetLayout id="music-page-player" name="播放器">
-			<MusicPlayer id="music-page-widget" />
-			<p class="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
-					<Icon name="material-symbols:music-note-rounded" class="text-[0.95rem]"></Icon>
-					{totalLabel}
-				</span>
-				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
-					<Icon name="material-symbols:headphones-rounded" class="text-[0.95rem]"></Icon>
-					导航栏右上角的音符按钮是同一份播放状态
-				</span>
-			</p>
+		<WidgetLayout id="music-disc-hero" name="正在播放">
+			<div id="music-hero" class="music-hero" data-tracks={JSON.stringify(tracks)}>
+				<div class="disc-stage">
+					<div class="disc-shadow" aria-hidden="true"></div>
+					<div class="disc" id="music-disc" aria-hidden="true">
+						<div class="disc-grooves"></div>
+						<div class="disc-logo" id="music-disc-label">
+							<img id="music-disc-cover" alt="" decoding="async" referrerpolicy="no-referrer" />
+							<span id="music-disc-initial">♪</span>
+						</div>
+						<div class="disc-spindle"></div>
+					</div>
+				</div>
+
+				<div class="music-info">
+					<p class="music-eyebrow">
+						<Icon name="material-symbols:album-rounded" class="text-[1rem]" />
+						{sourceLabel} · {tracks.length} 首
+					</p>
+					<h2 class="music-title" id="music-now-title">—</h2>
+					<p class="music-artist" id="music-now-artist">—</p>
+
+					<div class="music-progress">
+						<button type="button" class="music-progress-track" id="music-progress" aria-label="播放进度">
+							<span class="music-progress-fill" id="music-progress-fill"></span>
+						</button>
+						<div class="music-times">
+							<span id="music-time-current">0:00</span>
+							<span id="music-time-total">0:00</span>
+						</div>
+					</div>
+
+					<div class="music-controls">
+						<button type="button" class="music-btn" id="music-prev" aria-label="上一首">
+							<Icon name="material-symbols:skip-previous-rounded" class="text-[1.35rem]" />
+						</button>
+						<button type="button" class="music-btn music-btn-primary" id="music-toggle" aria-label="播放">
+							<Icon name="material-symbols:play-arrow-rounded" class="text-[1.7rem]" id="music-icon-play" />
+							<Icon name="material-symbols:pause-rounded" class="text-[1.7rem] hidden" id="music-icon-pause" />
+						</button>
+						<button type="button" class="music-btn" id="music-next" aria-label="下一首">
+							<Icon name="material-symbols:skip-next-rounded" class="text-[1.35rem]" />
+						</button>
+					</div>
+					<p class="music-hint" id="music-hint">点唱片或列表任意一首开始播放</p>
+				</div>
+			</div>
+
+			<div class="disc-strip" id="music-strip" role="list" aria-label="曲目唱片"></div>
 		</WidgetLayout>
 
-		{
-			tracks.length > 0 && (
-				<WidgetLayout id="music-page-playlist" name="歌单">
-					<ol class="music-track-list">
-						{tracks.map((track, index) => (
-							<li class="music-track">
-								<span class="music-track-index">{String(index + 1).padStart(2, "0")}</span>
-								<div class="music-track-info">
-									<p class="music-track-name">{track.name}</p>
-									<p class="music-track-artist">{track.artist}</p>
-								</div>
-								{track.cover && (
-									<img
-										src={track.cover}
-										alt={`${track.name} 封面`}
-										class="music-track-cover"
-										loading="lazy"
-									/>
-								)}
-							</li>
-						))}
-					</ol>
-					<p class="mt-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-						歌单在 <code>src/config/musicConfig.ts</code> 的 <code>local.playlist</code> 里维护；
-						音频与封面放 <code>public/assets/music/</code>，播放器、导航栏面板与这一页共用同一份配置。
-					</p>
-				</WidgetLayout>
-			)
-		}
-
-		{
-			tracks.length === 0 && !metingMode && (
-				<WidgetLayout id="music-page-empty" name="歌单">
+		<WidgetLayout id="music-track-list" name="曲目">
+			<ol class="music-list" id="music-list"></ol>
+			{
+				tracks.length === 0 && (
 					<div class="music-empty">
-						<Icon name="material-symbols:music-off-rounded" class="text-[2rem]"></Icon>
+						<Icon name="material-symbols:music-off-rounded" class="text-[2rem]" />
 						<p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-							还没有曲目：在 <code>src/config/musicConfig.ts</code> 的
-							<code>local.playlist</code> 里登记后即可显示。
+							还没有曲目：配好 <code>src/config/musicConfig.ts</code> 后运行
+							<code>pnpm music:sync</code> 生成曲库。
 						</p>
 					</div>
-				</WidgetLayout>
-			)
-		}
+				)
+			}
+			<p class="music-footnote">
+				曲目来自 <code>src/constants/music-library.json</code>（构建期同步，页面运行时不请求接口）；
+				来源：<code>{library.source}</code>
+			</p>
+		</WidgetLayout>
 	</div>
 </MainGridLayout>
 
-<style>
-	.music-track-list {
+<audio id="music-audio" preload="metadata"></audio>
+
+<style is:global>
+	/* 盘廊与曲目列表的元素是 JS 动态创建的，拿不到 Astro 的 scope 属性，
+	   所以这些规则放全局样式里，用 #music-strip / #music-list 前缀限定作用域 */
+	#music-strip {
+		display: flex;
+		gap: 0.65rem;
+		overflow-x: auto;
+		padding: 0.9rem 0.15rem 0.35rem;
+		scrollbar-width: thin;
+	}
+
+	#music-strip .disc-mini {
+		position: relative;
+		flex: none;
+		width: 4.2rem;
+		aspect-ratio: 1;
+		border: 0;
+		padding: 0;
+		border-radius: 50%;
+		cursor: pointer;
+		background: repeating-radial-gradient(circle at 50% 50%, #0b0c10 0 2px, #15181f 2px 3px);
+		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+		transition:
+			transform 220ms cubic-bezier(0.33, 0, 0.25, 1),
+			box-shadow 220ms ease;
+	}
+
+	#music-strip .disc-mini img {
+		position: absolute;
+		inset: 30%;
+		width: 40%;
+		height: 40%;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	#music-strip .disc-mini[data-active="true"] {
+		transform: scale(1.12);
+		box-shadow:
+			0 0 0 2px var(--primary),
+			0 10px 20px rgba(0, 0, 0, 0.35);
+	}
+
+	#music-strip .disc-mini:hover {
+		transform: translateY(-2px) scale(1.06);
+	}
+
+	#music-strip .disc-mini:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 3px;
+	}
+
+	#music-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: 0.3rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 
-	.music-track {
+	#music-list .music-row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.55rem 0.7rem;
 		border-radius: 0.8rem;
-		background-color: var(--btn-regular-bg);
+		cursor: pointer;
 		transition: background-color 160ms ease;
+		color: rgb(40, 46, 60);
 	}
 
-	.music-track:hover {
-		background-color: var(--btn-regular-bg-hover);
+	html.dark #music-list .music-row {
+		color: rgb(232, 238, 250);
 	}
 
-	.music-track-index {
+	#music-list .music-row:hover {
+		background: color-mix(in oklch, var(--btn-regular-bg-hover) 80%, transparent);
+	}
+
+	#music-list .music-row[data-active="true"] {
+		background: color-mix(in oklch, var(--primary) 14%, transparent);
+	}
+
+	#music-list .music-row-index {
+		width: 1.6rem;
+		flex: none;
+		font-size: 0.7rem;
 		font-variant-numeric: tabular-nums;
-		font-size: 0.72rem;
 		color: color-mix(in oklch, currentColor 45%, transparent);
+		text-align: center;
 	}
 
-	.music-track-info {
+	#music-list .music-row-cover {
+		width: 2.2rem;
+		height: 2.2rem;
+		flex: none;
+		border-radius: 0.45rem;
+		object-fit: cover;
+		background: color-mix(in oklch, currentColor 10%, transparent);
+	}
+
+	#music-list .music-row-text {
 		min-width: 0;
 		flex: 1;
 	}
 
-	.music-track-name {
-		margin: 0;
+	#music-list .music-row-name {
+		display: block;
 		font-size: 0.86rem;
 		font-weight: 600;
 		overflow: hidden;
@@ -124,21 +207,277 @@ const totalLabel = metingMode
 		white-space: nowrap;
 	}
 
-	.music-track-artist {
-		margin: 0.1rem 0 0;
+	#music-list .music-row-artist {
+		display: block;
 		font-size: 0.72rem;
-		color: color-mix(in oklch, currentColor 55%, transparent);
+		color: color-mix(in oklch, currentColor 58%, transparent);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.music-track-cover {
-		width: 2.4rem;
-		height: 2.4rem;
-		border-radius: 0.6rem;
-		object-fit: cover;
+	#music-list .music-row-state {
 		flex: none;
+		font-size: 0.68rem;
+		color: var(--primary);
+	}
+</style>
+
+<style>
+	.music-hero {
+		display: flex;
+		align-items: center;
+		gap: clamp(1.25rem, 4vw, 3rem);
+		padding: clamp(0.5rem, 2vw, 1.25rem) 0;
+	}
+
+	@media (max-width: 780px) {
+		.music-hero {
+			flex-direction: column;
+			text-align: center;
+		}
+	}
+
+	.disc-stage {
+		position: relative;
+		flex: none;
+		width: clamp(11rem, 26vw, 17rem);
+		aspect-ratio: 1;
+		perspective: 1100px;
+	}
+
+	.disc-shadow {
+		position: absolute;
+		left: 8%;
+		right: 8%;
+		bottom: -6%;
+		height: 16%;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent 78%);
+		filter: blur(6px);
+	}
+
+	/* 盘体：略倾斜的椭圆，像随手摊在桌上 */
+	.disc {
+		position: absolute;
+		inset: 0;
+		border-radius: 50%;
+		transform: rotateX(54deg) rotateZ(-16deg);
+		transform-style: preserve-3d;
+		transition:
+			transform 520ms cubic-bezier(0.33, 0, 0.25, 1),
+			box-shadow 520ms ease;
+		background:
+			radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.16), transparent 42%),
+			repeating-radial-gradient(
+				circle at 50% 50%,
+				#0b0c10 0 2px,
+				#14161d 2px 3px,
+				#0b0c10 3px 5px
+			);
+		box-shadow:
+			inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+			inset 0 0 42px rgba(0, 0, 0, 0.9),
+			0 18px 34px rgba(0, 0, 0, 0.45);
+	}
+
+	.disc-stage:hover .disc {
+		transform: rotateX(46deg) rotateZ(-10deg) translateZ(10px);
+	}
+
+	.disc-grooves {
+		position: absolute;
+		inset: 4%;
+		border-radius: 50%;
+		background: repeating-radial-gradient(
+			circle at 50% 50%,
+			rgba(255, 255, 255, 0.045) 0 1px,
+			transparent 1px 3px
+		);
+		animation: music-spin 6s linear infinite;
+		animation-play-state: paused;
+		opacity: 0.9;
+	}
+
+	.music-hero[data-playing="true"] .disc-grooves {
+		animation-play-state: running;
+	}
+
+	@keyframes music-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.disc-logo {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 42%;
+		aspect-ratio: 1;
+		transform: translate(-50%, -50%);
+		border-radius: 50%;
+		overflow: hidden;
+		display: grid;
+		place-items: center;
+		background: linear-gradient(140deg, #2a3550, #141a28);
+		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+		color: rgba(220, 232, 255, 0.75);
+		font-size: 1.4rem;
+	}
+
+	.disc-logo img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: none;
+	}
+
+	.disc-logo img[src]:not([src=""]) {
+		display: block;
+	}
+
+	.disc-logo img[src]:not([src=""]) + span {
+		display: none;
+	}
+
+	.disc-spindle {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 5.5%;
+		aspect-ratio: 1;
+		transform: translate(-50%, -50%);
+		border-radius: 50%;
+		background: radial-gradient(circle at 40% 35%, #4a4f5c, #10131a 70%);
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+	}
+
+	.music-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+	}
+
+	.music-eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin: 0;
+		font-size: 0.72rem;
+		letter-spacing: 0.04em;
+		color: rgb(96, 104, 124);
+	}
+
+	:global(html.dark) .music-eyebrow {
+		color: rgb(150, 162, 184);
+	}
+
+	.music-title {
+		margin: 0;
+		font-size: clamp(1.5rem, 3vw, 2.1rem);
+		font-weight: 700;
+		line-height: 1.2;
+		color: rgb(26, 30, 42);
+	}
+
+	:global(html.dark) .music-title {
+		color: rgb(240, 244, 252);
+	}
+
+	.music-artist {
+		margin: 0;
+		font-size: 0.85rem;
+		color: rgb(96, 102, 120);
+	}
+
+	:global(html.dark) .music-artist {
+		color: rgb(168, 178, 198);
+	}
+
+	.music-progress {
+		margin-top: 0.35rem;
+		max-width: 28rem;
+	}
+
+	.music-progress-track {
+		display: block;
+		width: 100%;
+		height: 0.4rem;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: color-mix(in oklch, currentColor 14%, transparent);
+		cursor: pointer;
+		overflow: hidden;
+	}
+
+	.music-progress-fill {
+		display: block;
+		height: 100%;
+		width: 0%;
+		border-radius: inherit;
+		background: var(--primary);
+		transition: width 120ms linear;
+	}
+
+	.music-times {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 0.3rem;
+		font-size: 0.68rem;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in oklch, currentColor 52%, transparent);
+	}
+
+	.music-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin-top: 0.5rem;
+	}
+
+	.music-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.6rem;
+		height: 2.6rem;
+		border-radius: 999px;
+		border: 1px solid color-mix(in oklch, currentColor 16%, transparent);
+		background: color-mix(in oklch, currentColor 6%, transparent);
+		color: inherit;
+		cursor: pointer;
+		transition:
+			background-color 180ms ease,
+			border-color 180ms ease,
+			transform 180ms ease;
+	}
+
+	.music-btn:hover {
+		border-color: var(--primary);
+		transform: translateY(-1px);
+	}
+
+	.music-btn:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 3px;
+	}
+
+	.music-btn-primary {
+		width: 3.2rem;
+		height: 3.2rem;
+		border-color: transparent;
+		background: var(--primary);
+		color: var(--on-primary, #0b1020);
+	}
+
+	.music-hint {
+		margin: 0.35rem 0 0;
+		font-size: 0.7rem;
+		color: color-mix(in oklch, currentColor 45%, transparent);
 	}
 
 	.music-empty {
@@ -146,10 +485,281 @@ const totalLabel = metingMode
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 1.5rem 1rem;
-		border-radius: 0.9rem;
+		padding: 2rem 1rem;
 		border: 1px dashed var(--card-border);
-		color: color-mix(in oklch, currentColor 45%, transparent);
+		border-radius: 0.9rem;
 		text-align: center;
+		color: color-mix(in oklch, currentColor 45%, transparent);
+	}
+
+	.music-footnote {
+		margin: 0.75rem 0 0;
+		font-size: 0.68rem;
+		line-height: 1.6;
+		color: color-mix(in oklch, currentColor 42%, transparent);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.disc,
+		.disc-grooves,
+		.disc-mini,
+		.music-btn {
+			transition: none;
+			animation: none;
+		}
 	}
 </style>
+
+<script>
+	interface Track {
+		id: string;
+		name: string;
+		artist: string;
+		cover?: string;
+		url: string;
+	}
+
+	function setupMusicPage(): void {
+		const hero = document.getElementById("music-hero") as HTMLElement | null;
+		const audio = document.getElementById("music-audio") as HTMLAudioElement | null;
+		const list = document.getElementById("music-list");
+		const strip = document.getElementById("music-strip");
+		if (!hero || !audio || !list || !strip) return;
+		if (hero.dataset.ready === "true") return;
+		hero.dataset.ready = "true";
+
+		let tracks: Track[] = [];
+		try {
+			tracks = JSON.parse(hero.dataset.tracks ?? "[]") as Track[];
+		} catch {
+			tracks = [];
+		}
+		if (tracks.length === 0) return;
+
+		let index = 0;
+		let ready = false;
+
+		const get = <T extends HTMLElement>(id: string): T | null =>
+			document.getElementById(id) as T | null;
+
+		const titleEl = get("music-now-title");
+		const artistEl = get("music-now-artist");
+		const coverEl = get("music-disc-cover") as HTMLImageElement | null;
+		const initialEl = get("music-disc-initial");
+		const toggleBtn = get("music-toggle");
+		const playIcon = get("music-icon-play");
+		const pauseIcon = get("music-icon-pause");
+		const fill = get("music-progress-fill");
+		const progress = get("music-progress");
+		const timeCurrent = get("music-time-current");
+		const timeTotal = get("music-time-total");
+		const hint = get("music-hint");
+
+		const fmt = (seconds: number): string => {
+			if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+			const m = Math.floor(seconds / 60);
+			const s = Math.floor(seconds % 60);
+			return `${m}:${String(s).padStart(2, "0")}`;
+		};
+
+		const renderStrip = (): void => {
+			strip.innerHTML = "";
+			tracks.forEach((track, i) => {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = "disc-mini";
+				button.dataset.index = String(i);
+				button.setAttribute("role", "listitem");
+				button.setAttribute("aria-label", `${track.name} - ${track.artist}`);
+				button.dataset.active = String(i === index);
+				if (track.cover) {
+					const img = document.createElement("img");
+					img.src = track.cover;
+					img.alt = "";
+					img.loading = "lazy";
+					img.referrerPolicy = "no-referrer";
+					button.appendChild(img);
+				}
+				strip.appendChild(button);
+			});
+		};
+
+		const renderList = (): void => {
+			list.innerHTML = "";
+			tracks.forEach((track, i) => {
+				const li = document.createElement("li");
+				li.className = "music-row";
+				li.dataset.index = String(i);
+				li.dataset.active = String(i === index);
+				li.tabIndex = 0;
+				li.setAttribute("role", "button");
+				li.setAttribute("aria-label", `播放 ${track.name}`);
+
+				const idx = document.createElement("span");
+				idx.className = "music-row-index";
+				idx.textContent = String(i + 1).padStart(2, "0");
+
+				const text = document.createElement("span");
+				text.className = "music-row-text";
+				const name = document.createElement("span");
+				name.className = "music-row-name";
+				name.textContent = track.name;
+				const artist = document.createElement("span");
+				artist.className = "music-row-artist";
+				artist.textContent = track.artist;
+				text.append(name, artist);
+
+				const state = document.createElement("span");
+				state.className = "music-row-state";
+				state.textContent = i === index ? "♪" : "";
+
+				if (track.cover) {
+					const cover = document.createElement("img");
+					cover.className = "music-row-cover";
+					cover.src = track.cover;
+					cover.alt = "";
+					cover.loading = "lazy";
+					cover.referrerPolicy = "no-referrer";
+					li.append(idx, cover, text, state);
+				} else {
+					li.append(idx, text, state);
+				}
+				list.appendChild(li);
+			});
+		};
+
+		const paint = (): void => {
+			const track = tracks[index];
+			if (!track) return;
+			if (titleEl) titleEl.textContent = track.name;
+			if (artistEl) artistEl.textContent = track.artist;
+			if (initialEl) initialEl.textContent = track.name.slice(0, 1) || "♪";
+			if (coverEl) {
+				if (track.cover) {
+					coverEl.src = track.cover;
+					coverEl.alt = `${track.name} 封面`;
+				} else {
+					coverEl.removeAttribute("src");
+				}
+			}
+			renderStrip();
+			renderList();
+		};
+
+		const load = (play: boolean): void => {
+			const track = tracks[index];
+			if (!track) return;
+			paint();
+			if (!play) return;
+			audio.src = track.url;
+			ready = true;
+			void audio.play().catch(() => {
+				if (hint) hint.textContent = "这一首播放失败（直链可能已失效），试试下一首";
+			});
+		};
+
+		const setPlayingUi = (playing: boolean): void => {
+			hero.dataset.playing = String(playing);
+			playIcon?.classList.toggle("hidden", playing);
+			pauseIcon?.classList.toggle("hidden", !playing);
+			toggleBtn?.setAttribute("aria-label", playing ? "暂停" : "播放");
+			if (hint) {
+				hint.textContent = playing
+					? "正在播放 —— 滚轮 / ← → 切换唱片"
+					: "点唱片或列表任意一首开始播放";
+			}
+		};
+
+		const step = (delta: number, play = true): void => {
+			index = (index + delta + tracks.length) % tracks.length;
+			audio.currentTime = 0;
+			load(play);
+		};
+
+		toggleBtn?.addEventListener("click", () => {
+			if (!ready) {
+				load(true);
+				return;
+			}
+			if (audio.paused) void audio.play();
+			else audio.pause();
+		});
+
+		get("music-prev")?.addEventListener("click", () => step(-1));
+		get("music-next")?.addEventListener("click", () => step(1));
+
+		list.addEventListener("click", (event) => {
+			const row = (event.target as Element).closest<HTMLElement>(".music-row");
+			if (!row?.dataset.index) return;
+			index = Number(row.dataset.index);
+			audio.currentTime = 0;
+			load(true);
+		});
+
+		list.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter" && event.key !== " ") return;
+			const row = (event.target as Element).closest<HTMLElement>(".music-row");
+			if (!row?.dataset.index) return;
+			event.preventDefault();
+			index = Number(row.dataset.index);
+			load(true);
+		});
+
+		strip.addEventListener("click", (event) => {
+			const button = (event.target as Element).closest<HTMLElement>(".disc-mini");
+			if (!button?.dataset.index) return;
+			index = Number(button.dataset.index);
+			load(true);
+		});
+
+		strip.addEventListener(
+			"wheel",
+			(event) => {
+				event.preventDefault();
+				step(event.deltaY > 0 ? 1 : -1);
+			},
+			{ passive: false },
+		);
+
+		document.addEventListener("keydown", (event) => {
+			const target = event.target as HTMLElement | null;
+			const tag = target?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			if (target?.closest("button, a")) return;
+			if (event.key === "ArrowRight") step(1);
+			else if (event.key === "ArrowLeft") step(-1);
+			else if (event.key === " ") {
+				event.preventDefault();
+				toggleBtn?.click();
+			}
+		});
+
+		progress?.addEventListener("click", (event) => {
+			const rect = progress.getBoundingClientRect();
+			const ratio = (event.clientX - rect.left) / rect.width;
+			if (Number.isFinite(audio.duration) && audio.duration > 0) {
+				audio.currentTime = Math.max(0, Math.min(1, ratio)) * audio.duration;
+			}
+		});
+
+		audio.addEventListener("timeupdate", () => {
+			const ratio = audio.duration ? audio.currentTime / audio.duration : 0;
+			if (fill) fill.style.width = `${Math.round(ratio * 100)}%`;
+			if (timeCurrent) timeCurrent.textContent = fmt(audio.currentTime);
+		});
+
+		audio.addEventListener("loadedmetadata", () => {
+			if (timeTotal) timeTotal.textContent = fmt(audio.duration);
+		});
+
+		audio.addEventListener("play", () => setPlayingUi(true));
+		audio.addEventListener("pause", () => setPlayingUi(false));
+		audio.addEventListener("ended", () => step(1));
+
+		paint();
+		setPlayingUi(false);
+	}
+
+	setupMusicPage();
+	document.addEventListener("astro:page-load", setupMusicPage);
+</script>
