@@ -1,4 +1,5 @@
 import { sidebarLayoutConfig } from "@/config";
+import { url } from "@/utils/url-utils";
 import {
 	computeGridColumns,
 	getResponsiveSidebarConfig,
@@ -7,8 +8,11 @@ import {
 
 export interface EffectiveSidebarContext {
 	isPostPage: boolean;
-	/** 首页：只显示中间内容，不渲染左右侧栏卡片 */
-	isHomePage?: boolean;
+	/**
+	 * 本页是否保留左右侧栏。只有 sidebarConfig.sidebarPages 里列出的路径
+	 * （默认首页与关于我）保留，其余页面只显示中间内容。
+	 */
+	pageKeepsSidebar?: boolean;
 }
 
 export interface EffectiveSidebarState {
@@ -29,14 +33,16 @@ export interface EffectiveSidebarState {
 export function getEffectiveSidebarState(
 	ctx: EffectiveSidebarContext,
 ): EffectiveSidebarState {
-	const { isPostPage, isHomePage = false } = ctx;
+	const { isPostPage, pageKeepsSidebar = true } = ctx;
 
 	const sidebarConfig = getResponsiveSidebarConfig();
 
 	const hideSidebarOnPostPage =
 		sidebarLayoutConfig.hideSidebarOnPostPage === true;
-	const hideSidebarOnHomePage =
-		sidebarLayoutConfig.hideSidebarOnHomePage === true;
+	// 客户端重算时要知道哪些路径保留侧栏（配置不变，写在 data 属性里即可）
+	const sidebarPages = (sidebarLayoutConfig.sidebarPages ?? ["/", "/about/"])
+		.map((page) => url(page))
+		.join(",");
 
 	const gridColumnVars = computeGridColumns({
 		enabled: sidebarLayoutConfig.enable,
@@ -44,8 +50,7 @@ export function getEffectiveSidebarState(
 		tabletSidebar: sidebarConfig.tabletSidebar,
 		hideSidebarOnPostPage,
 		isPostPage,
-		isHomePage,
-		hideSidebarOnHomePage,
+		pageKeepsSidebar,
 		hasLeftWidgets: isPostPage
 			? sidebarConfig.hasLeftWidgetsOnPost
 			: sidebarConfig.hasLeftWidgetsOnNonPost,
@@ -70,9 +75,8 @@ export function getEffectiveSidebarState(
 			"data-grid-hide-sidebar-on-post": hideSidebarOnPostPage
 				? "true"
 				: "false",
-			"data-grid-hide-sidebar-on-home": hideSidebarOnHomePage
-				? "true"
-				: "false",
+			// 逗号分隔的路径白名单：客户端按当前 URL 判定要不要保留侧栏
+			"data-sidebar-pages": sidebarPages,
 			"data-sidebar-position": sidebarLayoutConfig.position,
 			"data-tablet-sidebar": sidebarConfig.tabletSidebar,
 			// noSidebarContentWidth（0–1 比例），空串表示未配置

@@ -34,10 +34,19 @@ export function updateMainGridCols(): void {
 	if (!mainGrid || !varHost) return;
 
 	const isPostPage = isCurrentPagePost();
-	// 首页判定走 URL：切页时 #main-grid 不重建，SSR 属性会过期
-	const onHomePage =
-		window.location.pathname === "/" ||
-		window.location.pathname === "";
+	// 路径判定走 URL：切页时 #main-grid 不重建，SSR 的「本页是否保留侧栏」会过期，
+	// 白名单本身不变，所以从 data 属性读白名单 + 用当前 URL 比对
+	const normalizePath = (value: string): string => {
+		const trimmed = value.replace(/\/+$/, "");
+		return trimmed === "" ? "/" : trimmed;
+	};
+	const currentPath = normalizePath(window.location.pathname);
+	const keepSidebarPaths = (mainGrid.getAttribute("data-sidebar-pages") ?? "")
+		.split(",")
+		.map((item) => normalizePath(item.trim()))
+		.filter(Boolean);
+	const pageKeepsSidebar =
+		keepSidebarPaths.length === 0 || keepSidebarPaths.includes(currentPath);
 	// 缺省视为 true（fail-open）：属性缺失时不要误把整列折叠掉
 	const flag = (name: string): boolean =>
 		mainGrid.getAttribute(name) !== "false";
@@ -59,9 +68,7 @@ export function updateMainGridCols(): void {
 		hideSidebarOnPostPage:
 			mainGrid.getAttribute("data-grid-hide-sidebar-on-post") === "true",
 		isPostPage,
-		isHomePage: onHomePage,
-		hideSidebarOnHomePage:
-			mainGrid.getAttribute("data-grid-hide-sidebar-on-home") === "true",
+		pageKeepsSidebar,
 		hasLeftWidgets: flag(
 			isPostPage ? "data-has-left-on-post" : "data-has-left-on-non-post",
 		),

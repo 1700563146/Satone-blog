@@ -21,8 +21,9 @@ export const sidebarLayoutConfig: SidebarLayoutConfig = {
 	// 文章详情页隐藏侧边栏，设为 true 则只在首页等非文章页显示
 	hideSidebarOnPostPage: false,
 
-	// 首页隐藏左右侧边栏，只显示中间内容（头像 / 番茄钟 / 音乐等卡片都不出现）
-	hideSidebarOnHomePage: true,
+	// 只在这些路径保留左右侧栏；其余页面（文章、归档、分类、标签、照片墙、音乐…）只显示中间内容。
+	// 默认只有首页和关于我：想给某页加回来，把它的路径加进数组即可
+	sidebarPages: ["/", "/about/"],
 
 	// 本页没有侧栏列时，内容栏占「侧栏 + 内容栏」总宽的比例（0–1），不设置或 ≥1 则铺满
 	noSidebarContentWidth: 0.6,

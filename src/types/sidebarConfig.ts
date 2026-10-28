@@ -90,7 +90,7 @@ export type SidebarLayoutConfig = {
 	position: "left" | "right" | "both"; // 侧边栏位置：左侧、右侧或双侧
 	tabletSidebar?: "left" | "right"; // 平板端(769-1279px)显示哪侧侧边栏，仅position为both时生效，默认left
 	hideSidebarOnPostPage?: boolean; // 文章详情页隐藏侧边栏，设为 true 则只在首页等非文章页显示，默认 false
-	hideSidebarOnHomePage?: boolean; // 首页隐藏左右侧边栏，只显示中间内容，默认 false
+	sidebarPages?: string[]; // 只在这些路径保留左右侧栏，其余页面只显示中间内容；默认 ["/", "/about/"]
 	noSidebarContentWidth?: number; // 本页没有侧栏列时内容栏占包裹层总宽的比例（0–1），不设置则铺满
 	leftComponents: WidgetComponentConfig[]; // 左侧边栏组件配置列表
 	rightComponents: WidgetComponentConfig[]; // 右侧边栏组件配置列表

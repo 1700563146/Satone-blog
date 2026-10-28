@@ -37,7 +37,7 @@ All features are toggled/configured via TypeScript files in `src/config/`, expor
 
 - `siteConfig.ts` — core site settings, theme, pagination
 - Navbar items are all anchors now: clicking 「文章」 goes straight to `/archive/` while its 归档/分类/标签 children open on hover/focus.
-- `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering). `hideSidebarOnHomePage` (default `true`) renders the home page as a single centered column — no profile card, pomodoro, music widget or stats; other pages keep both sidebars.
+- `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering). `sidebarPages` (default `["/", "/about/"]`) is a whitelist: only those paths keep the two sidebar columns (profile, pomodoro, music widget, stats…); every other page — posts, archive, categories, tags, photo wall, music, admin — renders as a single full-width centered column. Add a path there to give that page its sidebars back.
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
 - `musicConfig.ts` — `/music/` 音乐页（与照片墙同形态：播放器卡片 + 歌单列表，曲目读 `local.playlist`，音频/封面放 `public/assets/music/`）

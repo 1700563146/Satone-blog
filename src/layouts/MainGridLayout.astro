@@ -21,6 +21,7 @@ import { getBannerVisibilityState } from "@/utils/banner-visibility-utils";
 import { getBackgroundImages, isHomePage } from "@/utils/layout-utils";
 import { resolveNavMenuLinks } from "@/utils/nav-menu-utils";
 import { getEffectiveSidebarState } from "@/utils/sidebar-effective-utils";
+import { url } from "@/utils/url-utils";
 import Layout from "./Layout.astro";
 
 import "@/styles/expressive-code.css";
@@ -79,9 +80,22 @@ const banner = getBannerVisibilityState({
 	title,
 	bannerPostMeta,
 });
+// 只有 sidebarConfig.sidebarPages 里的路径保留左右侧栏，其余页面只留中间内容
+const normalizePagePath = (value: string): string => {
+	const trimmed = value.replace(/\/+$/, "");
+	return trimmed === "" ? "/" : trimmed;
+};
+const currentPagePath = normalizePagePath(Astro.url.pathname);
+const pageKeepsSidebar = (sidebarLayoutConfig.sidebarPages ?? [
+	"/",
+	"/about/",
+])
+	.map((page) => normalizePagePath(url(page)))
+	.includes(currentPagePath);
+
 const sidebar = getEffectiveSidebarState({
 	isPostPage,
-	isHomePage: isHomePageCheck,
+	pageKeepsSidebar,
 });
 
 const { hasWallpaper } = banner;
@@ -145,8 +159,8 @@ const {
             </main>
 
                 {/* 移动端底部组件：<768px 时 #main-grid 是 display:block，必须排在页脚之前 */}
-                {/* 首页只显示中间内容：移动端底部组件也一起收起 */}
-                {!isHomePageCheck && sidebarLayoutConfig.mobileBottomComponents && sidebarLayoutConfig.mobileBottomComponents.length > 0 && (
+                {/* 只留中间内容的页面：移动端底部组件也一起收起 */}
+                {pageKeepsSidebar && sidebarLayoutConfig.mobileBottomComponents && sidebarLayoutConfig.mobileBottomComponents.length > 0 && (
                     <div id="mobile-bottom-sidebar" class="block md:hidden mt-5">
                         <SideBar side="bottom" headings={headings} encrypted={encrypted}></SideBar>
                     </div>
