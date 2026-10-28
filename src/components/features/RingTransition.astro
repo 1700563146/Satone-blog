@@ -1,0 +1,574 @@
+---
+// RingTransition —— 同心圆环扫描式转场（参考 D:\Code\front web\page-transition.html 的 RingTransition v3）
+//
+// 只在「照片墙 / 音乐」相关的跳转上启用：
+//   · 其他页面 → 照片墙 / 音乐
+//   · 照片墙 / 音乐 → 其他页面
+//   · 照片墙 ↔ 音乐
+// 其余跳转仍走 Swup 默认过渡。
+//
+// 动画：6 层实心扇形环从 12 点方向扫入（内环先动，向外波浪扩散）盖满全屏 →
+// 空心描边标题乱码闪烁后定格 → 页面在遮罩后完成切换 → 圆环顺时针退回，露出新页面。
+---
+
+<div id="ring-transition" class="ring-transition" aria-hidden="true">
+	<svg id="ring-transition-svg" class="ring-transition-svg" width="0" height="0"></svg>
+	<div class="ring-transition-text-wrap">
+		<div class="ring-transition-text"></div>
+		<div class="ring-transition-subtitle"></div>
+		<div class="ring-transition-pagenum"></div>
+	</div>
+</div>
+
+<style>
+	.ring-transition {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		pointer-events: none;
+		opacity: 0;
+		visibility: hidden;
+		transition:
+			opacity 0.12s ease,
+			visibility 0.12s;
+	}
+
+	.ring-transition.active {
+		opacity: 1;
+		visibility: visible;
+	}
+
+	.ring-transition-svg {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		display: block;
+		overflow: visible;
+	}
+
+	.ring-transition-svg path {
+		fill-rule: evenodd;
+	}
+
+	/* 圆环配色由主题主色派生（见下方 is:global 块） */
+
+	.ring-transition-text-wrap {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		text-align: center;
+		pointer-events: none;
+		user-select: none;
+		opacity: 0;
+	}
+
+	.ring-transition-text {
+		font-family: "Space Grotesk", ui-monospace, "SF Mono", "JetBrains Mono",
+			Consolas, monospace;
+		font-size: clamp(2.5rem, 9vw, 7rem);
+		font-weight: 300;
+		letter-spacing: 0.06em;
+		color: transparent;
+		-webkit-text-stroke: 1.5px rgba(226, 236, 255, 0.95);
+		text-shadow: 0 0 80px color-mix(in oklch, var(--primary) 40%, transparent);
+		white-space: nowrap;
+		line-height: 1;
+	}
+
+	:root:not(.dark) .ring-transition-text {
+		-webkit-text-stroke: 1.5px rgba(24, 30, 52, 0.75);
+	}
+
+	.ring-transition-text .char {
+		display: inline-block;
+		opacity: 0;
+	}
+
+	.ring-transition-subtitle {
+		margin-top: 1.5rem;
+		font-family: ui-monospace, "SF Mono", Consolas, monospace;
+		font-size: 0.75rem;
+		letter-spacing: 0.25em;
+		text-transform: uppercase;
+		color: rgba(196, 208, 245, 0.6);
+		opacity: 0;
+		transition: opacity 0.6s ease;
+	}
+
+	.ring-transition-pagenum {
+		margin-top: 0.75rem;
+		font-family: ui-monospace, "SF Mono", Consolas, monospace;
+		font-size: 0.62rem;
+		letter-spacing: 0.3em;
+		color: rgba(170, 182, 220, 0.45);
+		opacity: 0;
+		transition: opacity 0.6s ease 0.1s;
+	}
+
+	:root:not(.dark) .ring-transition-subtitle,
+	:root:not(.dark) .ring-transition-pagenum {
+		color: rgba(30, 38, 65, 0.6);
+	}
+
+	.ring-transition-subtitle.show,
+	.ring-transition-pagenum.show {
+		opacity: 1;
+	}
+</style>
+
+<style is:global>
+	/* 圆环 path 由 JS 动态创建，拿不到 Astro 的 scope 属性，所以放在全局样式里。
+	   配色由主题主色派生：内环最实（贴近站点主色），外环偏深蓝半透明，圈层之间有层次。 */
+	#ring-transition .ring-transition-svg path:nth-child(1) {
+		fill: color-mix(in oklch, var(--primary) 34%, #05080f);
+	}
+	#ring-transition .ring-transition-svg path:nth-child(2) {
+		fill: color-mix(in oklch, var(--primary) 30%, #060b15);
+	}
+	#ring-transition .ring-transition-svg path:nth-child(3) {
+		fill: color-mix(in oklch, var(--primary) 28%, #0a1424);
+		opacity: 0.98;
+	}
+	#ring-transition .ring-transition-svg path:nth-child(4) {
+		fill: color-mix(in oklch, var(--primary) 24%, #0e1d33);
+		opacity: 0.94;
+	}
+	#ring-transition .ring-transition-svg path:nth-child(5) {
+		fill: color-mix(in oklch, var(--primary) 18%, #122642);
+		opacity: 0.82;
+	}
+	#ring-transition .ring-transition-svg path:nth-child(6) {
+		fill: color-mix(in oklch, var(--primary) 12%, #173055);
+		opacity: 0.66;
+	}
+
+	/* 遮罩底下压一层深色，圈层之间的缝隙不会露出花花绿绿的内容 */
+	#ring-transition.active {
+		background: rgba(4, 7, 14, 0.62);
+	}
+</style>
+
+<script>
+	import { url } from "@/utils/url-utils";
+
+	(function setupRingTransition() {
+		if (window.__ringTransitionReady) return;
+		window.__ringTransitionReady = true;
+
+		const CONFIG = {
+			ringCount: 6,
+			ringDuration: 340,
+			ringDelay: 26,
+			startAngle: -90,
+			textStartDelay: 260,
+			textCharDelay: 140,
+			textScrambleTime: 90,
+		};
+
+		const overlay = document.getElementById("ring-transition");
+		const svg = document.getElementById(
+			"ring-transition-svg",
+		) as SVGSVGElement | null;
+		const textWrap = overlay?.querySelector<HTMLElement>(
+			".ring-transition-text-wrap",
+		);
+		const textEl = overlay?.querySelector<HTMLElement>(".ring-transition-text");
+		const subtitleEl = overlay?.querySelector<HTMLElement>(
+			".ring-transition-subtitle",
+		);
+		const pagenumEl = overlay?.querySelector<HTMLElement>(
+			".ring-transition-pagenum",
+		);
+		if (!overlay || !svg || !textWrap || !textEl) return;
+
+		const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+		let svgSize = 0;
+		let outerRadius = 0;
+		const ringPaths: SVGPathElement[] = [];
+		const ringOuter: number[] = [];
+		const ringInner: number[] = [];
+		let rafId: number | null = null;
+		let startTime = 0;
+		let phase: "idle" | "expanding" | "holding" | "shrinking" = "idle";
+		let holdReleased = false;
+		let chars: HTMLElement[] = [];
+		let onHalf: (() => void) | null = null;
+		let onComplete: (() => void) | null = null;
+
+		const SCRAMBLE =
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*+-=<>?/";
+
+		const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+		const easeInCubic = (t: number) => t * t * t;
+
+		const resize = () => {
+			const w = window.innerWidth;
+			const h = window.innerHeight;
+			outerRadius = Math.ceil(Math.hypot(w, h) / 2) + 40;
+			svgSize = outerRadius * 2 + 100;
+			svg.setAttribute("width", String(svgSize));
+			svg.setAttribute("height", String(svgSize));
+			svg.setAttribute(
+				"viewBox",
+				`${-svgSize / 2} ${-svgSize / 2} ${svgSize} ${svgSize}`,
+			);
+			ringOuter.length = 0;
+			ringInner.length = 0;
+			const thickness = outerRadius / CONFIG.ringCount;
+			for (let i = 0; i < CONFIG.ringCount; i++) {
+				ringInner.push(i * thickness);
+				ringOuter.push((i + 1) * thickness);
+			}
+		};
+
+		/** 实心扇形环（外弧 - 内弧，evenodd），progress 为扫过的角度比例 */
+		const sectorPath = (
+			innerR: number,
+			outerR: number,
+			progress: number,
+			startAngleDeg: number,
+		): string => {
+			if (progress <= 0) return "";
+			const p = Math.min(1, progress);
+			if (p >= 1) {
+				return `M ${outerR} 0 A ${outerR} ${outerR} 0 1 1 ${-outerR} 0 A ${outerR} ${outerR} 0 1 1 ${outerR} 0 Z M ${innerR} 0 A ${innerR} ${innerR} 0 1 0 ${-innerR} 0 A ${innerR} ${innerR} 0 1 0 ${innerR} 0 Z`;
+			}
+			const sweep = p * 360;
+			const startRad = (startAngleDeg * Math.PI) / 180;
+			const endRad = ((startAngleDeg + sweep) * Math.PI) / 180;
+			const largeArc = sweep > 180 ? 1 : 0;
+			const osx = outerR * Math.cos(startRad);
+			const osy = outerR * Math.sin(startRad);
+			const oex = outerR * Math.cos(endRad);
+			const oey = outerR * Math.sin(endRad);
+			const isx = innerR * Math.cos(startRad);
+			const isy = innerR * Math.sin(startRad);
+			const iex = innerR * Math.cos(endRad);
+			const iey = innerR * Math.sin(endRad);
+			return `M ${osx} ${osy} A ${outerR} ${outerR} 0 ${largeArc} 1 ${oex} ${oey} L ${iex} ${iey} A ${innerR} ${innerR} 0 ${largeArc} 0 ${isx} ${isy} Z`;
+		};
+
+		const paintRing = (index: number, progress: number) => {
+			const path = ringPaths[index];
+			const d = sectorPath(
+				ringInner[index],
+				ringOuter[index],
+				progress,
+				CONFIG.startAngle,
+			);
+			path.setAttribute("d", d);
+			path.style.opacity = d ? "1" : "0";
+		};
+
+		const setupText = (text: string) => {
+			chars = [];
+			textEl.textContent = "";
+			for (const ch of text) {
+				const span = document.createElement("span");
+				span.className = "char";
+				span.textContent = ch === " " ? "\u00a0" : ch;
+				span.dataset.target = ch;
+				span.dataset.delay = String(Math.floor(Math.random() * CONFIG.textCharDelay));
+				span.dataset.settled = "0";
+				textEl.appendChild(span);
+				chars.push(span);
+			}
+			textWrap.style.opacity = "0";
+		};
+
+		const updateScramble = (elapsed: number) => {
+			for (const ch of chars) {
+				if (ch.dataset.settled === "1") continue;
+				const delay = Number(ch.dataset.delay ?? 0);
+				const local = elapsed - delay;
+				if (local <= 0) {
+					ch.style.opacity = "0";
+					continue;
+				}
+				if (local < CONFIG.textScrambleTime) {
+					if (Math.random() < 0.5) {
+						ch.textContent =
+							SCRAMBLE[Math.floor(Math.random() * SCRAMBLE.length)] ?? ch.textContent;
+					}
+					ch.style.opacity = (0.2 + Math.random() * 0.8).toFixed(2);
+				} else {
+					ch.textContent = ch.dataset.target ?? ch.textContent;
+					ch.style.opacity = "1";
+					ch.dataset.settled = "1";
+				}
+			}
+		};
+
+		const settleText = () => {
+			for (const ch of chars) {
+				ch.textContent = ch.dataset.target ?? "";
+				ch.style.opacity = "1";
+				ch.dataset.settled = "1";
+			}
+			textWrap.style.opacity = "1";
+		};
+
+		const finish = () => {
+			if (rafId !== null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
+			phase = "idle";
+			overlay.classList.remove("active");
+			for (const path of ringPaths) {
+				path.setAttribute("d", "");
+				path.style.opacity = "0";
+			}
+			textWrap.style.opacity = "0";
+			subtitleEl?.classList.remove("show");
+			pagenumEl?.classList.remove("show");
+			const done = onComplete;
+			onComplete = null;
+			onHalf = null;
+			done?.();
+		};
+
+		const animate = (now: number) => {
+			rafId = null;
+			const elapsed = now - startTime;
+			const total = CONFIG.ringDuration + (CONFIG.ringCount - 1) * CONFIG.ringDelay;
+
+			if (phase === "expanding") {
+				for (let i = 0; i < CONFIG.ringCount; i++) {
+					const local = elapsed - i * CONFIG.ringDelay;
+					if (local <= 0) {
+						ringPaths[i].setAttribute("d", "");
+						ringPaths[i].style.opacity = "0";
+						continue;
+					}
+					paintRing(i, easeOutCubic(Math.min(1, local / CONFIG.ringDuration)));
+				}
+
+				const textElapsed = elapsed - CONFIG.textStartDelay;
+				if (textElapsed >= 0) {
+					updateScramble(textElapsed);
+					textWrap.style.opacity = String(
+						Math.min(1, textElapsed / 180).toFixed(3),
+					);
+				}
+				if (elapsed > CONFIG.textStartDelay + 220) {
+					subtitleEl?.classList.add("show");
+					pagenumEl?.classList.add("show");
+				}
+
+				if (elapsed >= total + CONFIG.textScrambleTime + 60) {
+					for (let i = 0; i < CONFIG.ringCount; i++) paintRing(i, 1);
+					settleText();
+					phase = "holding";
+					startTime = now;
+					holdReleased = false;
+					const half = onHalf;
+					onHalf = null;
+					half?.();
+				}
+			} else if (phase === "holding") {
+				// 呼吸缩放：等新页面就绪（release）再退场
+				const breathe = Math.sin((now - startTime) * 0.0025) * 0.004;
+				for (let i = 0; i < CONFIG.ringCount; i++) {
+					const scale = 1 + breathe * (i % 2 === 0 ? 1 : -1);
+					ringPaths[i].setAttribute(
+						"d",
+						sectorPath(
+							ringInner[i] * scale,
+							ringOuter[i] * scale,
+							1,
+							CONFIG.startAngle,
+						),
+					);
+					ringPaths[i].style.opacity = "1";
+				}
+				if (holdReleased) {
+					phase = "shrinking";
+					startTime = now;
+				}
+			} else if (phase === "shrinking") {
+				for (let i = 0; i < CONFIG.ringCount; i++) {
+					const local = elapsed - i * CONFIG.ringDelay;
+					if (local <= 0) {
+						paintRing(i, 1);
+						continue;
+					}
+					const p = easeInCubic(Math.min(1, local / CONFIG.ringDuration));
+					if (p >= 1) {
+						ringPaths[i].setAttribute("d", "");
+						ringPaths[i].style.opacity = "0";
+					} else {
+						const d = sectorPath(
+							ringInner[i],
+							ringOuter[i],
+							1 - p,
+							CONFIG.startAngle + p * 360,
+						);
+						ringPaths[i].setAttribute("d", d);
+						ringPaths[i].style.opacity = (1 - p * 0.3).toFixed(3);
+					}
+				}
+				const fadeStart = total * 0.1;
+				if (elapsed > fadeStart) {
+					const fp = Math.min(1, (elapsed - fadeStart) / (total * 0.3));
+					textWrap.style.opacity = (1 - easeInCubic(fp)).toFixed(3);
+					subtitleEl?.classList.remove("show");
+					pagenumEl?.classList.remove("show");
+				}
+				if (elapsed >= total) {
+					finish();
+					return;
+				}
+			}
+
+			rafId = requestAnimationFrame(animate);
+		};
+
+		const play = (
+			text: string,
+			subtitle: string,
+			pagenum: string,
+			half?: () => void,
+			complete?: () => void,
+		) => {
+			if (phase !== "idle") return;
+			onHalf = half ?? null;
+			onComplete = complete ?? null;
+			resize();
+			setupText(text);
+			if (subtitleEl) {
+				subtitleEl.textContent = subtitle;
+				subtitleEl.classList.remove("show");
+			}
+			if (pagenumEl) {
+				pagenumEl.textContent = pagenum;
+				pagenumEl.classList.remove("show");
+			}
+			for (const path of ringPaths) {
+				path.setAttribute("d", "");
+				path.style.opacity = "0";
+			}
+			overlay.classList.add("active");
+			phase = "expanding";
+			startTime = performance.now();
+			rafId = requestAnimationFrame(animate);
+		};
+
+		const release = () => {
+			holdReleased = true;
+			if (phase === "holding" && rafId === null) {
+				rafId = requestAnimationFrame(animate);
+			}
+		};
+
+		// 建 6 个环形 path
+		for (let i = 0; i < CONFIG.ringCount; i++) {
+			const path = document.createElementNS(
+				"http://www.w3.org/2000/svg",
+				"path",
+			);
+			path.style.opacity = "0";
+			svg.appendChild(path);
+			ringPaths.push(path);
+		}
+		resize();
+		window.addEventListener("resize", () => {
+			if (phase === "idle") resize();
+		});
+
+		// ── 哪些跳转要用这套转场：照片墙 / 音乐 相关 ─────────────
+		const normalize = (path: string): string => {
+			const trimmed = path.replace(/\/+$/, "");
+			return trimmed === "" ? "/" : trimmed;
+		};
+		const specialPages: Record<string, { title: string; label: string }> = {
+			[normalize(url("/wall/"))]: { title: "WALL", label: "照片墙" },
+			[normalize(url("/music/"))]: { title: "MUSIC", label: "音乐" },
+		};
+		const pageTitles: Record<string, { title: string; label: string }> = {
+			[normalize(url("/"))]: { title: "HOME", label: "首页" },
+			[normalize(url("/posts/"))]: { title: "POSTS", label: "文章" },
+			[normalize(url("/archive/"))]: { title: "ARCHIVE", label: "归档" },
+			[normalize(url("/categories/"))]: { title: "CATEGORY", label: "分类" },
+			[normalize(url("/tags/"))]: { title: "TAGS", label: "标签" },
+			[normalize(url("/about/"))]: { title: "ABOUT", label: "关于我" },
+			...specialPages,
+		};
+		const infoFor = (path: string) =>
+			pageTitles[normalize(path)] ?? {
+				title: "PAGE",
+				label: normalize(path).replace(/^\/|\/$/g, "") || "首页",
+			};
+
+		const isEmptyTarget = (el: HTMLAnchorElement): boolean =>
+			el.hasAttribute("data-no-swup") ||
+			el.hasAttribute("download") ||
+			el.target === "_blank";
+
+		let navigating = false;
+
+		const intercept = (event: MouseEvent): void => {
+			if (event.defaultPrevented || event.button !== 0) return;
+			if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+			if (reduceMotion.matches) return;
+			if (phase !== "idle" || navigating) return;
+
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const anchor = target.closest<HTMLAnchorElement>("a[href]");
+			if (!anchor || isEmptyTarget(anchor)) return;
+
+			let next: URL;
+			try {
+				next = new URL(anchor.href, window.location.href);
+			} catch {
+				return;
+			}
+			if (next.origin !== window.location.origin) return;
+			if (normalize(next.pathname) === normalize(window.location.pathname)) return;
+
+			const fromSpecial = normalize(window.location.pathname) in specialPages;
+			const toSpecial = normalize(next.pathname) in specialPages;
+			// 只有涉及照片墙 / 音乐的跳转才接管
+			if (!fromSpecial && !toSpecial) return;
+
+			event.preventDefault();
+			event.stopPropagation();
+			navigating = true;
+
+			const from = infoFor(window.location.pathname);
+			const to = infoFor(next.pathname);
+			const nav = window.swup as
+				| { navigate?: (to: string) => Promise<unknown> | unknown }
+				| undefined;
+
+			play(
+				to.title,
+				`${from.label} → ${to.label}`,
+				`${from.title} → ${to.title}`,
+				() => {
+					if (nav?.navigate) {
+						void nav.navigate(next.pathname + next.search);
+					} else {
+						window.location.href = next.href;
+					}
+					// 新页面就绪后再退场；Swup 慢时兜底 1.2s
+					const revealOnce = () => {
+						document.removeEventListener("astro:page-load", revealOnce);
+						release();
+					};
+					document.addEventListener("astro:page-load", revealOnce);
+					window.setTimeout(revealOnce, 1200);
+				},
+				() => {
+					navigating = false;
+				},
+			);
+		};
+
+		document.addEventListener("click", intercept, true);
+	})();
+</script>

@@ -9,6 +9,7 @@ import FancyboxManager from "@components/features/FancyboxManager.astro";
 import FontSetup from "@components/features/FontSetup.astro";
 import GithubCardManager from "@components/features/GithubCardManager.astro";
 import ParallaxStars from "@components/features/ParallaxStars.astro";
+import RingTransition from "@components/features/RingTransition.astro";
 import MagneticHover from "@components/features/MagneticHover.astro";
 import MusicManager from "@components/features/MusicManager.astro";
 import MusicPlayerView from "@components/features/MusicPlayerView.astro";
@@ -577,6 +578,7 @@ const ogImageAlt = propsOgImageAlt ?? pageTitle;
     <!-- 指针氛围层：暗色星光点阵 + 鼠标跟随光晕（画在卡片之下） -->
     <CursorAmbience />
 		<ParallaxStars />
+		<RingTransition />
 
     <!-- 磁吸交互：按钮/卡片靠近指针时轻微偏移 -->
     <MagneticHover />
