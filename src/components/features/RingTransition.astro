@@ -121,6 +121,7 @@
 <style is:global>
 	/* 圆环 path 由 JS 动态创建，拿不到 Astro 的 scope 属性，所以放在全局样式里。
 	   配色由主题主色派生：内环最实（贴近站点主色），外环偏深蓝半透明，圈层之间有层次。 */
+	/* 兜底配色（不支持相对色写法时用）：主色混深蓝，单色阶 */
 	#ring-transition .ring-transition-svg path:nth-child(1) {
 		fill: color-mix(in oklch, var(--primary) 34%, #05080f);
 	}
@@ -144,9 +145,81 @@
 		opacity: 0.66;
 	}
 
+	/* 彩色版（暗色主题）：从主色色相出发，逐层 +16°，亮度/彩度小幅起伏 ——
+	   青 → 蓝 → 靛 → 紫 的一圈渐变，色相连续所以不会突兀 */
+	@supports (color: oklch(from red l c h)) {
+		#ring-transition .ring-transition-svg path:nth-child(1) {
+			fill: oklch(from var(--primary) 0.46 0.082 calc(h + 0));
+		}
+		#ring-transition .ring-transition-svg path:nth-child(2) {
+			fill: oklch(from var(--primary) 0.44 0.088 calc(h + 16));
+		}
+		#ring-transition .ring-transition-svg path:nth-child(3) {
+			fill: oklch(from var(--primary) 0.42 0.094 calc(h + 34));
+		}
+		#ring-transition .ring-transition-svg path:nth-child(4) {
+			fill: oklch(from var(--primary) 0.4 0.098 calc(h + 52));
+		}
+		#ring-transition .ring-transition-svg path:nth-child(5) {
+			fill: oklch(from var(--primary) 0.43 0.094 calc(h + 70));
+		}
+		#ring-transition .ring-transition-svg path:nth-child(6) {
+			fill: oklch(from var(--primary) 0.46 0.086 calc(h + 88));
+		}
+	}
+
 	/* 遮罩底下压一层深色，圈层之间的缝隙不会露出花花绿绿的内容 */
 	#ring-transition.active {
 		background: rgba(4, 7, 14, 0.62);
+	}
+
+	/* ── 亮色主题 ──────────────────────────────────────────────
+	   同样的色相序列，但整体提亮：浅青 → 浅蓝 → 浅靛 → 浅紫，
+	   亮度和彩度都压低一档，配深色描边字才读得清，也不会糊成一片白 */
+
+	/* 亮色主题：兜底也换成浅色，避免不支持相对色时出现深色环 */
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(1) {
+		fill: color-mix(in oklch, var(--primary) 18%, #ffffff);
+	}
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(2) {
+		fill: color-mix(in oklch, var(--primary) 16%, #ffffff);
+	}
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(3) {
+		fill: color-mix(in oklch, var(--primary) 14%, #ffffff);
+	}
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(4) {
+		fill: color-mix(in oklch, var(--primary) 12%, #ffffff);
+	}
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(5) {
+		fill: color-mix(in oklch, var(--primary) 15%, #ffffff);
+	}
+	html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(6) {
+		fill: color-mix(in oklch, var(--primary) 18%, #ffffff);
+	}
+
+	html:not(.dark) #ring-transition.active {
+		background: rgba(255, 255, 255, 0.6);
+	}
+
+	@supports (color: oklch(from red l c h)) {
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(1) {
+			fill: oklch(from var(--primary) 0.86 0.048 calc(h + 0));
+		}
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(2) {
+			fill: oklch(from var(--primary) 0.84 0.052 calc(h + 16));
+		}
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(3) {
+			fill: oklch(from var(--primary) 0.82 0.056 calc(h + 34));
+		}
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(4) {
+			fill: oklch(from var(--primary) 0.8 0.06 calc(h + 52));
+		}
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(5) {
+			fill: oklch(from var(--primary) 0.83 0.055 calc(h + 70));
+		}
+		html:not(.dark) #ring-transition .ring-transition-svg path:nth-child(6) {
+			fill: oklch(from var(--primary) 0.87 0.046 calc(h + 88));
+		}
 	}
 </style>
 
@@ -165,6 +238,10 @@
 			textStartDelay: 260,
 			textCharDelay: 140,
 			textScrambleTime: 90,
+			// 遮罩盖满后至少停留这么久，让人看清跳转信息（页面就绪得更快也不提前退场）
+			holdMin: 900,
+			// 页面迟迟不就绪时的兜底退场时间
+			holdTimeout: 1600,
 		};
 
 		const overlay = document.getElementById("ring-transition");
@@ -385,7 +462,8 @@
 					);
 					ringPaths[i].style.opacity = "1";
 				}
-				if (holdReleased) {
+				// 既满足「页面已就绪」又过了最短停留时长，才开始退场
+				if (holdReleased && now - startTime >= CONFIG.holdMin) {
 					phase = "shrinking";
 					startTime = now;
 				}
@@ -561,7 +639,7 @@
 						release();
 					};
 					document.addEventListener("astro:page-load", revealOnce);
-					window.setTimeout(revealOnce, 1200);
+					window.setTimeout(revealOnce, CONFIG.holdTimeout);
 				},
 				() => {
 					navigating = false;
