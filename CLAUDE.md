@@ -36,8 +36,12 @@ Package manager is **pnpm** (enforced). Node.js >= 22 required.
 All features are toggled/configured via TypeScript files in `src/config/`, exported through the barrel at `src/config/index.ts`. Key configs:
 
 - `siteConfig.ts` — core site settings, theme, pagination
-- Navbar items are all anchors now: clicking 「文章」 goes straight to `/archive/` while its 归档/分类/标签 children open on hover/focus.
+- Navbar items are all anchors now: clicking 「文章」 opens `/posts/` — a full-width list of every post sorted by time (same cards as the home list, no pagination) — while its 归档/分类/标签 children open on hover/focus.
 - `sidebarConfig.ts` — sidebar layout (left/right/both, widget ordering). `sidebarPages` (default `["/", "/about/"]`) is a whitelist: only those paths keep the two sidebar columns (profile, pomodoro, music widget, stats…); every other page — posts, archive, categories, tags, photo wall, music, admin — renders as a single full-width centered column. Add a path there to give that page its sidebars back.
+
+Switching between the two layouts is animated: the sidebar column widths are registered as `<length>` custom properties (`--lw-md`/`--rw-md`/`--lw-xl`/`--rw-xl`) and transition over 620ms, so the center column expands/contracts into place instead of jumping. Two gotchas when touching this:
+- the CSS `@property` block in `layout-base.css` is dropped by the build pipeline, so `grid-layout-utils.ts` re-registers the same properties with `CSS.registerProperty` at runtime (that call is what makes the interpolation actually work);
+- Swup replaces `#content-panel-inner`, so the SSR values are already final on the new node — `updateMainGridCols()` seeds the previous page's widths, forces a reflow, then writes the new ones, which is what produces the transition.
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
 - `musicConfig.ts` — `/music/` 音乐页（与照片墙同形态：播放器卡片 + 歌单列表，曲目读 `local.playlist`，音频/封面放 `public/assets/music/`）

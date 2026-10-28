@@ -19,8 +19,9 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 	// 文章及其子菜单
 	links.push({
 		name: "文章",
-		// 直接点「文章」就进归档页；子菜单（归档/分类/标签）悬停展开
-		url: "/archive/",
+		// 直接点「文章」进文章列表页（全量文章，按时间排序，和首页中间那块一样）；
+		// 归档 / 分类 / 标签 仍在子菜单里，悬停展开
+		url: "/posts/",
 		icon: "material-symbols:article",
 		children: [LinkPresets.Archive, LinkPresets.Categories, LinkPresets.Tags],
 	});

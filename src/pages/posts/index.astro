@@ -1,0 +1,39 @@
+---
+import PostPage from "@/components/layout/PostPage.astro";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import { getSortedPosts } from "@/utils/content-utils";
+
+// 文章页：默认展示所有文章（按时间排序，置顶优先），
+// 就是首页中间那块文章列表的样子，只是不分页、全量列出。
+// 归档 / 分类 / 标签 仍在导航「文章」的子菜单里。
+const posts = await getSortedPosts();
+
+// PostPage 只用到 page.data，这里按分页对象的最小形状凑一个
+const page = {
+	data: posts,
+	currentPage: 1,
+	lastPage: 1,
+	total: posts.length,
+	size: posts.length,
+	start: 0,
+	end: posts.length,
+	url: {
+		current: "/posts/",
+		prev: undefined,
+		next: undefined,
+		first: "/posts/",
+		last: "/posts/",
+	},
+};
+---
+
+<MainGridLayout title="文章" description="全部文章，按时间排序">
+	<PostPage page={page} />
+	{
+		posts.length === 0 && (
+			<p class="py-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+				还没有文章，去 <code>src/content/posts/</code> 里写一篇吧。
+			</p>
+		)
+	}
+</MainGridLayout>

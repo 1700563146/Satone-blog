@@ -77,6 +77,8 @@ export function getEffectiveSidebarState(
 				: "false",
 			// 逗号分隔的路径白名单：客户端按当前 URL 判定要不要保留侧栏
 			"data-sidebar-pages": sidebarPages,
+			// 本页是否整体收起侧栏（驱动列宽过渡 + 侧栏淡出）
+			"data-no-sidebar": pageKeepsSidebar ? "false" : "true",
 			"data-sidebar-position": sidebarLayoutConfig.position,
 			"data-tablet-sidebar": sidebarConfig.tabletSidebar,
 			// noSidebarContentWidth（0–1 比例），空串表示未配置

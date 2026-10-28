@@ -3,8 +3,6 @@ import { sidebarLayoutConfig } from "@/config";
 /** 侧栏列宽，全仓库唯一字面值出处 */
 const SIDEBAR_WIDTH = "17.5rem";
 
-const SIDEBAR_TRACK = "var(--grid-sidebar-width)";
-
 export interface ResponsiveSidebarConfig {
 	/**
 	 * 该侧是否存在启用的组件，含 position 门控。
@@ -105,10 +103,17 @@ export interface GridColumnsInput {
 	noSidebarContentWidth?: number;
 }
 
-/** #main-grid 的列几何，由 gridColumnVarsToStyle 序列化 */
+/**
+ * #main-grid 的列几何，由 gridColumnVarsToStyle 序列化。
+ * 侧栏列宽用「长度变量」而不是整串 grid-template-columns：
+ * 只有长度才能被 CSS transition 插值，页面在「有侧栏 / 无侧栏」之间切换时
+ * 中间内容栏才能向两侧平滑展开（见 layout-base.css 的 @property 注册）。
+ */
 export interface GridColumnVars {
-	"--cols-md": string;
-	"--cols-xl": string;
+	"--lw-md": string;
+	"--rw-md": string;
+	"--lw-xl": string;
+	"--rw-xl": string;
 	"--left-display-md": "contents" | "none";
 	"--left-display-xl": "contents" | "none";
 	"--right-display-md": "contents" | "none";
@@ -118,14 +123,6 @@ export interface GridColumnVars {
 	/** 内容栏占包裹层总宽的比例（无单位，1 = 不收窄），按断点各自判定 */
 	"--content-ratio-md": number;
 	"--content-ratio-xl": number;
-}
-
-/** 按左右两侧是否占列生成轨道串 */
-function trackSegments(left: boolean, right: boolean): string {
-	if (left && right) return `${SIDEBAR_TRACK} 1fr ${SIDEBAR_TRACK}`;
-	if (left) return `${SIDEBAR_TRACK} 1fr`;
-	if (right) return `1fr ${SIDEBAR_TRACK}`;
-	return "1fr";
 }
 
 /**
@@ -166,13 +163,21 @@ export function computeGridColumns(input: GridColumnsInput): GridColumnVars {
 	const ratioXl =
 		input.enabled && !pageSidebarOff && !leftIn && !rightIn ? ratio : 1;
 
+	// 侧栏列宽：显示时是固定宽度，收起时 0 —— 过渡的就是这两个值
+	const shown = "var(--grid-sidebar-width)";
+	const hidden = "0rem";
+
 	return {
-		"--cols-md": trackSegments(mdLeft, mdRight),
-		"--cols-xl": trackSegments(leftIn, rightIn),
-		"--left-display-md": mdLeft ? "contents" : "none",
-		"--left-display-xl": leftIn ? "contents" : "none",
-		"--right-display-md": mdRight ? "contents" : "none",
-		"--right-display-xl": rightIn ? "contents" : "none",
+		"--lw-md": mdLeft ? shown : hidden,
+		"--rw-md": mdRight ? shown : hidden,
+		"--lw-xl": leftIn ? shown : hidden,
+		"--rw-xl": rightIn ? shown : hidden,
+		// 包裹层始终 display:contents —— 收起时靠列宽 0 + 内层 opacity 0，
+		// 这样过渡期间侧栏还在 DOM 里，能被平滑压扁
+		"--left-display-md": "contents",
+		"--left-display-xl": "contents",
+		"--right-display-md": "contents",
+		"--right-display-xl": "contents",
 		"--grid-sidebar-width": SIDEBAR_WIDTH,
 		"--content-ratio-md": ratioMd,
 		"--content-ratio-xl": ratioXl,
