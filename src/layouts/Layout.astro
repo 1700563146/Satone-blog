@@ -9,7 +9,6 @@ import FancyboxManager from "@components/features/FancyboxManager.astro";
 import FontSetup from "@components/features/FontSetup.astro";
 import GithubCardManager from "@components/features/GithubCardManager.astro";
 import ParallaxStars from "@components/features/ParallaxStars.astro";
-import IntroSplash from "@components/features/IntroSplash.astro";
 import RingTransition from "@components/features/RingTransition.astro";
 import MagneticHover from "@components/features/MagneticHover.astro";
 import MusicManager from "@components/features/MusicManager.astro";
@@ -167,33 +166,6 @@ const ogImageAlt = propsOgImageAlt ?? pageTitle;
     <style is:inline>
 			@layer properties, theme, base, components, utilities;
 		</style>
-    {/* 开屏动画：首帧前判定是否播放，已看过的访客不会闪一下覆盖层 */}
-    <script is:inline>
-      (function () {
-        try {
-          var seen = false;
-          try {
-            seen = window.localStorage.getItem("satone-blog:intro-seen:v1") === "1";
-          } catch (error) {
-            seen = true; // 存储不可用：当作已看过，直接放行
-          }
-          var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          var optedOut = false;
-          try {
-            optedOut = new URLSearchParams(window.location.search).has("nointro");
-          } catch (error) {}
-          if (!seen && !reduce && !optedOut) {
-            document.documentElement.classList.add("intro-pending");
-            // 兜底：脚本没跑起来 / 动画卡住时，3.4s 后一定要放行页面
-            window.setTimeout(function () {
-              var el = document.getElementById("intro-splash");
-              if (el) el.remove();
-              document.documentElement.classList.remove("intro-pending");
-            }, 3400);
-          }
-        } catch (error) {}
-      })();
-    </script>
     {analyticsConfig?.googleAnalyticsId && (
             <GoogleAnalytics analyticsId={analyticsConfig.googleAnalyticsId} />
     )}
@@ -607,7 +579,6 @@ const ogImageAlt = propsOgImageAlt ?? pageTitle;
     <CursorAmbience />
 		<ParallaxStars />
 		<RingTransition />
-		<IntroSplash />
 
     <!-- 磁吸交互：按钮/卡片靠近指针时轻微偏移 -->
     <MagneticHover />
