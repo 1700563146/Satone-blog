@@ -192,15 +192,21 @@
 					<Icon icon="material-symbols:auto-awesome-outline" class="text-[1.05rem]"></Icon>
 					星空背景
 				</span>
-				<input type="checkbox" class="settings-switch" checked={starfield} onchange={toggleStarfield} />
+				<span class="neoToggle">
+					<input type="checkbox" checked={starfield} onchange={toggleStarfield} aria-label="星空背景" />
+					<span class="neoToggle-track" aria-hidden="true"></span>
+				</span>
 			</label>
 
 			<label class="settings-row">
 				<span class="settings-row-label">
-					<Icon icon="material-symbols:blur-on-rounded" class="text-[1.05rem]"></Icon>
+					<Icon icon="material-symbols:flare-rounded" class="text-[1.05rem]"></Icon>
 					指针光晕
 				</span>
-				<input type="checkbox" class="settings-switch" checked={glow} onchange={toggleGlow} />
+				<span class="neoToggle">
+					<input type="checkbox" checked={glow} onchange={toggleGlow} aria-label="指针光晕" />
+					<span class="neoToggle-track" aria-hidden="true"></span>
+				</span>
 			</label>
 
 			<label class="settings-row">
@@ -208,12 +214,15 @@
 					<Icon icon="material-symbols:line-start-circle" class="text-[1.05rem]"></Icon>
 					指针连线
 				</span>
-				<input
-					type="checkbox"
-					class="settings-switch"
-					checked={pointerLinks}
-					onchange={togglePointerLinks}
-				/>
+				<span class="neoToggle">
+					<input
+						type="checkbox"
+						checked={pointerLinks}
+						onchange={togglePointerLinks}
+						aria-label="指针连线"
+					/>
+					<span class="neoToggle-track" aria-hidden="true"></span>
+				</span>
 			</label>
 
 			<p class="settings-hint">星空与连线在暗色主题下才可见。</p>
@@ -222,6 +231,11 @@
 </div>
 
 <style>
+	/* 面板底色压得实一点：背后是横幅视频时也能读清 */
+	#site-settings-panel {
+		background-color: color-mix(in oklch, var(--card-bg) 94%, transparent);
+	}
+
 	.settings-block + .settings-block {
 		margin-top: 0.25rem;
 		padding-top: 0.75rem;
@@ -289,6 +303,86 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 0.8rem;
+	}
+
+	/* 拟物拨动开关：白色凹槽 + 金属渐变圆钮（参考 Uiverse 的 neomorphic toggle，缩到面板尺寸） */
+	.neoToggle {
+		position: relative;
+		flex: none;
+		display: inline-flex;
+	}
+
+	.neoToggle input {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		opacity: 0;
+		cursor: pointer;
+		z-index: 1;
+	}
+
+	.neoToggle-track {
+		position: relative;
+		display: block;
+		width: 46px;
+		height: 26px;
+		border-radius: 9999px;
+		background-color: color-mix(in oklch, var(--card-bg) 72%, white);
+		box-shadow:
+			inset 0 0 3px 2px rgba(255, 255, 255, 0.9),
+			inset 0 0 8px 1px rgba(0, 0, 0, 0.42),
+			inset 0 0 0 1.5px rgba(0, 0, 0, 0.28),
+			0 1px 2px rgba(0, 0, 0, 0.12);
+		transition: transform 0.4s ease;
+	}
+
+	.neoToggle-track::before {
+		content: "";
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background-image: linear-gradient(130deg, #757272 10%, #ffffff 11%, #726f6f 62%);
+		box-shadow:
+			0 2px 1px rgba(0, 0, 0, 0.3),
+			3px 3px 6px rgba(0, 0, 0, 0.28);
+		transition:
+			left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+			background-image 0.35s ease;
+	}
+
+	.neoToggle input:checked + .neoToggle-track::before {
+		left: 23px;
+		background-image: linear-gradient(315deg, #0a0a0a 0%, #414141 70%);
+	}
+
+	/* 悬停时轻微倾斜，像真的实体开关被按住 */
+	.neoToggle:hover .neoToggle-track {
+		transform: perspective(100px) rotateX(5deg) rotateY(-5deg);
+	}
+
+	.neoToggle:hover input:checked + .neoToggle-track {
+		transform: perspective(100px) rotateX(-5deg) rotateY(5deg);
+	}
+
+	.neoToggle input:focus-visible + .neoToggle-track {
+		outline: 2px solid var(--primary);
+		outline-offset: 3px;
+	}
+
+	/* 暗色下凹槽压低一点，别亮得像块白塑料 */
+	:global(.dark) .neoToggle-track {
+		/* 暗色下也保持「浅色凹槽 + 深色圆钮」，才看得出开关状态（和参考图一致） */
+		background-color: color-mix(in oklch, var(--card-bg) 35%, #dfe3ec);
+		box-shadow:
+			inset 0 0 3px 2px rgba(255, 255, 255, 0.75),
+			inset 0 0 9px 1px rgba(0, 0, 0, 0.55),
+			inset 0 0 0 1.5px rgba(0, 0, 0, 0.35),
+			0 1px 2px rgba(0, 0, 0, 0.45);
 	}
 
 	.settings-hint {

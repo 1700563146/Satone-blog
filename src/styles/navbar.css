@@ -506,6 +506,15 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semi"].navbar-sticky-sha
     }
 }
 
+/* 设置面板：比通用浮层面板更不透明一点，背后是横幅视频时也能读清 */
+html:not(.dark) #site-settings-panel {
+    background: rgba(255, 255, 255, 0.94) !important;
+}
+
+:root.dark #site-settings-panel {
+    background: rgba(28, 30, 34, 0.94) !important;
+}
+
 /* ============================================
  * 导航：纯图标 + 右侧抽屉胶囊
  * 图标之间留 gap 保持呼吸感，文字收进胶囊；胶囊锚在导航栏右下方
