@@ -1,0 +1,230 @@
+---
+import { Icon } from "astro-icon/components";
+import WidgetLayout from "@/components/common/WidgetLayout.astro";
+import { photoWallConfig } from "@/config/photoWallConfig";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+// 单个相册：/wall/<id>/
+// 一组照片按「摊开的相纸」排列，每张带轻微倾斜；点开是大图（Fancybox 接管 data-fancybox）。
+if (!photoWallConfig.enable) {
+	return Astro.redirect("/404/");
+}
+
+// getStaticPaths 会被单独抽出去执行，这里不能依赖模块作用域的中间变量，
+// 直接在函数里读配置
+export function getStaticPaths() {
+	return photoWallConfig.albums.map((album) => ({
+		params: { album: album.id },
+		props: { album },
+	}));
+}
+
+const { album } = Astro.props;
+const cover = album.cover ?? album.photos[0]?.src;
+---
+
+<MainGridLayout title={`${album.title} · 照片墙`} description={album.description ?? photoWallConfig.title}>
+	<div class="flex flex-col gap-4">
+		<WidgetLayout id="wall-album-head" name="相册">
+			<a class="wall-back" href="/wall/">
+				<Icon name="material-symbols:arrow-back-rounded" class="text-[1rem]" />
+				返回照片墙
+			</a>
+			<h1 class="wall-title">{album.title}</h1>
+			<p class="wall-sub">
+				<time>{album.date}</time>
+				<span class="wall-dot">·</span>
+				<span>{album.photos.length} 张</span>
+				{album.description && (
+					<>
+						<span class="wall-dot">·</span>
+						<span>{album.description}</span>
+					</>
+				)}
+			</p>
+		</WidgetLayout>
+
+		<WidgetLayout id="wall-album-photos" name="全部照片">
+			<div class="wall-photo-grid">
+				{
+					album.photos.map((photo, index) => (
+						<figure class="wall-frame" style={`--tilt: ${index % 2 === 0 ? "-1.4deg" : "1.6deg"};`}>
+							<a
+								class="wall-frame-link"
+								href={photo.src}
+								data-fancybox={`album-${album.id}`}
+								data-caption={photo.meta ? `${photo.caption ?? ""} · ${photo.meta}` : photo.caption}
+							>
+								<img
+									src={photo.src}
+									alt={photo.caption ?? `${album.title} ${index + 1}`}
+									loading={index < 4 ? "eager" : "lazy"}
+								/>
+							</a>
+							{(photo.caption || photo.meta) && (
+								<figcaption class="wall-frame-caption">
+									{photo.caption && <span class="wall-frame-title">{photo.caption}</span>}
+									{photo.meta && <span class="wall-frame-meta">{photo.meta}</span>}
+								</figcaption>
+							)}
+						</figure>
+					))
+				}
+			</div>
+			{
+				album.photos.length === 0 && (
+					<div class="wall-empty">
+						<Icon name="material-symbols:image-outline" class="text-[2rem]" />
+						<p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+							这一组还没有照片：把图片放进 <code>public/wall/</code>，在
+							<code>src/config/photoWallConfig.ts</code> 里加上路径即可。
+						</p>
+					</div>
+				)
+			}
+		</WidgetLayout>
+	</div>
+</MainGridLayout>
+
+<style>
+	/* 卡片底色随主题变，文字颜色直接写两套：a / h1 默认继承到黑色 */
+	.wall-back {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.78rem;
+		color: rgb(72, 78, 96);
+		text-decoration: none;
+		transition: color 180ms ease;
+	}
+
+	:global(html.dark) .wall-back {
+		color: rgb(178, 188, 208);
+	}
+
+	.wall-back:hover {
+		color: var(--primary);
+	}
+
+	.wall-title {
+		margin: 0.6rem 0 0.35rem;
+		font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		line-height: 1.15;
+		color: rgb(26, 30, 42);
+	}
+
+	:global(html.dark) .wall-title {
+		color: rgb(240, 244, 252);
+	}
+
+	.wall-sub {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-size: 0.78rem;
+		color: rgb(96, 102, 120);
+	}
+
+	:global(html.dark) .wall-sub {
+		color: rgb(168, 178, 198);
+	}
+
+	.wall-dot {
+		opacity: 0.5;
+	}
+
+	.wall-photo-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+		gap: clamp(1rem, 2.4vw, 1.75rem);
+		padding: 0.4rem 0 0.6rem;
+	}
+
+	/* 照片：白边相纸 + 轻微倾斜，悬停摆正并抬起 */
+	.wall-frame {
+		margin: 0;
+		padding: 8px 8px 26px;
+		background: #fbfbf8;
+		border-radius: 3px;
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.12),
+			0 10px 22px rgba(0, 0, 0, 0.14);
+		transform: rotate(var(--tilt, 0deg));
+		transition:
+			transform 380ms cubic-bezier(0.33, 0, 0.25, 1),
+			box-shadow 380ms ease;
+	}
+
+	.wall-frame:hover {
+		transform: rotate(0deg) translateY(-4px);
+		box-shadow:
+			0 2px 4px rgba(0, 0, 0, 0.14),
+			0 18px 36px rgba(0, 0, 0, 0.2);
+	}
+
+	.wall-frame-link {
+		display: block;
+		border-radius: 1px;
+		overflow: hidden;
+		background: color-mix(in oklch, var(--card-bg) 70%, #9aa6bd);
+	}
+
+	.wall-frame-link img {
+		display: block;
+		width: 100%;
+		height: auto;
+		aspect-ratio: 4 / 3;
+		object-fit: cover;
+		transition: transform 520ms cubic-bezier(0.33, 0, 0.25, 1);
+	}
+
+	.wall-frame:hover .wall-frame-link img {
+		transform: scale(1.04);
+	}
+
+	.wall-frame-caption {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		padding: 0.5rem 0.15rem 0;
+		font-size: 0.76rem;
+		line-height: 1.5;
+		color: rgb(52, 56, 68);
+	}
+
+	.wall-frame-title {
+		font-weight: 600;
+	}
+
+	.wall-frame-meta {
+		font-size: 0.68rem;
+		color: rgb(120, 124, 138);
+	}
+
+	.wall-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem 1rem;
+		border: 1px dashed var(--card-border);
+		border-radius: 0.9rem;
+		text-align: center;
+		color: color-mix(in oklch, currentColor 45%, transparent);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.wall-frame,
+		.wall-frame-link img {
+			transition: none;
+		}
+
+		.wall-frame {
+			transform: none;
+		}
+	}
+</style>

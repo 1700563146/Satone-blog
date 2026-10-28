@@ -45,7 +45,7 @@ Switching between the two layouts is animated: the sidebar column widths are reg
 - `effectsConfig.ts` — sakura plus the interactive effects: `interactiveEffectsConfig` (`magnetic` / `starfield` / `cursorGlow` / `readingProgress` / `musicGlow`). The starfield also has a user-facing toggle (floating star button, `localStorage.starfieldEnabled`).
 - `commentConfig.ts`, `analyticsConfig.ts`, `fontConfig.ts`, etc.
 - `musicConfig.ts` — `/music/` 音乐页（与照片墙同形态：播放器卡片 + 歌单列表，曲目读 `local.playlist`，音频/封面放 `public/assets/music/`）
-- `photoWallConfig.ts` — `/wall/` 照片墙（占位版：瀑布流版式 + 空瓦片，图片放 `public/wall/` 后填进 `photos`）
+- `photoWallConfig.ts` + `types/photoWallConfig.ts` — `/wall/` 照片墙：`albums[]` 分组配置（`id` / `title` / `date` / `description` / `cover` / `photos[]`）。首页把每组渲染成一摞歪斜的相纸（封面 + 两张露边，悬停散开），点进 `/wall/<album>/` 看这组全部照片（相纸风格 + 点击大图走 Fancybox `data-fancybox`）。照片放 `public/wall/`，仓库里自带 `public/wall/demo/` 9 张自动生成的示例图；某组照片不足 3 张时用空白相纸补齐，保证「一摞」的手感。页面文字颜色直接写亮/暗两套 —— 站点有未分层的 `a`/`h1` 颜色规则会盖掉 Tailwind 工具类。
 - `backgroundWallpaper.common.bannerVideo` — theme-switched hero background video (`light` / `dark` paths under `public/assets/videos/`). It only covers the banner behind the home title: the layers are wallpaper image → video (`z-6`) → scrim (`z-7`) → dim (`z-10`) → waves (`z-15`) → banner text (`z-20`), so the starfield/page background below the waves is untouched. Skipped under `prefers-reduced-motion` and `saveData`.
 
 ### Interactive Effects

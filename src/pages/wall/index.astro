@@ -4,120 +4,268 @@ import WidgetLayout from "@/components/common/WidgetLayout.astro";
 import { photoWallConfig } from "@/config/photoWallConfig";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
 
-// 照片墙：占位版。
-// 版式先按「高度错落的瀑布流」定下来（列宽固定、行高按瓦片高度自然流动），
-// 接真实图片时把 <div class="wall-tile"> 换成 <img> 即可，不需要重排版式。
-// 只受 photoWallConfig.enable 控制（和老的 gallery 相册页相互独立）
+// 照片墙：一叠一叠的相纸，按相册分组。
+// 每组渲染成「叠起来的一摞照片」：封面在最上面，后面两张错开角度露边，
+// 悬停时整摞散开一点；点一整摞进入 /wall/<id>/ 看这组的全部照片。
 if (!photoWallConfig.enable) {
 	return Astro.redirect("/404/");
 }
 
-const { title, description, photos, placeholderCount } = photoWallConfig;
-const tiles = photos.length > 0 ? photos : Array.from({ length: placeholderCount }, () => null);
-// 占位瓦片的高度循环：让瀑布流看起来不是一片等高的方块
-const heights = ["h-56", "h-40", "h-64", "h-44", "h-52", "h-36", "h-60", "h-48", "h-56"];
+const { title, description, albums } = photoWallConfig;
+
+// 每摞最多展示 3 张（封面 + 2 张露边），不足 3 张时补空白相纸，保证「一摞」的样子
+const stackCards = (photos: Array<{ src: string; caption?: string }>) => {
+	const cards: Array<{ src: string | null; caption?: string }> = [];
+	for (let i = 0; i < 3; i++) {
+		const photo = photos[i];
+		cards.push(photo ? { src: photo.src, caption: photo.caption } : { src: null });
+	}
+	// 反转：数组第一张是封面，放在栈顶（z-index 最大）
+	return cards.reverse();
+};
+
+const totalPhotos = albums.reduce((sum, album) => sum + album.photos.length, 0);
 ---
 
 <MainGridLayout title={title} description={description}>
 	<div class="flex flex-col gap-4">
 		<WidgetLayout id="photo-wall-intro" name={title}>
-			<p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">{description}</p>
-			<p
-				class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1 text-xs text-(--btn-content)"
-			>
-				<Icon name="material-symbols:construction-rounded" class="text-[0.95rem]"></Icon>
-				开发中 · 版式与图片稍后补上
+			<p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+				{description}
+			</p>
+			<p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
+					<Icon name="material-symbols:photo-library" class="text-[0.95rem]"></Icon>
+					{albums.length} 组 · {totalPhotos} 张
+				</span>
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-(--btn-regular-bg) px-3 py-1">
+					<Icon name="material-symbols:image-outline" class="text-[0.95rem]"></Icon>
+					点一叠照片，打开这一组
+				</span>
 			</p>
 		</WidgetLayout>
 
-		<WidgetLayout id="photo-wall-grid" name="全部照片">
-			<div class="wall-grid">
-				{
-					tiles.map((photo, index) => (
-						<figure class="wall-tile" data-empty={photo ? "false" : "true"}>
-							{photo ? (
-								<img
-									src={photo.src}
-									alt={photo.caption || `照片 ${index + 1}`}
-									class={`wall-media ${heights[index % heights.length]}`}
-									loading="lazy"
-								/>
-							) : (
-								<div class={`wall-media wall-tile-empty ${heights[index % heights.length]}`}>
-									<Icon name="material-symbols:image-outline" class="text-[1.75rem]"></Icon>
+		<div class="wall-album-grid">
+			{
+				albums.map((album) => {
+					const cards = stackCards(album.photos.slice(0, 3));
+					return (
+						<a class="wall-album" href={`/wall/${album.id}/`}>
+							<div class="wall-stack" aria-hidden="true">
+								{cards.map((card, i) => (
+									<span class={`wall-photo wall-photo-${i}`}>
+										{card.src ? (
+											<img src={card.src} alt="" loading="lazy" />
+										) : (
+											<i class="wall-photo-blank" />
+										)}
+									</span>
+								))}
+							</div>
+							<div class="wall-album-meta">
+								<div class="wall-album-head">
+									<h2 class="wall-album-title">{album.title}</h2>
+									<time class="wall-album-date">{album.date}</time>
 								</div>
-							)}
-							<figcaption class="wall-caption">
-								{photo?.caption || `待上传 ${index + 1}`}
-								{photo?.meta && <span class="wall-meta">{photo.meta}</span>}
-							</figcaption>
-						</figure>
-					))
-				}
-			</div>
-			<p class="mt-4 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-				占位瓦片：真正的图片放到 <code>public/wall/</code>，然后在
-				<code>src/config/photoWallConfig.ts</code> 的 <code>photos</code> 里登记即可。
-				之后会换成更贴合照片的表现形式（瀑布流 + 灯箱 + 懒加载）。
-			</p>
-		</WidgetLayout>
+								{album.description && <p class="wall-album-desc">{album.description}</p>}
+								<p class="wall-album-count">
+									<Icon name="material-symbols:photo-library" class="text-[0.9rem]" />
+									{album.photos.length} 张
+								</p>
+							</div>
+						</a>
+					);
+				})
+			}
+		</div>
+
+		{
+			albums.length === 0 && (
+				<WidgetLayout id="photo-wall-empty" name="相册">
+					<div class="wall-empty">
+						<Icon name="material-symbols:image-outline" class="text-[2rem]" />
+						<p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+							还没有相册：照片放到 <code>public/wall/</code>，再在
+							<code>src/config/photoWallConfig.ts</code> 的 <code>albums</code> 里登记即可。
+						</p>
+					</div>
+				</WidgetLayout>
+			)
+		}
 	</div>
 </MainGridLayout>
 
 <style>
-	.wall-grid {
-		/* 瀑布流：列宽自适应，瓦片高度不一自然错落 */
-		column-width: 11rem;
-		column-gap: 0.75rem;
+	/* 相册网格：宽屏一行三摞，窄屏自动减列 */
+	.wall-album-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+		gap: clamp(1.25rem, 3vw, 2.5rem);
+		padding: clamp(0.5rem, 2vw, 1.5rem) 0 1rem;
 	}
 
-	.wall-tile {
-		break-inside: avoid;
-		margin-bottom: 0.75rem;
-		border-radius: 1rem;
-		overflow: hidden;
-		border: 1px solid var(--card-border);
-		background-color: color-mix(in oklch, var(--card-bg) 70%, transparent);
+	.wall-album {
+		display: flex;
+		flex-direction: column;
+		gap: 1.1rem;
+		padding: 1rem 0.75rem 0.4rem;
+		text-decoration: none;
+		border-radius: 1.1rem;
+		transition: background-color 220ms ease;
+		/* 直接写两套颜色：站点的 a 颜色规则未分层，会盖掉 Tailwind 工具类 */
+		color: rgb(38, 42, 54);
+	}
+
+	:global(html.dark) .wall-album {
+		color: rgb(236, 240, 250);
+	}
+
+	.wall-album:hover {
+		background-color: color-mix(in oklch, var(--btn-plain-bg-hover) 55%, transparent);
+	}
+
+	.wall-album:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 4px;
+	}
+
+	/* 一摞照片 */
+	.wall-stack {
+		position: relative;
+		aspect-ratio: 4 / 3;
+		/* 给散开的照片留余量，避免被容器裁掉 */
+		margin: 0.6rem 0.7rem 0;
+	}
+
+	.wall-photo {
+		position: absolute;
+		inset: 0;
+		display: block;
+		padding: 6px 6px 22px;
+		background: #fbfbf8;
+		border-radius: 3px;
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.14),
+			0 8px 20px rgba(0, 0, 0, 0.16);
 		transition:
-			transform 180ms ease,
-			box-shadow 180ms ease;
+			transform 420ms cubic-bezier(0.33, 0, 0.25, 1),
+			box-shadow 420ms ease;
+		will-change: transform;
 	}
 
-	.wall-tile:hover {
-		transform: translateY(-2px);
-		box-shadow: var(--shadow-card-hover);
-	}
-
-	.wall-media {
+	.wall-photo img,
+	.wall-photo-blank {
 		display: block;
 		width: 100%;
+		height: 100%;
 		object-fit: cover;
+		border-radius: 1px;
+		background: color-mix(in oklch, var(--card-bg) 60%, #9aa6bd);
 	}
 
-	.wall-tile-empty {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: color-mix(in oklch, var(--primary) 55%, transparent);
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklch, var(--primary) 10%, transparent),
-			color-mix(in oklch, var(--primary) 2%, transparent) 60%,
-			color-mix(in oklch, var(--primary) 8%, transparent)
+	.wall-photo-blank {
+		background-image: repeating-linear-gradient(
+			-45deg,
+			transparent 0 6px,
+			rgba(120, 132, 156, 0.18) 6px 12px
 		);
 	}
 
-	.wall-caption {
+	/* 三张照片的默认错位：封面最正，后面两张各自歪一点 */
+	.wall-photo-0 {
+		transform: rotate(2.4deg) translate(6px, 4px);
+		z-index: 3;
+	}
+
+	.wall-photo-1 {
+		transform: rotate(-4.5deg) translate(-8px, -2px);
+		z-index: 2;
+	}
+
+	.wall-photo-2 {
+		transform: rotate(6deg) translate(3px, -6px);
+		z-index: 1;
+	}
+
+	/* 悬停：整摞散开、抬起，像把照片摊在桌上 */
+	.wall-album:hover .wall-photo-0,
+	.wall-album:focus-visible .wall-photo-0 {
+		transform: rotate(-1.5deg) translate(2px, -10px) scale(1.015);
+		box-shadow:
+			0 2px 3px rgba(0, 0, 0, 0.16),
+			0 18px 36px rgba(0, 0, 0, 0.24);
+	}
+
+	.wall-album:hover .wall-photo-1,
+	.wall-album:focus-visible .wall-photo-1 {
+		transform: rotate(-9deg) translate(-18px, -4px);
+	}
+
+	.wall-album:hover .wall-photo-2,
+	.wall-album:focus-visible .wall-photo-2 {
+		transform: rotate(11deg) translate(14px, -8px);
+	}
+
+	/* 文案 */
+	.wall-album-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		padding: 0 0.35rem;
+	}
+
+	.wall-album-head {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.72rem;
-		color: color-mix(in oklch, currentColor 65%, transparent);
+		gap: 0.75rem;
 	}
 
-	.wall-meta {
+	.wall-album-title {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+	}
+
+	.wall-album-date {
+		font-size: 0.72rem;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in oklch, currentColor 50%, transparent);
+	}
+
+	.wall-album-desc {
+		margin: 0;
+		font-size: 0.78rem;
+		line-height: 1.6;
+		color: color-mix(in oklch, currentColor 62%, transparent);
+	}
+
+	.wall-album-count {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		margin: 0;
+		font-size: 0.7rem;
+		color: color-mix(in oklch, currentColor 48%, transparent);
+	}
+
+	.wall-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem 1rem;
+		border: 1px dashed var(--card-border);
+		border-radius: 0.9rem;
+		text-align: center;
 		color: color-mix(in oklch, currentColor 45%, transparent);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.wall-photo,
+		.wall-album {
+			transition: none;
+		}
 	}
 </style>
