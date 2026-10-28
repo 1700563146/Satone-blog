@@ -12,10 +12,12 @@
 	import {
 		applyThemeToDocument,
 		getStoredCursorGlowEnabled,
+		getStoredParallaxStarsEnabled,
 		getStoredPointerLinksEnabled,
 		getStoredStarfieldEnabled,
 		getStoredTheme,
 		setCursorGlowEnabled,
+		setParallaxStarsEnabled,
 		setPointerLinksEnabled,
 		setStarfieldEnabled,
 		setTheme,
@@ -27,6 +29,7 @@
 	let starfield = $state(true);
 	let glow = $state(true);
 	let pointerLinks = $state(true);
+	let parallaxStars = $state(true);
 
 	const themeOptions: Array<{
 		value: LIGHT_DARK_MODE;
@@ -71,6 +74,11 @@
 		setPointerLinksEnabled(pointerLinks);
 	}
 
+	function toggleParallaxStars() {
+		parallaxStars = !parallaxStars;
+		setParallaxStarsEnabled(parallaxStars);
+	}
+
 	// 面板开合：维护 float-panel 的 class 与可访问性属性
 	$effect(() => {
 		if (!panelEl) return;
@@ -87,6 +95,7 @@
 		starfield = getStoredStarfieldEnabled();
 		glow = getStoredCursorGlowEnabled();
 		pointerLinks = getStoredPointerLinksEnabled();
+		parallaxStars = getStoredParallaxStarsEnabled();
 
 		// 别处（例如旧的星空按钮、设置面板里的同名开关）改了值也同步
 		const onStarfield = (event: Event) => {
@@ -105,7 +114,12 @@
 			const detail = (event as CustomEvent<{ theme: LIGHT_DARK_MODE }>).detail;
 			if (detail?.theme) mode = detail.theme;
 		};
+		const onParallax = (event: Event) => {
+			const detail = (event as CustomEvent<{ enabled: boolean }>).detail;
+			if (detail) parallaxStars = detail.enabled;
+		};
 		window.addEventListener("starfieldToggle", onStarfield);
+		window.addEventListener("parallaxStarsToggle", onParallax);
 		window.addEventListener("cursorGlowToggle", onGlow);
 		window.addEventListener("pointerLinksToggle", onLinks);
 		window.addEventListener("theme-change", onTheme);
@@ -129,6 +143,7 @@
 		return () => {
 			document.removeEventListener("click", onDocClick);
 			document.removeEventListener("keydown", onKey);
+			window.removeEventListener("parallaxStarsToggle", onParallax);
 			window.removeEventListener("starfieldToggle", onStarfield);
 			window.removeEventListener("cursorGlowToggle", onGlow);
 			window.removeEventListener("pointerLinksToggle", onLinks);
@@ -189,11 +204,27 @@
 
 			<label class="settings-row">
 				<span class="settings-row-label">
-					<Icon icon="material-symbols:auto-awesome-outline" class="text-[1.05rem]"></Icon>
+					<Icon icon="material-symbols:star-rounded" class="text-[1.05rem]"></Icon>
 					星空背景
 				</span>
 				<span class="neoToggle">
-					<input type="checkbox" checked={starfield} onchange={toggleStarfield} aria-label="星空背景" />
+					<input
+						type="checkbox"
+						checked={parallaxStars}
+						onchange={toggleParallaxStars}
+						aria-label="星空背景"
+					/>
+					<span class="neoToggle-track" aria-hidden="true"></span>
+				</span>
+			</label>
+
+			<label class="settings-row">
+				<span class="settings-row-label">
+					<Icon icon="material-symbols:auto-awesome-outline" class="text-[1.05rem]"></Icon>
+					璀璨繁星
+				</span>
+				<span class="neoToggle">
+					<input type="checkbox" checked={starfield} onchange={toggleStarfield} aria-label="璀璨繁星" />
 					<span class="neoToggle-track" aria-hidden="true"></span>
 				</span>
 			</label>

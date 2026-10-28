@@ -47,6 +47,7 @@ export type StarfieldConfig = {
 	maxLinks: number; // 同时存在的连线数量上限（2~3 条最清爽）
 	bgDensity: number; // 背景繁星密度（每多少 px² 一颗）
 	bgMaxParticles: number; // 背景繁星数量上限
+	parallaxStars: boolean; // 星空背景：视差繁星层
 	pointerLinks: boolean; // 是否画「指针 → 星点」的连线
 	starLinkMax: number; // 星座连线总条数上限
 	starLinkDistance: number; // 星点之间连线的最大距离（px），组成星座网

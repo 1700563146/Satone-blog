@@ -1,0 +1,181 @@
+---
+// 星空背景（视差繁星层）：参考经典的 CSS box-shadow 星空 —— 三层不同大小的星点，
+// 以不同速度持续向上漂移，形成「在星空里前进」的纵深。
+//
+// 和 CursorAmbience 的「璀璨繁星」是两套独立的特效：
+//   · 璀璨繁星：canvas 画的发光节点 + 星座连线（可交互、跟指针）
+//   · 星空背景：纯 CSS 的大片小星点，只负责铺满背景并缓慢流动
+// 两者各有开关，都只在暗色主题下可见。
+---
+
+<div id="parallax-stars" aria-hidden="true">
+	<div class="ps-layer" data-layer="1"></div>
+	<div class="ps-layer" data-layer="2"></div>
+	<div class="ps-layer" data-layer="3"></div>
+</div>
+
+<style>
+	#parallax-stars {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		z-index: 1;
+		overflow: hidden;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 900ms ease;
+	}
+
+	:root.dark #parallax-stars {
+		opacity: 1;
+	}
+
+	.ps-layer,
+	.ps-layer::after {
+		position: absolute;
+		background: transparent;
+		border-radius: 50%;
+	}
+
+	.ps-layer {
+		top: 0;
+		left: 0;
+		/* 每一层用同一份 box-shadow 复制一份到下沿，滚动一圈刚好接上 */
+		animation-name: ps-rise;
+		animation-timing-function: linear;
+		animation-iteration-count: infinite;
+		will-change: transform;
+	}
+
+	.ps-layer::after {
+		content: "";
+		top: var(--ps-tile, 1200px);
+		left: 0;
+		box-shadow: var(--ps-shadow, none);
+	}
+
+	.ps-layer[data-layer="1"] {
+		width: 1px;
+		height: 1px;
+		box-shadow: var(--ps-shadow-1, none);
+		animation-duration: 70s;
+		opacity: 0.85;
+	}
+
+	.ps-layer[data-layer="2"] {
+		width: 2px;
+		height: 2px;
+		box-shadow: var(--ps-shadow-2, none);
+		animation-duration: 120s;
+		opacity: 0.6;
+	}
+
+	.ps-layer[data-layer="3"] {
+		width: 3px;
+		height: 3px;
+		box-shadow: var(--ps-shadow-3, none);
+		animation-duration: 190s;
+		opacity: 0.4;
+	}
+
+	.ps-layer::after {
+		width: inherit;
+		height: inherit;
+		border-radius: inherit;
+	}
+
+	@keyframes ps-rise {
+		from {
+			transform: translateY(0);
+		}
+		to {
+			transform: translateY(calc(-1 * var(--ps-tile, 1200px)));
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ps-layer {
+			animation: none;
+		}
+	}
+</style>
+
+<script>
+	import { getStoredParallaxStarsEnabled } from "@/utils/setting-utils";
+
+	(function setupParallaxStars() {
+		if (window.__parallaxStarsReady) return;
+		window.__parallaxStarsReady = true;
+
+		const root = document.getElementById("parallax-stars");
+		if (!root) return;
+
+		const layers = Array.from(
+			root.querySelectorAll<HTMLElement>(".ps-layer"),
+		);
+		const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+		let enabled = getStoredParallaxStarsEnabled();
+
+		/** 星域：横幅下方 → 页面底部（和「璀璨繁星」保持同一块区域） */
+		const measureBox = () => {
+			const wallpaper = document.getElementById("wallpaper-wrapper");
+			const rect = wallpaper?.getBoundingClientRect();
+			const top = rect ? Math.max(0, rect.bottom + window.scrollY) : 0;
+			const docHeight = Math.max(
+				document.documentElement.scrollHeight,
+				window.innerHeight,
+			);
+			root.style.top = `${top}px`;
+			root.style.height = `${Math.max(400, docHeight - top)}px`;
+			return Math.max(400, docHeight - top);
+		};
+
+		const buildShadows = () => {
+			const height = measureBox();
+			const width = window.innerWidth;
+			// 每层星点数量按面积给，密度接近参考图
+			const counts = [Math.round((width * height) / 2600), Math.round((width * height) / 6500), Math.round((width * height) / 13000)];
+			root.style.setProperty("--ps-tile", `${height}px`);
+
+			layers.forEach((layer, index) => {
+				const count = Math.max(40, Math.min(1400, counts[index]));
+				const dots: string[] = [];
+				for (let i = 0; i < count; i++) {
+					const x = Math.round(Math.random() * width);
+					const y = Math.round(Math.random() * height);
+					dots.push(`${x}px ${y}px #ffffff`);
+				}
+				layer.style.setProperty(`--ps-shadow-${index + 1}`, dots.join(", "));
+			});
+		};
+
+		const apply = () => {
+			root.hidden = !enabled;
+			if (!enabled) return;
+			buildShadows();
+		};
+
+		apply();
+
+		window.addEventListener("parallaxStarsToggle", (event: Event) => {
+			const detail = (event as CustomEvent<{ enabled: boolean }>).detail;
+			if (!detail) return;
+			enabled = detail.enabled;
+			apply();
+		});
+
+		let resizeTimer = 0;
+		const scheduleRebuild = () => {
+			window.clearTimeout(resizeTimer);
+			resizeTimer = window.setTimeout(apply, 220);
+		};
+		window.addEventListener("resize", scheduleRebuild);
+		document.addEventListener("astro:page-load", scheduleRebuild);
+		document.addEventListener("swup:contentReplaced", scheduleRebuild);
+		window.addEventListener("load", scheduleRebuild);
+		if (reduceMotion.addEventListener) {
+			reduceMotion.addEventListener("change", scheduleRebuild);
+		}
+	})();
+</script>

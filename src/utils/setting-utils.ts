@@ -832,6 +832,34 @@ export function setStarfieldEnabled(enabled: boolean): void {
 	);
 }
 
+// Parallax stars（星空背景：视差繁星）functions
+export function getStoredParallaxStarsEnabled(): boolean {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.getItem !== "function"
+	) {
+		return interactiveEffectsConfig.starfield.parallaxStars !== false;
+	}
+	const stored = localStorage.getItem("parallaxStarsEnabled");
+	if (stored === null) {
+		return interactiveEffectsConfig.starfield.parallaxStars !== false;
+	}
+	return stored === "true";
+}
+
+export function setParallaxStarsEnabled(enabled: boolean): void {
+	if (
+		typeof localStorage === "undefined" ||
+		typeof localStorage.setItem !== "function"
+	) {
+		return;
+	}
+	localStorage.setItem("parallaxStarsEnabled", String(enabled));
+	window.dispatchEvent(
+		new CustomEvent("parallaxStarsToggle", { detail: { enabled } }),
+	);
+}
+
 // Cursor glow（指针光晕）functions
 export function getStoredCursorGlowEnabled(): boolean {
 	if (
