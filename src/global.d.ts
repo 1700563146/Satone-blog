@@ -99,6 +99,8 @@ declare global {
 		__readingProgressReady?: boolean;
 		/** 导航栏猫 Logo 眼睛跟随初始化守卫,确保 Swup 切页不重复注册监听器 */
 		__catLogoReady?: boolean;
+		/** 首屏开屏动画初始化守卫,确保 Swup 切页不重复播放 */
+		__introSplashReady?: boolean;
 		/** 照片墙 / 音乐 的圆环转场初始化守卫,确保 Swup 切页不重复注册监听器 */
 		__ringTransitionReady?: boolean;
 		/** 星空背景（视差繁星层）初始化守卫,确保 Swup 切页不重复注册监听器 */
