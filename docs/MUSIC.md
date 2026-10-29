@@ -100,15 +100,27 @@ Meting 是**匿名接口**：能读公开歌单，读不到你私人的「我喜
 所以 `musicConfig.meting.api` 指向 **injahow**，i-meto 与 moeyao 作为 fallback 只用于拉列表。
 如果之后 injahow 也挂了，优先换成"能代理转发的实例"，而不是直连 CDN 签名的那个。
 
-## 唱针
+## 唱针与音量
 
-唱片右上方是唱针：**暂停时整条臂甩到盘外**（`rotate(64deg)`，支点在圆盘右上方外侧，
-磁头完全不压盘面），**播放时扫进来压在唱片外圈纹路上**（`rotate(146deg)`），
-760ms 带回弹的缓动，82° 的行程一眼就能看出动作。状态由 `.music-hero[data-playing]` 驱动，
-和播放/暂停、上一首/下一首完全同步；点播放时**先落针**再等音频起播（直链慢也有反馈），出错再收针。
+**唱针**（支点在圆盘右上方外侧）：
 
-唱片本身：`.disc-rotor` 把纹路、高光、封面打包成一个转子，**播放时整盘旋转**
-（`animation-play-state: running`），暂停时停在原角度；`prefers-reduced-motion` 下不转。
+| 状态 | 角度 | 表现 |
+|---|---|---|
+| 暂停 | `90deg`（垂直向下） | 整条臂挂在盘外，磁头不压盘面 |
+| 播放 | `90deg + 30deg + 30deg × 进度` | 从「垂直 +30°」扫到「垂直 +60°」：开头落在唱片外圈，越接近结尾越靠近盘心 |
+
+- 进度来自 `audio` 的 `timeupdate`：`hero.style.setProperty("--track-progress", ratio)`，
+  CSS 用 `transform: rotate(calc(90deg + 30deg + 30deg * var(--track-progress, 0)))`，
+  520ms 缓动，唱针是"一格格往盘心挪"而不是硬切角度；
+- 点播放立刻落针（`data-playing="true"`），音频起播失败再收针。
+
+**唱片旋转**：`.disc-rotor` 把纹路 / 反光 / 封面打包成一个转子，播放时整盘转，暂停停在原角度；
+`prefers-reduced-motion` 下不转。
+
+**音量**：控制行右侧是「喇叭图标 + 水平滑条」——
+图标点击静音 / 取消静音（两个图标切换），滑条 `input` 事件写 `audio.volume` 并记住到
+`localStorage.musicVolume`；填充部分用 `linear-gradient` + 隐藏原生滑块（同 Uiverse 参考样式，
+这里是水平方向），填充宽度由 `--vol` 变量驱动。
 
 ## 已知限制
 
