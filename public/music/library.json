@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-10-29T05:44:19.773Z",
+	"generatedAt": "2026-10-29T05:52:48.348Z",
 	"source": "offline:netease:10 首本地曲目（来自 meting:netease:playlist:18344910739+17840783642+17896692465 (api.qijieya.cn)）",
 	"tracks": [
 		{
@@ -7,80 +7,70 @@
 			"name": "心做し - STUDY WITH MIKU ver. -",
 			"artist": "STUDY WITH MIKU",
 			"cover": "/music/cover/3406946962.jpg",
-			"url": "/music/audio/3406946962.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=3406946962"
+			"url": "/music/audio/3406946962.mp3"
 		},
 		{
 			"id": "rovuaj",
 			"name": "Lilac",
 			"artist": "MANYO",
 			"cover": "/music/cover/28466087.jpg",
-			"url": "/music/audio/28466087.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=28466087"
+			"url": "/music/audio/28466087.mp3"
 		},
 		{
 			"id": "1hcz2g",
 			"name": "弥生之春",
 			"artist": "Youzee Music",
 			"cover": "/music/cover/3364062210.jpg",
-			"url": "/music/audio/3364062210.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=3364062210"
+			"url": "/music/audio/3364062210.mp3"
 		},
 		{
 			"id": "az4vhs",
 			"name": "蓬莱伝説 / 蓬莱伝説 [蓬莱人形 ~Dolls In Psuedo Paradise]",
 			"artist": "Forest306",
 			"cover": "/music/cover/729436.jpg",
-			"url": "/music/audio/729436.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=729436"
+			"url": "/music/audio/729436.mp3"
 		},
 		{
 			"id": "9ftkl0",
 			"name": "雪風",
 			"artist": "Foxtail-Grass Studio",
 			"cover": "/music/cover/27669789.jpg",
-			"url": "/music/audio/27669789.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=27669789"
+			"url": "/music/audio/27669789.mp3"
 		},
 		{
 			"id": "f79mpi",
 			"name": "美春の告白",
 			"artist": "菅野祐悟",
 			"cover": "/music/cover/454182.jpg",
-			"url": "/music/audio/454182.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=454182"
+			"url": "/music/audio/454182.mp3"
 		},
 		{
 			"id": "o7b1ae",
 			"name": "日陰と帽子と風鈴と",
 			"artist": "Foxtail-Grass Studio",
 			"cover": "/music/cover/730661.jpg",
-			"url": "/music/audio/730661.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=730661"
+			"url": "/music/audio/730661.mp3"
 		},
 		{
 			"id": "lxs0tr",
 			"name": "Bulbel",
 			"artist": "Binary Haze Interactive/Mili",
 			"cover": "/music/cover/1850441847.jpg",
-			"url": "/music/audio/1850441847.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=1850441847"
+			"url": "/music/audio/1850441847.mp3"
 		},
 		{
 			"id": "rduh9x",
 			"name": "Letter",
 			"artist": "Azure Lag",
 			"cover": "/music/cover/2602068762.jpg",
-			"url": "/music/audio/2602068762.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=2602068762"
+			"url": "/music/audio/2602068762.mp3"
 		},
 		{
 			"id": "aejbn0",
 			"name": "大切なものは心に残るだろう",
 			"artist": "VISUAL ARTS",
 			"cover": "/music/cover/1337185414.jpg",
-			"url": "/music/audio/1337185414.mp3",
-			"lrc": "https://api.qijieya.cn/meting/?server=netease&type=lrc&id=1337185414"
+			"url": "/music/audio/1337185414.mp3"
 		}
 	]
 }

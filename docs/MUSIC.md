@@ -164,6 +164,10 @@ pnpm music:sync --offline=15  # 想要更多就改数量
 结果：`/music/` 打开后**零第三方请求**（实测 451 个请求全在 localhost），
 封面和音频都来自自己的域名，不怕限流、不怕直链过期。
 
+> 注意：离线阶段 `musicPlayerConfig.mode` 是 `"local"`（让导航栏小播放器只读本地文件），
+> 所以重新抓歌单时**必须带上 `--meting`**，否则 `pnpm music:sync` 只会写回本地那 1 首：
+> `pnpm music:sync --meting --offline=10`，或直接用 `pnpm music:offline`。
+
 体积参考：10 首 ≈ 44MB（mp3 平均 4.5MB/首）。仓库要小就把数量调成 6~8。
 
 想回到「全量在线歌单」：

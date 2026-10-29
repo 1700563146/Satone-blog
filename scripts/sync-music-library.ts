@@ -314,8 +314,10 @@ const buildOffline = async (
 		}
 
 		bytes += audio.length;
+		// 离线模式不保留 lrc 外链（页面也没用），保证 JSON 里没有任何第三方地址
+		const { lrc: _lrc, ...rest } = track;
 		picked.push({
-			...track,
+			...rest,
 			...(coverUrl ? { cover: coverUrl } : {}),
 			url: `${AUDIO_URL_BASE}/${fileName}.mp3`,
 		});
