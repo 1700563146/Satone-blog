@@ -8,7 +8,7 @@
 // 其余跳转仍走 Swup 默认过渡。
 //
 // 动画：6 层实心扇形环从 12 点方向扫入（内环先动，向外波浪扩散）盖满全屏 →
-// 空心描边标题乱码闪烁后定格 → 页面在遮罩后完成切换 → 圆环顺时针退回，露出新页面。
+// 实心标题乱码闪烁后定格 → 页面在遮罩后完成切换 → 圆环顺时针退回，露出新页面。
 ---
 
 <div id="ring-transition" class="ring-transition" aria-hidden="true">
@@ -70,15 +70,22 @@
 		font-size: clamp(2.5rem, 9vw, 7rem);
 		font-weight: 300;
 		letter-spacing: 0.06em;
-		color: transparent;
-		-webkit-text-stroke: 1.5px rgba(226, 236, 255, 0.95);
-		text-shadow: 0 0 80px color-mix(in oklch, var(--primary) 40%, transparent);
+		/* 实心字：深色下近白，浅色下近墨；改用轻微描边增加厚度而不是空心 */
+		color: rgb(236, 243, 255);
+		-webkit-text-stroke: 0;
+		paint-order: stroke fill;
+		text-shadow:
+			0 0 80px color-mix(in oklch, var(--primary) 40%, transparent),
+			0 0 2px rgba(8, 12, 22, 0.35);
 		white-space: nowrap;
 		line-height: 1;
 	}
 
 	:root:not(.dark) .ring-transition-text {
-		-webkit-text-stroke: 1.5px rgba(24, 30, 52, 0.75);
+		color: rgb(22, 28, 48);
+		text-shadow:
+			0 0 80px color-mix(in oklch, var(--primary) 26%, transparent),
+			0 0 2px rgba(255, 255, 255, 0.4);
 	}
 
 	.ring-transition-text .char {
