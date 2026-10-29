@@ -1,0 +1,270 @@
+---
+import { Icon } from "astro-icon/components";
+
+// 悬浮音量控制：平时和旁边的小组件一个样式，悬停/聚焦时向上弹出竖直滑条。
+// 只做"全局音量"：写 localStorage.musicVolume 并同步所有 <audio>，
+// 各播放器（音乐页、侧栏 widget）监听 musicVolumeChange 保持一致。
+---
+
+<div id="floating-volume" class="floating-btn volume-fab" title="音量">
+	<button type="button" class="volume-trigger" id="volume-trigger" aria-label="音量调节" aria-haspopup="true" aria-expanded="false">
+		<span class="volume-icon volume-icon-on" aria-hidden="true">
+			<Icon name="material-symbols:volume-up-rounded" class="mx-auto" />
+		</span>
+		<span class="volume-icon volume-icon-off" aria-hidden="true">
+			<Icon name="material-symbols:volume-off-rounded" class="mx-auto" />
+		</span>
+	</button>
+	<div class="volume-pop" id="volume-pop" role="group" aria-label="音量滑块">
+		<div class="volume-pop-inner">
+			<input
+				type="range"
+				id="floating-volume-range"
+				min="0"
+				max="100"
+				step="1"
+				value="70"
+				aria-label="音量"
+			/>
+		</div>
+	</div>
+</div>
+
+<style lang="stylus">
+/* 复用 .floating-btn 的外观（由 FloatingButton 组件的全局样式提供不了，
+   所以这里自己写一份同样尺寸/圆角/配色的外壳） */
+#floating-volume
+    position: relative
+    display: flex
+    align-items: center
+    justify-content: center
+    width: 3rem
+    height: 3rem
+    pointer-events: auto
+    cursor: pointer
+    flex-shrink: 0
+    border-radius: 1rem
+    color: var(--primary)
+    background-color: var(--card-bg)
+    border: 1px solid rgba(0, 0, 0, 0.1)
+    backdrop-filter: blur(12px)
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+    &:hover
+        background-color: var(--btn-card-bg-hover)
+        box-shadow: var(--shadow-button)
+
+    &:active
+        transform: scale(0.9)
+
+:global(.dark) #floating-volume
+    border: 1px solid rgba(255, 255, 255, 0.15)
+    color: var(--primary, #60a5fa)
+
+    &:hover
+        background-color: var(--btn-card-bg-hover)
+        box-shadow: var(--shadow-button-dark)
+
+.volume-trigger
+    display: grid
+    place-items: center
+    width: 100%
+    height: 100%
+    border: 0
+    border-radius: inherit
+    background: transparent
+    color: inherit
+    cursor: pointer
+
+    :global(svg)
+        font-size: 1.5rem
+
+.volume-icon
+    grid-area: 1 / 1
+
+.volume-icon-off
+    display: none
+
+#floating-volume.muted
+    .volume-icon-on
+        display: none
+    .volume-icon-off
+        display: block
+
+/* 弹出的竖直滑条 */
+.volume-pop
+    position: absolute
+    left: 50%
+    bottom: calc(100% + 0.6rem)
+    transform: translate(-50%, 8px) scale(0.96)
+    opacity: 0
+    pointer-events: none
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.33, 0, 0.25, 1)
+    z-index: 10
+
+#floating-volume:hover .volume-pop,
+#floating-volume:focus-within .volume-pop,
+#floating-volume.pinned .volume-pop
+    opacity: 1
+    transform: translate(-50%, 0) scale(1)
+    pointer-events: auto
+
+.volume-pop-inner
+    position: relative
+    display: block
+    width: 2.6rem
+    height: 8.6rem
+    border-radius: 1.3rem
+    background-color: var(--card-bg)
+    border: 1px solid rgba(0, 0, 0, 0.1)
+    backdrop-filter: blur(12px)
+    box-shadow: var(--shadow-md)
+
+:global(.dark) .volume-pop-inner
+    border-color: rgba(255, 255, 255, 0.15)
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.04)
+
+/* 竖直滑条：把水平 range 旋转 -90°，填充从下往上长 */
+#floating-volume-range
+    --vol: 70%
+    --track: rgba(120, 130, 150, 0.3)
+    -webkit-appearance: none
+    appearance: none
+    position: absolute
+    left: 50%
+    top: 50%
+    width: 7rem
+    height: 0.55rem
+    margin: 0
+    border-radius: 999px
+    cursor: pointer
+    transform: translate(-50%, -50%) rotate(-90deg)
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary) var(--vol), var(--track) var(--vol), var(--track) 100%)
+    box-shadow: 0 0 12px -3px var(--primary)
+
+    &::-webkit-slider-thumb
+        -webkit-appearance: none
+        width: 0
+        height: 0
+        border: 0
+
+    &::-moz-range-thumb
+        width: 0
+        height: 0
+        border: 0
+
+    &:focus-visible
+        outline: 2px solid var(--primary)
+        outline-offset: 4px
+
+:global(.dark) #floating-volume-range
+    --track: rgba(200, 212, 236, 0.26)
+
+#floating-volume.muted #floating-volume-range
+    opacity: 0.45
+
+@media (max-width: 768px)
+    #floating-volume
+        width: 3rem
+        height: 3rem
+        :global(svg)
+            font-size: 1.5rem
+
+@media (max-width: 480px)
+    #floating-volume
+        width: 2.5rem
+        height: 2.5rem
+        border-radius: 0.75rem
+        :global(svg)
+            font-size: 1.25rem
+</style>
+
+<script>
+	(function setupFloatingVolume() {
+		if (window.__floatingVolumeReady) return;
+		window.__floatingVolumeReady = true;
+
+		const STORAGE_KEY = "musicVolume";
+		const root = document.getElementById("floating-volume");
+		const trigger = document.getElementById("volume-trigger");
+		const pop = document.getElementById("volume-pop");
+		const range = document.getElementById("floating-volume-range") as HTMLInputElement | null;
+		if (!root || !range) return;
+
+		const readStored = (): number => {
+			try {
+				const raw = window.localStorage.getItem(STORAGE_KEY);
+				const value = raw === null ? 0.7 : Number(raw);
+				return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.7;
+			} catch {
+				return 0.7;
+			}
+		};
+
+		let volume = readStored();
+		let muted = false;
+
+		const audios = (): HTMLAudioElement[] =>
+			Array.from(document.querySelectorAll<HTMLAudioElement>("audio"));
+
+		const paint = (): void => {
+			const shown = muted ? 0 : volume;
+			range.value = String(Math.round(shown * 100));
+			range.style.setProperty("--vol", `${Math.round(shown * 100)}%`);
+			root.classList.toggle("muted", muted);
+			trigger?.setAttribute("aria-expanded", String(root.matches(":hover, :focus-within")));
+		};
+
+		const apply = (): void => {
+			for (const audio of audios()) {
+				audio.volume = volume;
+				audio.muted = muted;
+			}
+			window.dispatchEvent(
+				new CustomEvent("musicVolumeChange", { detail: { volume, muted } }),
+			);
+		};
+
+		const persist = (): void => {
+			try {
+				window.localStorage.setItem(STORAGE_KEY, String(volume));
+			} catch {
+				// 存不了就算了
+			}
+		};
+
+		range.addEventListener("input", () => {
+			volume = Number(range.value) / 100;
+			muted = volume === 0;
+			persist();
+			paint();
+			apply();
+		});
+
+		trigger?.addEventListener("click", (event) => {
+			event.preventDefault();
+			muted = !muted;
+			paint();
+			apply();
+		});
+
+		// 页面里新出现的 <audio>（切页、播放器初始化）也要跟上当前音量
+		const syncAll = (): void => {
+			apply();
+			paint();
+		};
+
+		syncAll();
+		document.addEventListener("astro:page-load", syncAll);
+		document.addEventListener("swup:contentReplaced", syncAll);
+		// 音乐页滑条自己调音量时，这里同步显示
+		window.addEventListener("musicVolumeChange", (event) => {
+			const detail = (event as CustomEvent<{ volume?: number; muted?: boolean }>).detail;
+			if (!detail || typeof detail.volume !== "number") return;
+			if (Math.abs(detail.volume - volume) < 0.001 && muted === !!detail.muted) return;
+			volume = detail.volume;
+			muted = !!detail.muted;
+			paint();
+		});
+	})();
+</script>

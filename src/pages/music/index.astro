@@ -25,11 +25,23 @@ const LIBRARY_URL = "/music/library.json";
 						</div>
 						<div class="disc-spindle"></div>
 					</div>
-					<!-- 唱针：播放时落到唱片上，暂停时摆回外侧 -->
-					<div class="tonearm" id="music-tonearm" aria-hidden="true">
-						<span class="tonearm-base"></span>
-						<span class="tonearm-arm">
-							<span class="tonearm-head"></span>
+					<!-- 唱针：拖拽 / 键盘控制角度（0° 休息位，25° 外环起播，100° 内环结束） -->
+					<div class="tonearm" id="music-tonearm">
+						<span class="tonearm-rest" aria-hidden="true"></span>
+						<span class="tonearm-base" aria-hidden="true"></span>
+						<span
+							class="tonearm-arm"
+							id="music-tonearm-arm"
+							tabindex="0"
+							role="slider"
+							aria-label="唱针角度：拖动或按方向键调节，回车落针播放，Esc 复位"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							aria-valuenow="0"
+							aria-valuetext="休息位"
+							title="拖动唱针到唱片上开始播放"
+						>
+							<span class="tonearm-head" aria-hidden="true"></span>
 						</span>
 					</div>
 				</div>
@@ -428,16 +440,56 @@ const LIBRARY_URL = "/music/library.json";
 		background: linear-gradient(90deg, #e2e6ee, #a8b0be 45%, #5b6270);
 		box-shadow: 0 2px 7px rgba(0, 0, 0, 0.5);
 		transform-origin: 0 50%;
-		/* 暂停：垂直向下挂在盘外 */
-		transform: rotate(90deg);
-		transition: transform 520ms cubic-bezier(0.33, 0, 0.25, 1);
+		/* 角度由 JS 写的 --arm-angle 驱动：0° = 休息位（垂直向下），100° = 内环 */
+		transform: rotate(calc(90deg + var(--arm-angle, 0deg)));
+		transition: transform 220ms linear;
+		pointer-events: auto;
+		cursor: grab;
+		outline: none;
+		touch-action: none;
 	}
 
-	/* 播放：扫进来搭到盘面内侧（接近盘中心右侧） */
-	/* 播放：从「垂直向下 +30°」扫到「垂直向下 +60°」，
-	   跟播放进度走 —— 越接近结尾，唱针越靠近盘心（外圈 → 内圈） */
-	.music-hero[data-playing="true"] .tonearm-arm {
-		transform: rotate(calc(90deg + 30deg + 30deg * var(--track-progress, 0)));
+	/* 放大可抓取范围，视觉上仍是细臂 */
+	.tonearm-arm::after {
+		content: "";
+		position: absolute;
+		inset: -0.75rem -0.5rem;
+		border-radius: 999px;
+	}
+
+	.tonearm-arm:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 6px;
+	}
+
+	/* 拖拽中：关掉过渡，直接跟手 */
+	.tonearm.is-dragging .tonearm-arm {
+		cursor: grabbing;
+		transition: none;
+	}
+
+	.tonearm.is-dragging .tonearm-base {
+		box-shadow:
+			0 0 0 3px rgba(10, 12, 18, 0.7),
+			0 0 0 7px color-mix(in oklch, var(--primary) 35%, transparent),
+			0 5px 12px rgba(0, 0, 0, 0.55);
+	}
+
+	/* 落针：磁头轻微下沉 + 一下高光 */
+	.tonearm-arm.dropping .tonearm-head {
+		animation: head-set 320ms cubic-bezier(0.34, 1.6, 0.4, 1);
+	}
+
+	@keyframes head-set {
+		0% {
+			transform: translateY(-50%) scale(1);
+		}
+		40% {
+			transform: translateY(-42%) scale(1.14);
+		}
+		100% {
+			transform: translateY(-50%) scale(1);
+		}
 	}
 
 	.tonearm-head {
@@ -901,6 +953,11 @@ const LIBRARY_URL = "/music/library.json";
 				// 存不了就算了
 			}
 			paintVolume();
+			window.dispatchEvent(
+				new CustomEvent("musicVolumeChange", {
+					detail: { volume: value, muted: audio.muted },
+				}),
+			);
 		});
 
 		muteBtn?.addEventListener("click", () => {
@@ -1034,6 +1091,8 @@ const LIBRARY_URL = "/music/library.json";
 			audio.src = track.url;
 			ready = true;
 			setPlayingUi(true);
+			paintArm(ARM_START);
+			needleDropFeedback();
 			void audio.play().catch(() => {
 				setPlayingUi(false);
 				if (hint) hint.textContent = "这一首播放失败（直链可能已失效），试试下一首";
@@ -1042,6 +1101,10 @@ const LIBRARY_URL = "/music/library.json";
 
 		const setPlayingUi = (playing: boolean): void => {
 			hero.dataset.playing = String(playing);
+			if (!playing) {
+				stopCrackle();
+				if (!dragging) paintArm(ARM_REST, true);
+			}
 			playIcon?.classList.toggle("hidden", playing);
 			pauseIcon?.classList.toggle("hidden", !playing);
 			toggleBtn?.setAttribute("aria-label", playing ? "暂停" : "播放");
@@ -1052,10 +1115,230 @@ const LIBRARY_URL = "/music/library.json";
 			}
 		};
 
+		// ── 唱针控制器 ───────────────────────────────────────────
+		// 角度语义：0° 休息位（垂直向下）；25° 外环（开始播放的门槛）；100° 内环（放完）。
+		// 播放时角度 = 25 + 75 × 播放进度，拖拽时角度线性映射成进度。
+		const ARM_REST = 0;
+		const ARM_START = 25;
+		const ARM_END = 100;
+		const armEl = get("music-tonearm");
+		const armHit = get("music-tonearm-arm");
+
+		let armAngle = ARM_REST;
+		let dragging = false;
+
+		const clamp = (value: number, min: number, max: number): number =>
+			Math.min(max, Math.max(min, value));
+
+		const angleToRatio = (angle: number): number =>
+			clamp((angle - ARM_START) / (ARM_END - ARM_START), 0, 1);
+
+		const ratioToAngle = (ratio: number): number =>
+			ARM_START + (ARM_END - ARM_START) * clamp(ratio, 0, 1);
+
+		const paintArm = (angle: number, spring = false): void => {
+			armAngle = angle;
+			armHit?.style.setProperty("--arm-angle", `${angle.toFixed(2)}deg`);
+			if (armHit) {
+				armHit.setAttribute("aria-valuenow", String(Math.round(angle)));
+				armHit.setAttribute(
+					"aria-valuetext",
+					angle <= ARM_REST + 1
+						? "休息位"
+						: angle < ARM_START
+							? "唱片外侧（松手会复位）"
+							: angle >= ARM_END - 1
+								? "内环，接近结束"
+								: `外环到内环 ${Math.round(angle)} 度`,
+				);
+			}
+			if (spring && armEl) {
+				armEl.classList.add("is-springing");
+				window.setTimeout(() => armEl.classList.remove("is-springing"), 460);
+			}
+		};
+
+		/** 落针反馈：磁头轻压 + 一小段黑胶底噪渐入 */
+		const needleDropFeedback = (): void => {
+			if (!armHit) return;
+			armHit.classList.remove("dropping");
+			void armHit.offsetWidth;
+			armHit.classList.add("dropping");
+			window.setTimeout(() => armHit.classList.remove("dropping"), 340);
+			startCrackle();
+		};
+
+		// ── 黑胶底噪（WebAudio 生成，不引入音频文件） ───────────────
+		let crackleCtx: AudioContext | null = null;
+		let crackleGain: GainNode | null = null;
+		let crackleSrc: AudioBufferSourceNode | null = null;
+
+		const startCrackle = (): void => {
+			if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+			try {
+				if (!crackleCtx) {
+					const Ctor =
+						window.AudioContext ??
+						(window as unknown as { webkitAudioContext?: typeof AudioContext })
+							.webkitAudioContext;
+					if (!Ctor) return;
+					crackleCtx = new Ctor();
+					const seconds = 2;
+					const buffer = crackleCtx.createBuffer(
+						1,
+						crackleCtx.sampleRate * seconds,
+						crackleCtx.sampleRate,
+					);
+					const data = buffer.getChannelData(0);
+					for (let i = 0; i < data.length; i++) {
+						// 底噪 + 随机爆点，像唱针在沟槽里走
+						const pop = Math.random() < 0.0018 ? (Math.random() * 2 - 1) * 0.9 : 0;
+						data[i] = (Math.random() * 2 - 1) * 0.06 + pop;
+					}
+					const source = crackleCtx.createBufferSource();
+					source.buffer = buffer;
+					source.loop = true;
+					const filter = crackleCtx.createBiquadFilter();
+					filter.type = "bandpass";
+					filter.frequency.value = 2400;
+					filter.Q.value = 0.7;
+					const gain = crackleCtx.createGain();
+					gain.gain.value = 0;
+					source.connect(filter).connect(gain).connect(crackleCtx.destination);
+					source.start();
+					crackleSrc = source;
+					crackleGain = gain;
+				}
+				void crackleCtx.resume();
+				if (crackleGain && crackleCtx) {
+					crackleGain.gain.cancelScheduledValues(crackleCtx.currentTime);
+					crackleGain.gain.setValueAtTime(crackleGain.gain.value, crackleCtx.currentTime);
+					crackleGain.gain.linearRampToValueAtTime(0.09, crackleCtx.currentTime + 0.5);
+				}
+			} catch {
+				// 没有音频权限就算了
+			}
+		};
+
+		const stopCrackle = (): void => {
+			if (!crackleCtx || !crackleGain) return;
+			const now = crackleCtx.currentTime;
+			crackleGain.gain.cancelScheduledValues(now);
+			crackleGain.gain.setValueAtTime(crackleGain.gain.value, now);
+			crackleGain.gain.linearRampToValueAtTime(0, now + 0.5);
+		};
+
+		/** 播放时角度跟着进度走；拖拽中不抢控制权 */
+		const followProgress = (): void => {
+			if (dragging) return;
+			const ratio =
+				Number.isFinite(audio.duration) && audio.duration > 0
+					? clamp(audio.currentTime / audio.duration, 0, 1)
+					: 0;
+			paintArm(ratioToAngle(ratio));
+		};
+
+		/** 拖拽定位到某个进度并播放 */
+		const dropAt = (angle: number): void => {
+			needleDropFeedback();
+			if (Number.isFinite(audio.duration) && audio.duration > 0) {
+				audio.currentTime = angleToRatio(angle) * audio.duration;
+			}
+			// 角度保持用户落针的位置；之后由 timeupdate 按真实进度接管
+			paintArm(angle);
+			if (audio.paused) void audio.play();
+		};
+
+		/** 拖拽结束后：过外环就播放，没到就弹回休息位 */
+		const settleAfterDrag = (): void => {
+			if (armAngle >= ARM_START) {
+				// 松手时把拖动过程中的越界量收回到合法范围
+				dropAt(clamp(armAngle, ARM_START, ARM_END));
+			} else {
+				paintArm(ARM_REST, true);
+				stopCrackle();
+				audio.pause();
+			}
+		};
+
+		// 指针拖拽：角度 = 指针相对支点的极角（顺时针为正），带一点惯性阻尼
+		let pointerAngle = 0;
+
+		const angleFromPointer = (event: PointerEvent): number => {
+			if (!armEl) return armAngle;
+			const rect = armEl.getBoundingClientRect();
+			const dx = event.clientX - rect.left;
+			const dy = event.clientY - rect.top;
+			// atan2 返回 -180..180，同统一成 0..360 再做偏移（否则超过 180° 会突然反转）
+			const theta = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+			// CSS 角度 90° 起算，允许一点点越界做回弹观感
+			return clamp(theta - 90, -6, 106);
+		};
+
+		// 用 window 上的监听做拖拽（不依赖 pointer capture：
+		// 唱针旋转时会丢失 capture，导致只能跟手一次）
+		const onDragMove = (event: PointerEvent): void => {
+			if (!dragging) return;
+			const target = angleFromPointer(event);
+			// 惯性阻尼：每次只走 45%，拖起来有重量感
+			pointerAngle += (target - pointerAngle) * 0.45;
+			paintArm(pointerAngle);
+			// 拖拽即刮擦：实时 seek
+			if (Number.isFinite(audio.duration) && audio.duration > 0) {
+				audio.currentTime = angleToRatio(pointerAngle) * audio.duration;
+			}
+		};
+
+		const endDrag = (): void => {
+			window.removeEventListener("pointermove", onDragMove);
+			window.removeEventListener("pointerup", endDrag);
+			window.removeEventListener("pointercancel", endDrag);
+			if (!dragging) return;
+			dragging = false;
+			armEl?.classList.remove("is-dragging");
+			settleAfterDrag();
+		};
+
+		armHit?.addEventListener("pointerdown", (event) => {
+			if (event.button !== 0) return;
+			event.preventDefault();
+			dragging = true;
+			pointerAngle = armAngle;
+			armEl?.classList.add("is-dragging");
+			audio.pause();
+			window.addEventListener("pointermove", onDragMove);
+			window.addEventListener("pointerup", endDrag);
+			window.addEventListener("pointercancel", endDrag);
+		});
+
+		// 键盘：↑↓ 微调，Enter 落针，Esc 复位
+		armHit?.addEventListener("keydown", (event) => {
+			if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+				event.preventDefault();
+				paintArm(clamp(armAngle + 2, ARM_REST, ARM_END));
+				if (armAngle >= ARM_START) dropAt(armAngle);
+			} else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+				event.preventDefault();
+				paintArm(clamp(armAngle - 2, ARM_REST, ARM_END));
+				if (Number.isFinite(audio.duration) && audio.duration > 0) {
+					audio.currentTime = angleToRatio(armAngle) * audio.duration;
+				}
+			} else if (event.key === "Enter") {
+				event.preventDefault();
+				paintArm(ARM_START + 6);
+				dropAt(ARM_START + 6);
+			} else if (event.key === "Escape") {
+				event.preventDefault();
+				paintArm(ARM_REST, true);
+				stopCrackle();
+				audio.pause();
+			}
+		});
+
 		const step = (delta: number, play = true): void => {
 			index = (index + delta + tracks.length) % tracks.length;
 			audio.currentTime = 0;
-			hero.style.setProperty("--track-progress", "0");
+			paintArm(ARM_REST);
 			load(play);
 		};
 
@@ -1132,8 +1415,8 @@ const LIBRARY_URL = "/music/library.json";
 					: 0;
 			if (fill) fill.style.width = `${Math.round(ratio * 100)}%`;
 			if (timeCurrent) timeCurrent.textContent = fmt(audio.currentTime);
-			// 唱针：播放时从 30° 扫到 60°（相对垂直），跟着进度走
-			hero.style.setProperty("--track-progress", ratio.toFixed(3));
+			// 唱针：播放时角度跟着进度从外环滑向内环
+			followProgress();
 		});
 
 		audio.addEventListener("loadedmetadata", () => {
@@ -1147,7 +1430,11 @@ const LIBRARY_URL = "/music/library.json";
 
 		audio.addEventListener("play", () => setPlayingUi(true));
 		audio.addEventListener("pause", () => setPlayingUi(false));
-		audio.addEventListener("ended", () => step(1));
+		audio.addEventListener("ended", () => {
+			paintArm(ARM_REST, true);
+			stopCrackle();
+			step(1);
+		});
 
 		// ── 载入曲库（自家静态 JSON） ──────────────────────────────
 		try {
