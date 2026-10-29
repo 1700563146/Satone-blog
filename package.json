@@ -23,7 +23,8 @@
 		"lqips": "npx tsx scripts/generate-lqips.ts",
 		"github-cards": "npx tsx scripts/generate-github-card-data.ts",
 		"wall:opt": "npx tsx scripts/optimize-wall-photos.ts",
-		"music:sync": "npx tsx scripts/sync-music-library.ts"
+		"music:sync": "npx tsx scripts/sync-music-library.ts",
+		"music:offline": "npx tsx scripts/sync-music-library.ts --meting --offline=10"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.10",

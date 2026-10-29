@@ -137,6 +137,44 @@ Meting 是**匿名接口**：能读公开歌单，读不到你私人的「我喜
 两处通过 `musicVolumeChange` 事件同步：任一处改动都会写 `localStorage` 并应用到页面里所有 `<audio>`，
 Swup 切页后由 `astro:page-load` 重新套一遍。
 
+## 被限流了怎么办
+
+公共 Meting 实例都有配额，超额时会直接返回
+`{"message":"请求次数已达上限，请明天再试"}`（injajow 就是这种日限流）。
+表现在页面上就是：**封面全是破图、点播放没有任何声音**。
+
+根治办法是 **把曲库下载成本地文件**，让页面彻底不依赖第三方接口：
+
+```bash
+pnpm music:offline          # 默认 10 首（= --meting --offline=10）
+pnpm music:sync --offline=15  # 想要更多就改数量
+```
+
+脚本会：
+
+1. 先按正常流程拉歌单（元数据）；
+2. 取前 N 首，按顺序尝试
+   `https://music.163.com/song/media/outer/url?id=<id>.mp3`（128kbps，体积小）
+   → 各 Meting 实例的 `type=url`（兜底）；
+   **只收 mp3**（ID3 / 帧同步头），单曲超过 8MB 的 flac 直接跳过；
+3. 音频写 `public/music/audio/<songId>.mp3`，封面写 `public/music/cover/<songId>.jpg`
+   （封面会做魔数校验，避免把错误页当图片存下来）；
+4. 把 `library.json` 里的 `url`/`cover` 改写成站内路径，并且 **只保留成功下载的这几首**。
+
+结果：`/music/` 打开后**零第三方请求**（实测 451 个请求全在 localhost），
+封面和音频都来自自己的域名，不怕限流、不怕直链过期。
+
+体积参考：10 首 ≈ 44MB（mp3 平均 4.5MB/首）。仓库要小就把数量调成 6~8。
+
+想回到「全量在线歌单」：
+
+```bash
+pnpm music:sync --meting     # 重新拉 378 首，url/cover 走 Meting 代理
+```
+
+> 导航栏/侧栏那个小播放器走的是 `musicPlayerConfig.mode`：离线阶段设为 `"local"`，
+> 它只会读 `public/assets/music/` 里的本地文件，也不会去打接口。
+
 ## 已知限制
 
 - Meting 返回的音频 URL 带签名参数，**可能过期**；过期时播放会失败，页面会提示「试试下一首」。

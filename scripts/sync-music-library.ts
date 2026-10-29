@@ -20,6 +20,12 @@ import type { MusicLibrary, MusicLibraryTrack } from "../src/types/musicLibrary"
 // 曲库可能有几百首，直接内联进 HTML 会让音乐页首包变得很大。
 const OUT_FILE = path.join("public", "music", "library.json");
 
+// 离线模式：把音频与封面抓成本地文件，页面运行时就完全不需要外网了
+const AUDIO_DIR = path.join("public", "music", "audio");
+const COVER_DIR = path.join("public", "music", "cover");
+const AUDIO_URL_BASE = "/music/audio";
+const COVER_URL_BASE = "/music/cover";
+
 const TIMEOUT_MS = 15000;
 
 interface RawMetingItem {
@@ -198,13 +204,158 @@ const buildFromLocal = (): MusicLibrary | null => {
 	};
 };
 
+/** 真实音频流的魔数校验：ID3 / fLaC / MP3 帧头 */
+// 只收 mp3（ID3 头或帧同步头），flac 体积是 mp3 的 3~4 倍，不进仓库
+const looksLikeAudio = (buf: Buffer): boolean => {
+	if (buf.length < 200_000 || buf.length > 8 * 1024 * 1024) return false;
+	const magic = buf.subarray(0, 4).toString("hex");
+	return magic.startsWith("494433") || buf[0] === 0xff;
+};
+
+const looksLikeImage = (buf: Buffer): boolean => {
+	if (buf.length < 1000) return false;
+	const magic = buf.subarray(0, 4).toString("hex");
+	return magic.startsWith("ffd8ff") || magic === "89504e47" || magic.startsWith("52494646");
+};
+
+const download = async (url: string): Promise<Buffer | null> => {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 30000);
+	try {
+		const res = await fetch(url, {
+			redirect: "follow",
+			signal: controller.signal,
+			headers: {
+				// 网易云外链要求带 Referer / UA
+				Referer: "https://music.163.com/",
+				"User-Agent":
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+			},
+		});
+		if (!res.ok) return null;
+		return Buffer.from(await res.arrayBuffer());
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timer);
+	}
+};
+
+/**
+ * 离线化：挑前 N 首，把音频与封面下载到 public/music/ 下，
+ * 并把 JSON 里的 url / cover 换成站内路径。任何一首取不到就跳过。
+ */
+const buildOffline = async (
+	library: MusicLibrary,
+	count: number,
+): Promise<MusicLibrary | null> => {
+	const { meting } = musicPlayerConfig;
+	const server = meting?.server ?? "netease";
+	const templates = [meting?.api, ...(meting?.fallbackApis ?? [])]
+		.filter((item): item is string => typeof item === "string");
+
+	fs.mkdirSync(AUDIO_DIR, { recursive: true });
+	fs.mkdirSync(COVER_DIR, { recursive: true });
+
+	const picked: MusicLibraryTrack[] = [];
+	let bytes = 0;
+
+	for (const track of library.tracks) {
+		if (picked.length >= count) break;
+		// Meting 的代理 URL 里带着网易云 id，离线抓取时要用
+		const songId = /[?&]id=(\d+)/.exec(track.url)?.[1];
+		const fileName = `${songId ?? track.id}`;
+
+		const audioPath = path.join(AUDIO_DIR, `${fileName}.mp3`);
+		let audio: Buffer | null = null;
+
+		if (fs.existsSync(audioPath)) {
+			audio = fs.readFileSync(audioPath);
+		} else {
+			// 1) 网易云外链直链（128kbps，体积小）
+			if (songId) {
+				const outer = await download(
+					`https://music.163.com/song/media/outer/url?id=${songId}.mp3`,
+				);
+				if (outer && looksLikeAudio(outer)) audio = outer;
+			}
+			// 2) 退回到 Meting 实例
+			if (!audio) {
+				for (const template of templates) {
+					const url = template
+						.replace(/:server/g, server)
+						.replace(/:type/g, "url")
+						.replace(/:id/g, songId ?? track.id);
+					const buf = await download(url);
+					if (buf && looksLikeAudio(buf)) {
+						audio = buf;
+						break;
+					}
+				}
+			}
+			if (!audio) {
+				console.warn(`[music:offline] 跳过（拿不到音频）：${track.name}`);
+				continue;
+			}
+			fs.writeFileSync(audioPath, audio);
+		}
+
+		// 封面
+		const coverPath = path.join(COVER_DIR, `${fileName}.jpg`);
+		let coverUrl: string | undefined;
+		if (fs.existsSync(coverPath)) {
+			coverUrl = `${COVER_URL_BASE}/${fileName}.jpg`;
+		} else if (track.cover) {
+			const buf = await download(track.cover);
+			if (buf && looksLikeImage(buf)) {
+				fs.writeFileSync(coverPath, buf);
+				coverUrl = `${COVER_URL_BASE}/${fileName}.jpg`;
+			}
+		}
+
+		bytes += audio.length;
+		picked.push({
+			...track,
+			...(coverUrl ? { cover: coverUrl } : {}),
+			url: `${AUDIO_URL_BASE}/${fileName}.mp3`,
+		});
+		console.log(
+			`[music:offline] ${picked.length}/${count} ${track.name} (${(audio.length / 1e6).toFixed(1)}MB)`,
+		);
+	}
+
+	if (picked.length === 0) return null;
+	console.log(
+		`[music:offline] 共 ${picked.length} 首，音频合计 ${(bytes / 1e6).toFixed(1)}MB`,
+	);
+	return {
+		generatedAt: new Date().toISOString(),
+		source: `offline:${server}:${picked.length} 首本地曲目（来自 ${library.source}）`,
+		tracks: picked,
+	};
+};
+
 const main = async (): Promise<void> => {
 	// 默认按 musicPlayerConfig.mode 决定；也可以用 MUSIC_SOURCE=meting / --meting 强制拉接口
 	const forceMeting =
 		process.env.MUSIC_SOURCE === "meting" || process.argv.includes("--meting");
 	const useMeting = forceMeting || musicPlayerConfig.mode === "meting";
 	const fromMeting = useMeting ? await buildFromMeting() : null;
-	const library = fromMeting ?? buildFromLocal();
+	let library = fromMeting ?? buildFromLocal();
+
+	// --offline / --offline=12 / MUSIC_OFFLINE=12：抓成本地文件（默认 10 首）
+	const offlineArg = process.argv.find((arg) => arg.includes("--offline"));
+	const offlineCount = offlineArg
+		? Number(offlineArg.split("=")[1] ?? process.env.MUSIC_OFFLINE ?? 10) || 10
+		: Number(process.env.MUSIC_OFFLINE ?? 0) || 0;
+	if (library && offlineCount > 0) {
+		const offline = await buildOffline(library, offlineCount);
+		if (!offline) {
+			console.error("[music:offline] 一首都没抓到，保留在线曲库。");
+		} else {
+			library = offline;
+		}
+	}
 
 	if (!library) {
 		console.error(

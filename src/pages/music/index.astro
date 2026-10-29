@@ -1477,4 +1477,17 @@ const LIBRARY_URL = "/music/library.json";
 	document.addEventListener("astro:page-load", () => {
 		void setupMusicPage();
 	});
+
+	// 封面挂了（本地文件缺失 / 图片源限流）就退回首字母，别显示破图
+	document.addEventListener(
+		"error",
+		(event) => {
+			const img = event.target;
+			if (!(img instanceof HTMLImageElement)) return;
+			if (!img.closest("#music-strip, #music-list, .disc-logo")) return;
+			img.removeAttribute("src");
+			img.style.display = "none";
+		},
+		true,
+	);
 </script>
