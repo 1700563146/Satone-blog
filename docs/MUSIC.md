@@ -176,8 +176,8 @@ pnpm music:sync --offline=15  # 想要更多就改数量
 pnpm music:sync --meting     # 重新拉 378 首，url/cover 走 Meting 代理
 ```
 
-> 导航栏/侧栏那个小播放器走的是 `musicPlayerConfig.mode`：离线阶段设为 `"local"`，
-> 它只会读 `public/assets/music/` 里的本地文件，也不会去打接口。
+> 导航栏/侧栏那个小播放器（`MusicManager.astro`）现在**优先读 `public/music/library.json`**，
+> 读不到才退回 `mode` 对应的 meting / local —— 所以首页那张音乐卡片和音乐页永远是同一批歌。
 
 ## 已知限制
 

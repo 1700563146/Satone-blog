@@ -29,6 +29,8 @@ const localPlaylist =
 		: [];
 
 const managerConfigStr = JSON.stringify({
+	// 站内曲库（public/music/library.json，pnpm music:offline 产出的那份）
+	libraryUrl: `${url("/music/library.json")}`,
 	mode: config.mode,
 	meting: config.meting,
 	localPlaylist: localPlaylist,
@@ -128,6 +130,32 @@ const managerConfigStr = JSON.stringify({
     // ── Event helpers ────────────────────────────────────────
     function emit(name, detail) {
         window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+    }
+
+    // ── 站内曲库（public/music/library.json）─────────────────
+    // 音乐页读的就是这份；侧栏播放器优先用它，首页卡片和音乐页才是同一批歌
+    async function fetchLocalLibrary() {
+        if (!config.libraryUrl) return false;
+        try {
+            var res = await fetch(config.libraryUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            var data = await res.json();
+            var tracks = Array.isArray(data) ? data : data.tracks;
+            if (!Array.isArray(tracks) || tracks.length === 0) return false;
+            state.playlist = tracks.map(function (item) {
+                return {
+                    name: item.name || item.title || 'Unknown',
+                    artist: item.artist || item.author || 'Unknown',
+                    url: item.url,
+                    pic: item.cover || item.pic || '',
+                    lrc: item.lrc
+                };
+            });
+            return true;
+        } catch (e) {
+            console.warn('[music] 站内曲库读取失败，退回配置来源', e);
+            return false;
+        }
     }
 
     // ── Meting fetch ─────────────────────────────────────────
@@ -407,10 +435,13 @@ const managerConfigStr = JSON.stringify({
         state.initializing = true;
 
         try {
-            if (config.mode === 'meting' && config.meting) {
-                await fetchMetingData();
-            } else if (config.mode === 'local') {
-                state.playlist = config.localPlaylist || [];
+            var fromLibrary = await fetchLocalLibrary();
+            if (!fromLibrary) {
+                if (config.mode === 'meting' && config.meting) {
+                    await fetchMetingData();
+                } else if (config.mode === 'local') {
+                    state.playlist = config.localPlaylist || [];
+                }
             }
 
             if (state.playlist.length > 0) {
