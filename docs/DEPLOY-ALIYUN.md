@@ -179,6 +179,68 @@ journalctl -u sato-blog-build.service -f
 
 ---
 
+## 还没有备案，先用 IP 访问
+
+完全可行：**ICP 备案只约束「域名」，不约束 IP**。所以域名没下来之前直接
+`http://8.148.77.40/` 就能访问，不用等备案。
+
+要做三处配合：
+
+**1. nginx 用默认站点兜住所有 Host**（仓库里的模板已经是这样）
+
+```nginx
+listen 80 default_server;
+listen [::]:80 default_server;
+server_name _;
+```
+
+并删掉发行版自带的默认站点，否则它会抢走 80 端口、显示 "Welcome to nginx"：
+
+```bash
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**2. 把站点地址改成 IP**（canonical / sitemap / RSS / OG 都读它）
+
+```ts
+// src/config/siteConfig.ts
+site_url: "http://8.148.77.40",
+```
+
+```bash
+pnpm build && git push     # 或者等 Actions 自动构建
+```
+
+**3. GitHub 的 `SITE_URL` variable 也写成 `http://8.148.77.40`**（只是部署摘要里显示用）
+
+> 注意：IP 访问时**不能上 HTTPS** —— Let's Encrypt 不给裸 IP 签证书。
+> 所以这段时间是纯 HTTP：别在站内放登录/支付类敏感内容（本站是纯静态博客，问题不大）。
+> 等备案通过后按下面「套域名」做一遍即可。
+
+### 备案通过 / 域名可用之后
+
+```bash
+# 1) nginx 换成域名（去掉 default_server 也行，保留更稳）
+sudo sed -i 's/server_name _;/server_name 你的域名;/' /etc/nginx/conf.d/sato-blog.conf
+sudo nginx -t && sudo systemctl reload nginx
+
+# 2) 证书（certbot 会自动补 443 与续期）
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d 你的域名
+```
+
+```bash
+# 3) 站点地址改回 https 域名，重新构建
+sed -i 's|site_url: "http://8.148.77.40"|site_url: "https://你的域名"|' src/config/siteConfig.ts
+git add src/config/siteConfig.ts && git commit -m "chore: 站点地址换成正式域名" && git push
+```
+
+DNS 那边（阿里云云解析）加一条 A 记录指向 `8.148.77.40` 即可；
+国内服务器记得先在阿里云备案系统把域名备好，否则 80/443 上的域名访问会被拦截。
+
+---
+
 ## 内容更新怎么走
 
 | 我在做什么 | 服务器会怎么变 |
