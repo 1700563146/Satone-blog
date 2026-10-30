@@ -7,6 +7,7 @@ name: Deploy (Aliyun ECS)
 #   secrets.ALIYUN_USER      SSH 用户（如 deploy）
 #   secrets.ALIYUN_SSH_KEY   私钥全文（对应服务器上 ~/.ssh/authorized_keys 里的公钥）
 #   secrets.ALIYUN_PORT      SSH 端口，可省略（默认 22），非 22 端口时才需要
+#   secrets.ALIYUN_HTTP_PORT nginx 监听端口，可省略（默认 8081；备案后可改 80）
 #   secrets.ALIYUN_PATH      站点根目录，可省略（默认 /var/www/sato-blog）
 #   vars.ALIYUN_DEPLOY       = true 才启用本 workflow（没配就整体跳过，不会飘红）
 #
@@ -41,6 +42,8 @@ jobs:
       ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
       ALIYUN_PORT: ${{ secrets.ALIYUN_PORT || '22' }}
       ALIYUN_PATH: ${{ secrets.ALIYUN_PATH || '/var/www/sato-blog' }}
+      # nginx 监听的端口：没备案时站点跑在 8081，备案后换 80 只改这个 secret 即可
+      ALIYUN_HTTP_PORT: ${{ secrets.ALIYUN_HTTP_PORT || '8081' }}
       KEEP_RELEASES: "5"
       SITE_URL: ${{ vars.SITE_URL }}
     steps:
@@ -140,7 +143,7 @@ jobs:
           set -euo pipefail
           ln -sfn "$RELEASE" "$ALIYUN_PATH/current.new"
           mv -Tf "$ALIYUN_PATH/current.new" "$ALIYUN_PATH/current"
-          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/ || echo 000)
+          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$ALIYUN_HTTP_PORT/" || echo 000)
           case "\$code" in
             200|301|302|308) echo "健康检查通过：HTTP \$code" ;;
             *) echo "健康检查失败：HTTP \$code" >&2; exit 1 ;;

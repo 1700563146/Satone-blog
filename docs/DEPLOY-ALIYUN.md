@@ -179,10 +179,40 @@ journalctl -u sato-blog-build.service -f
 
 ---
 
+## 端口：现在用 8081，备案后再换 80
+
+中国大陆的 ECS 上，**80 端口用域名访问需要备案**，用 IP 访问一般能用；但为了避免各种拦截，
+当前直接让站点跑在 **8081**：
+
+```nginx
+listen 8081 default_server;
+listen [::]:8081 default_server;
+server_name _;
+```
+
+对应要改的地方只有三处（都已在仓库里配好）：
+
+| 位置 | 值 |
+|---|---|
+| `scripts/deploy/nginx-sato-blog.conf` | `listen 8081` |
+| `src/config/siteConfig.ts` `site_url` | `http://8.148.77.40:8081` |
+| GitHub `ALIYUN_HTTP_PORT`（可选 secret） | 不填默认 `8081`，用于部署后的健康检查 |
+
+**安全组记得放行 8081**（入方向 TCP 8081，源 `0.0.0.0/0`）。
+
+备案通过后切 80：
+
+```bash
+sudo sed -i 's/listen 8081/listen 80/; s/\[::\]:8081/[::]:80/' /etc/nginx/conf.d/sato-blog.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+再把 `site_url` 与 GitHub 的 `ALIYUN_HTTP_PORT` 一起改成 80 / https。
+
 ## 还没有备案，先用 IP 访问
 
 完全可行：**ICP 备案只约束「域名」，不约束 IP**。所以域名没下来之前直接
-`http://8.148.77.40/` 就能访问，不用等备案。
+`http://8.148.77.40:8081/` 就能访问，不用等备案。
 
 要做三处配合：
 
@@ -205,14 +235,14 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```ts
 // src/config/siteConfig.ts
-site_url: "http://8.148.77.40",
+site_url: "http://8.148.77.40:8081",
 ```
 
 ```bash
 pnpm build && git push     # 或者等 Actions 自动构建
 ```
 
-**3. GitHub 的 `SITE_URL` variable 也写成 `http://8.148.77.40`**（只是部署摘要里显示用）
+**3. GitHub 的 `SITE_URL` variable 也写成 `http://8.148.77.40:8081`**（只是部署摘要里显示用）
 
 > 注意：IP 访问时**不能上 HTTPS** —— Let's Encrypt 不给裸 IP 签证书。
 > 所以这段时间是纯 HTTP：别在站内放登录/支付类敏感内容（本站是纯静态博客，问题不大）。
@@ -232,7 +262,7 @@ sudo certbot --nginx -d 你的域名
 
 ```bash
 # 3) 站点地址改回 https 域名，重新构建
-sed -i 's|site_url: "http://8.148.77.40"|site_url: "https://你的域名"|' src/config/siteConfig.ts
+sed -i 's|site_url: "http://8.148.77.40:8081"|site_url: "https://你的域名"|' src/config/siteConfig.ts
 git add src/config/siteConfig.ts && git commit -m "chore: 站点地址换成正式域名" && git push
 ```
 

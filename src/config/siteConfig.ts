@@ -51,7 +51,7 @@ export const siteConfig: SiteConfig = {
 	// ⚠️ 临时用 IP 访问（域名没备案 / cc.cd 已不可用）。
 	// 备案通过、域名可用后改回形如 "https://blog.satone.cc.cd" 并重新构建即可；
 	// canonical / sitemap / RSS / OG 图里用的都是这个值。
-	site_url: "http://8.148.77.40",
+	site_url: "http://8.148.77.40:8081",
 
 	// 站点描述
 	description:
