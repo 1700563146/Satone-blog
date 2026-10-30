@@ -75,6 +75,26 @@ jobs:
           done
           echo "构建产物校验通过（$(find dist -type f | wc -l) 个文件，$(du -sh dist | cut -f1)）"
 
+      # 预压缩：把 HTML/CSS/JS/JSON/XML 同时生成 .br 与 .gz，
+      # 服务器上 nginx 用 gzip_static / brotli_static 直接吐压缩文件 —— 省掉每请求压缩的 CPU，
+      # 体积比运行时 gzip 再小 15%~20%。
+      - name: Precompress (brotli + gzip static)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq brotli
+          mapfile -t files < <(
+            find dist -type f \
+              \( -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.mjs' \
+                 -o -name '*.json' -o -name '*.svg' -o -name '*.xml' -o -name '*.txt' \
+                 -o -name '*.webmanifest' \) -size +1k
+          )
+          echo "待预压缩文件：${#files[@]}"
+          printf '%s\0' "${files[@]}" |
+            xargs -0 -P 4 -n 1 sh -c 'brotli -q 10 -f -k "$0" && gzip -9 -f -k "$0"'
+          echo "压缩后体积：$(du -sh dist | cut -f1)"
+          echo ".br 总大小：$(find dist -name '*.br' -printf '%s\n' | awk '{s+=$1} END {printf "%.1f MB", s/1024/1024}')"
+
       - name: Prepare SSH
         run: |
           set -euo pipefail
