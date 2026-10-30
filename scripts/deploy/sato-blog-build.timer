@@ -1,0 +1,13 @@
+# 方案 B 的定时器：每 5 分钟看一眼远端有没有新提交（有才构建，没变就直接退出）
+[Unit]
+Description=Sato Blog: poll origin/main every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+# 避免每次重启都立刻跑一遍
+Persistent=false
+
+[Install]
+WantedBy=timers.target

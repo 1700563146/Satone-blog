@@ -1,6 +1,9 @@
-﻿# 部署
+# 部署
 
 站点是纯静态产出（`pnpm build` → `dist/`），主站跑在 **Cloudflare Workers 静态资源**，Vercel 作为备份（整站 `noindex`）。
+
+> 自建服务器（阿里云 ECS / 任意 VPS）的推送即更新流程见 [DEPLOY-ALIYUN.md](DEPLOY-ALIYUN.md)：
+> GitHub Actions 构建 + rsync（推荐），或服务器 systemd 定时拉取构建。
 
 ## 产物
 

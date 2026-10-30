@@ -129,5 +129,10 @@ LQIP data is generated into `src/constants/lqips.json` and committed — regener
 
 - **Vercel** (default, `vercel.json`)
 - **Cloudflare Workers** (`wrangler.jsonc`, set `CF_WORKERS` env var)
+- **阿里云 ECS / 任意 VPS**：`.github/workflows/deploy-aliyun.yml` 在 push main 后构建并用 rsync 推到
+  `/var/www/sato-blog/releases/<时间戳>`，再切 `current` 软链接（回滚 = 再切一次；只保留最近 5 个版本）；
+  需要 `ALIYUN_HOST/USER/SSH_KEY` 三个 secret 和 `ALIYUN_DEPLOY=true` 这个 variable 才启用。
+  不想让 GitHub 连进服务器的，用 `scripts/deploy/pull-build.sh` + systemd timer 在机器上自己拉取构建。
+  完整步骤与排查见 `docs/DEPLOY-ALIYUN.md`。
 - Static output to `dist/`
 

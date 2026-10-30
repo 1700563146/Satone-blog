@@ -1,0 +1,142 @@
+name: Deploy (Aliyun ECS)
+
+# 推送 main 后：在 GitHub 上构建 → 用 rsync 把 dist/ 同步到阿里云服务器。
+#
+# 仓库 Settings → Secrets and variables → Actions 需要配置：
+#   secrets.ALIYUN_HOST      服务器 IP / 域名
+#   secrets.ALIYUN_USER      SSH 用户（如 deploy）
+#   secrets.ALIYUN_SSH_KEY   私钥全文（对应服务器上 ~/.ssh/authorized_keys 里的公钥）
+#   secrets.ALIYUN_PORT      SSH 端口，可省略（默认 22），非 22 端口时才需要
+#   secrets.ALIYUN_PATH      站点根目录，可省略（默认 /var/www/sato-blog）
+#   vars.ALIYUN_DEPLOY       = true 才启用本 workflow（没配就整体跳过，不会飘红）
+#
+# 服务器准备见 docs/DEPLOY-ALIYUN.md。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只做 rsync --dry-run，不真正切换版本"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# 同一时间只允许一个部署，避免两次推送把 releases 目录搅乱
+concurrency:
+  group: deploy-aliyun
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: build & rsync to ECS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: vars.ALIYUN_DEPLOY == 'true'
+    env:
+      ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
+      ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_PORT: ${{ secrets.ALIYUN_PORT || '22' }}
+      ALIYUN_PATH: ${{ secrets.ALIYUN_PATH || '/var/www/sato-blog' }}
+      KEEP_RELEASES: "5"
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # 版本由 package.json 的 packageManager 字段决定
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # generate-github-card-data.ts 会用到，没有也能跑（只是走匿名限额）
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify build output
+        run: |
+          set -eu
+          for path in \
+            dist/index.html \
+            dist/404.html \
+            dist/admin/publish/index.html \
+            dist/rss.xml \
+            dist/robots.txt \
+            dist/sitemap-index.xml; do
+            test -f "$path" || { echo "::error ::缺少构建产物 $path"; exit 1; }
+          done
+          echo "构建产物校验通过（$(find dist -type f | wc -l) 个文件，$(du -sh dist | cut -f1)）"
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          for name in ALIYUN_HOST ALIYUN_USER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::缺少 secrets.$name（见 docs/DEPLOY-ALIYUN.md）"
+              exit 1
+            fi
+          done
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.ALIYUN_SSH_KEY }}" > ~/.ssh/aliyun_deploy
+          chmod 600 ~/.ssh/aliyun_deploy
+          ssh-keyscan -p "$ALIYUN_PORT" -H "$ALIYUN_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/aliyun_deploy -p "$ALIYUN_PORT" -o IdentitiesOnly=yes \
+            "$ALIYUN_USER@$ALIYUN_HOST" 'echo "ssh ok: $(hostname) $(date -u +%FT%TZ)"'
+
+      - name: rsync dist to server
+        run: |
+          set -euo pipefail
+          TS="$(date -u +%Y%m%d-%H%M%S)"
+          REL="$ALIYUN_PATH/releases/$TS"
+          SSH="ssh -i $HOME/.ssh/aliyun_deploy -p $ALIYUN_PORT -o IdentitiesOnly=yes"
+          echo "RELEASE=$REL" >> "$GITHUB_ENV"
+          echo "SSH_OPTS=$SSH" >> "$GITHUB_ENV"
+
+          $SSH "$ALIYUN_USER@$ALIYUN_HOST" "mkdir -p '$REL'"
+
+          # --link-dest 让没变的文件（音乐、照片）在服务器上直接硬链接复用，不重复占空间
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+
+          rsync -az --delete $DRY --human-readable --stats \
+            -e "$SSH" \
+            --link-dest="$ALIYUN_PATH/current" \
+            --chmod=D755,F644 \
+            dist/ "$ALIYUN_USER@$ALIYUN_HOST:$REL/"
+
+      - name: Activate release
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          $SSH_OPTS "$ALIYUN_USER@$ALIYUN_HOST" bash -s <<EOF
+          set -euo pipefail
+          ln -sfn "$RELEASE" "$ALIYUN_PATH/current.new"
+          mv -Tf "$ALIYUN_PATH/current.new" "$ALIYUN_PATH/current"
+          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1/ || echo 000)
+          case "\$code" in
+            200|301|302|308) echo "健康检查通过：HTTP \$code" ;;
+            *) echo "健康检查失败：HTTP \$code" >&2; exit 1 ;;
+          esac
+          cd "$ALIYUN_PATH/releases"
+          ls -1dt */ | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -rf
+          echo "保留最近 $KEEP_RELEASES 个版本："
+          ls -1dt */ | head -n "$KEEP_RELEASES"
+          EOF
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### 阿里云部署"
+            echo ""
+            echo "- 版本目录：\`${RELEASE:-（未同步）}\`"
+            echo "- 站点地址：${SITE_URL:-http://$ALIYUN_HOST/}"
+          } >> "$GITHUB_STEP_SUMMARY"

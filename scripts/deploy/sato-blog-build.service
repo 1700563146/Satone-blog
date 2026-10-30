@@ -1,0 +1,33 @@
+# 方案 B：服务器自己定时拉取 main 并构建发布
+# 安装：
+#   sudo cp sato-blog-build.service sato-blog-build.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now sato-blog-build.timer
+# 手动跑一次：
+#   sudo systemctl start sato-blog-build.service
+# 看日志：
+#   journalctl -u sato-blog-build.service -f
+
+[Unit]
+Description=Sato Blog build & release (git pull + pnpm build)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# 用一个普通用户跑，避免 root 身份 build；仓库属主也要是这个用户
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/sato-blog-src
+Environment=REPO_DIR=/srv/sato-blog-src
+Environment=PUBLISH_DIR=/var/www/sato-blog
+Environment=KEEP_RELEASES=5
+Environment=NODE_BIN_DIR=/usr/local/bin
+ExecStart=/srv/sato-blog-src/scripts/deploy/pull-build.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
