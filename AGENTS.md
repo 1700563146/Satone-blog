@@ -16,9 +16,9 @@ Use `pnpm`; the `preinstall` script enforces it.
 - `pnpm build`: generate icons, LQIPs, the Astro build, font subsets, and Pagefind search output in `dist`.
 - `pnpm preview`: preview the production build locally.
 - `pnpm new-post`: scaffold a new content post.
-- `pnpm post:push`: publish locally written posts — stages only `src/content/posts/**`, commits with a generated `post: …` message, and pushes. Run with no argument, or a slug to limit to one post; `--dry-run`, `--no-push`, `--build` are supported.
+- `pnpm post:push`: publish locally written posts — stages only `src/content/posts/**`, commits with a generated `post: …` message, and pushes. Run with no argument, or a slug to limit to one post; `--dry-run`, `--no-push`, `--build` are supported, `--force` bypasses the frontmatter guard. Posts missing `title`/`published` are rejected because they break the whole-site build (`InvalidContentEntryDataError`).
 - `pnpm post:watch`: same thing, but watches `src/content/posts/` and pushes once the files stop changing (`--quiet <seconds>`, default 5). Other flags are forwarded to `post:push`.
-- Repo-root Windows helpers for people who don't want a terminal: `push-posts.cmd` (one-shot), `watch-posts.cmd` (same as `post:watch`, quiet 30 by default), `toggle-autostart.cmd` (adds/removes a Startup shortcut that runs `watch-posts.cmd` minimized). `.gitattributes` keeps `*.cmd` as CRLF.
+- Repo-root Windows helpers for people who don't want a terminal: `push-posts.cmd` (one-shot), `监听推送.cmd` (same as `post:watch`, quiet 30 by default; `watch-posts.cmd` also accepted), `toggle-autostart.cmd` (adds/removes a Startup shortcut that runs the watcher minimized). `.gitattributes` keeps `*.cmd` as CRLF.
 
 ## Coding Style & Naming Conventions
 

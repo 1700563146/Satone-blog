@@ -10,6 +10,9 @@
  *   pnpm post:push --dry-run     只打印要做什么，不提交
  *   pnpm post:push --no-push     只提交，不推送
  *   pnpm post:push --build       提交前先跑 pnpm build 校验（慢，但能挡住 schema 错）
+ *   pnpm post:push --force       缺 frontmatter 也照推（半成品，构建会红）
+ *
+ * 缺 title / published 的文件会被直接拒收 —— 那种文件推上去整站构建会失败。
  *
  * 退出码：0 = 成功或被跳过，1 = 出错。
  */
@@ -24,6 +27,7 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const NO_PUSH = args.includes("--no-push");
 const BUILD = args.includes("--build");
+const FORCE = args.includes("--force");
 const slug = args.find((arg) => !arg.startsWith("--")) ?? "";
 
 /**
@@ -133,13 +137,21 @@ function readContent(file) {
 
 /**
  * @param {string} content
- * @returns {{ title: string, isDraft: boolean, body: string }}
+ * @returns {{ hasFrontmatter: boolean, title: string, isDraft: boolean, hasPublished: boolean, body: string }}
  */
 function parseFrontmatter(content) {
 	// 有些编辑器会写 BOM，先剥掉，否则 ^--- 匹配不上
 	const text = content.replace(/^\uFEFF/, "");
 	const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
-	if (!match) return { title: "", isDraft: true, body: text };
+	if (!match) {
+		return {
+			hasFrontmatter: false,
+			title: "",
+			isDraft: false,
+			hasPublished: false,
+			body: text,
+		};
+	}
 	const front = match[1];
 	const title = (front.match(/^title:\s*(.+)$/m)?.[1] ?? "")
 		.trim()
@@ -147,23 +159,39 @@ function parseFrontmatter(content) {
 	const isDraft = /^draft:\s*true\s*$/im.test(front);
 	const hasPublished = /^published:\s*\S+/m.test(front);
 	return {
+		hasFrontmatter: true,
 		title,
-		isDraft: isDraft || !hasPublished,
+		isDraft,
+		hasPublished,
 		body: text.slice(match[0].length),
 	};
 }
 
 const warnings = [];
+const errors = [];
 
 for (const change of changes) {
 	if (!/\.mdx?$/.test(change.path)) continue;
 	const content = readContent(change.path);
-	const { title, isDraft, body } = parseFrontmatter(content);
+	const { hasFrontmatter, title, isDraft, hasPublished, body } =
+		parseFrontmatter(content);
 	change.title = title || path.basename(change.path, path.extname(change.path));
-	if (isDraft) {
-		warnings.push(
-			`${change.path}：draft: true 或缺少 published，构建后不会出现在线上`,
+
+	// 缺 title / published 会让整站构建失败（InvalidContentEntryDataError），必须拦住
+	if (!hasFrontmatter) {
+		errors.push(
+			`${change.path}：没有 frontmatter，构建会失败。开头的 --- 块里至少要有 title 和 published`,
 		);
+	} else if (!title) {
+		errors.push(`${change.path}：frontmatter 里缺 title`);
+	} else if (!hasPublished) {
+		errors.push(
+			`${change.path}：frontmatter 里缺 published（写成 published: 2026-10-31）`,
+		);
+	}
+
+	if (hasPublished && isDraft) {
+		warnings.push(`${change.path}：draft: true，构建后不会出现在线上`);
 	}
 	// 正文引用的图片是否真的存在
 	for (const ref of body.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
@@ -176,6 +204,21 @@ for (const change of changes) {
 			warnings.push(`${change.path}：引用的图片不存在 -> ${target}`);
 		}
 	}
+}
+
+if (errors.length > 0 && !FORCE) {
+	console.error("✗ 这些文件会让构建失败，没提交：\n");
+	for (const message of errors) console.error(`  ${message}`);
+	console.error(`
+  补好 frontmatter 再跑。格式：
+      ---
+      title: "标题"
+      published: 2026-10-31
+      ---
+
+  确实要先把半成品推上去：pnpm post:push --force
+`);
+	process.exit(1);
 }
 
 const deleted = changes.filter((c) => c.code[0] === "D");
