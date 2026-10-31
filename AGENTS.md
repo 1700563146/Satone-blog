@@ -17,6 +17,7 @@ Use `pnpm`; the `preinstall` script enforces it.
 - `pnpm preview`: preview the production build locally.
 - `pnpm new-post`: scaffold a new content post.
 - `pnpm post:push`: publish locally written posts — stages only `src/content/posts/**`, commits with a generated `post: …` message, and pushes. Run with no argument, or a slug to limit to one post; `--dry-run`, `--no-push`, `--build` are supported.
+- `pnpm post:watch`: same thing, but watches `src/content/posts/` and pushes once the files stop changing (`--quiet <seconds>`, default 5). Other flags are forwarded to `post:push`.
 
 ## Coding Style & Naming Conventions
 

@@ -196,8 +196,10 @@ function names(list) {
 }
 
 let subject;
-if (changes.length === 1 && /\.mdx?$/.test(changes[0].path)) {
-	const one = changes[0];
+const mdChanges = changes.filter((c) => /\.mdx?$/.test(c.path));
+if (mdChanges.length === 1) {
+	// 一篇正文（可能连带它的图片）：直接点出标题
+	const one = mdChanges[0];
 	const verb = added.includes(one)
 		? "新增"
 		: deleted.includes(one)
@@ -214,9 +216,7 @@ if (changes.length === 1 && /\.mdx?$/.test(changes[0].path)) {
 }
 // 单篇时标题已经在 subject 里了，不再重复写 body
 const body =
-	changes.length > 1
-		? [...names(added), ...names(modified)].filter(Boolean).join("\n")
-		: "";
+	mdChanges.length > 1 ? names(mdChanges).filter(Boolean).join("\n") : "";
 
 // ── 打印计划 ────────────────────────────────────────────────────
 console.log(`\n仓库 ${repo}，分支 ${branch}`);

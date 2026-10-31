@@ -126,6 +126,26 @@ pnpm post:push --build    # 先跑 pnpm build 校验，过了才提交
 git pull --rebase && git push origin main
 ```
 
+### 拖进去就自动推
+
+不想敲命令时，让脚本盯着文件夹：
+
+```bash
+pnpm post:watch              # 文件停止变化 5 秒后自动提交推送
+pnpm post:watch --quiet 30   # 在编辑器里写文章时用这个：30 秒没动静才推
+```
+
+把 `.md` 拖进 `src/content/posts/`、图片拖进 `src/content/posts/images/`，剩下的它自己做。
+`Ctrl+C` 停止。
+
+- 编辑器临时文件（`.swp` / `.tmp` / `.crdownload` / `~$xxx` / 隐藏文件）会被忽略；
+- 一次拖进去多个文件会合并成一次提交（等所有文件都稳定了才动手，不会把拷了一半的大图推上去）；
+- 推送失败不退出，改完再存一次就重试；
+- 监听范围只有 `src/content/posts/`，改 `src/` 或 `docs/` 不会触发。
+
+> 注意它真的会自动推 —— 开着 `--quiet 5` 一边写一边保存，会留下很多小 commit。
+> 长时间写作建议 `--quiet 30`，或者干脆手动 `pnpm post:push`。
+
 图片直接放进 `src/content/posts/images/`，正文写 `./images/xxx.png`。
 
 提交前钩子会自动扫一遍敏感文件（`.env`、私钥、token 之类），被拦下时按提示把它们移出暂存区；

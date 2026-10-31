@@ -18,6 +18,7 @@
 		"new-d": "tsx scripts/new-dynamic.js",
 		"new-post": "node scripts/new-post.js",
 		"post:push": "node scripts/push-post.mjs",
+		"post:watch": "node scripts/watch-post.mjs",
 		"format": "biome format --write ./src ./scripts",
 		"lint": "biome check --write ./src ./scripts",
 		"preinstall": "npx only-allow pnpm",
