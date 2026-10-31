@@ -18,6 +18,7 @@ Use `pnpm`; the `preinstall` script enforces it.
 - `pnpm new-post`: scaffold a new content post.
 - `pnpm post:push`: publish locally written posts — stages only `src/content/posts/**`, commits with a generated `post: …` message, and pushes. Run with no argument, or a slug to limit to one post; `--dry-run`, `--no-push`, `--build` are supported.
 - `pnpm post:watch`: same thing, but watches `src/content/posts/` and pushes once the files stop changing (`--quiet <seconds>`, default 5). Other flags are forwarded to `post:push`.
+- Repo-root Windows helpers for people who don't want a terminal: `push-posts.cmd` (one-shot), `watch-posts.cmd` (same as `post:watch`, quiet 30 by default), `toggle-autostart.cmd` (adds/removes a Startup shortcut that runs `watch-posts.cmd` minimized). `.gitattributes` keeps `*.cmd` as CRLF.
 
 ## Coding Style & Naming Conventions
 

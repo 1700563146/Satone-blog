@@ -126,6 +126,21 @@ pnpm post:push --build    # 先跑 pnpm build 校验，过了才提交
 git pull --rebase && git push origin main
 ```
 
+### 不想开终端：双击就行
+
+仓库根目录有三个 `.cmd`，**双击即用**（Windows；不用开终端、不用记命令）：
+
+| 文件 | 作用 |
+| --- | --- |
+| `push-posts.cmd` | 双击推一次：`src/content/posts/` 下有改动就提交推送，没改动会说「没有需要推送的改动」 |
+| `watch-posts.cmd` | 双击开始监听：文件停止变化 30 秒后自动推；关窗口 = 停止 |
+| `toggle-autostart.cmd` | 双击装「开机自动监听」，再双击一次卸载 |
+
+窗口会一直留着显示日志（关掉就停），所以能看到每一步在干什么、被拦时也有提示。
+
+> `push-posts.cmd` / `watch-posts.cmd` 里都先查了 `node` 在不在 PATH，找不到会直接告诉你。
+> 需要带参数（比如 `--dry-run`）时还是走 `pnpm post:push --dry-run`。
+
 ### 拖进去就自动推
 
 不想敲命令时，让脚本盯着文件夹：

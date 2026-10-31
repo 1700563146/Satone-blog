@@ -1,2 +1,5 @@
 *.js linguist-language=astro
 * text=auto eol=lf
+# Windows 批处理：存 LF、检出 CRLF（cmd.exe 对 CRLF 更稳）
+*.cmd text eol=crlf
+*.bat text eol=crlf
