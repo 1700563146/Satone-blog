@@ -92,7 +92,7 @@ Three paths write the same files; see `docs/PUBLISH.md`:
 
 - `src/pages/admin/publish.astro` — the in-site publish tool (static page, `noindex`, no backend). It renders inside `MainGridLayout` with a collapsed banner (`--banner-height-non-home` override) and talks to the GitHub Contents API with a token the author pastes in: kept in `sessionStorage` unless "记住" is checked, images committed to `src/content/posts/images/` (so Astro optimizes them), and submissions default to a `post/<slug>` branch plus a compare link so a Vercel preview can be reviewed before merging. Entry points: the floating pencil button (`AdminEntry.astro`, enabled by `localStorage.adminEntry`, auto-enabled on first visit) and `Ctrl/⌘+Shift+P`. Links to it use `data-no-swup` so the page's script always boots.
 - `.pages.yml` + [Pages CMS](https://app.pagescms.org) — hosted git CMS, GitHub App auth (no PAT), collections mirror the schema above; keep `.pages.yml` and `content.config.ts` in sync.
-- Local `pnpm new-post` + `git push`.
+- Local `pnpm new-post` + `pnpm post:push` (`scripts/push-post.mjs`) — the one-command path: it collects only `src/content/posts/**` changes, warns about drafts / missing images / not being on `main`, commits with a generated `post: …` message, and pushes. Never `git add -A`.
 
 ### Key Directories
 

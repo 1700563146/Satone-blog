@@ -97,12 +97,39 @@ pnpm dev                  # localhost:4321 实时预览
 pnpm build                # 提交前跑一次，frontmatter 不合 schema 会直接失败
 ```
 
+### 写完一条命令推上去
+
+```bash
+pnpm post:push            # 收集 src/content/posts 下的改动 → 提交 → 推送
+pnpm post:push my-slug    # 只推这一篇（连带它的图片）
+pnpm post:push --dry-run  # 只打印要提交什么、有什么问题
+pnpm post:push --no-push  # 只提交，不推送
+pnpm post:push --build    # 先跑 pnpm build 校验，过了才提交
+```
+
+它**只碰 `src/content/posts/`**：文章和图片，从不 `git add -A`，所以你工作区里别的改动不会被顺手带走。
+
+跑之前会先检查，能拦住这几类常见问题：
+
+| 检查 | 表现 |
+| --- | --- |
+| 暂存区里混了文章目录之外的文件 | 直接停下，让你先 `git restore --staged` |
+| `draft: true` 或没写 `published` | 提示「构建后不会出现在线上」 |
+| 正文引用了不存在的图片 | 提示具体缺哪张 |
+| 当前不在 `main` 分支 | 提示推上去不会触发部署 |
+
+提交信息自动生成：`post: 新增《标题》` / `post: 更新《标题》`；一次推多篇时是 `post: 新增 N 个文件、更新 M 个文件`，正文列出各篇标题。
+
+推送被拒（远端有新提交）时它不会硬来，直接给你要执行的命令：
+
+```bash
+git pull --rebase && git push origin main
+```
+
 图片直接放进 `src/content/posts/images/`，正文写 `./images/xxx.png`。
 
 提交前钩子会自动扫一遍敏感文件（`.env`、私钥、token 之类），被拦下时按提示把它们移出暂存区；
 规则与绕过方式见 `docs/SECRETS.md`。只想手动查一次：`pnpm check:secrets`。
-
-> 顺手一提：别用 `git add -A` / `git add .` 一把梭 —— 只 add 文章和它的图片。
 
 ---
 

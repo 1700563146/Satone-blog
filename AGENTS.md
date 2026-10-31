@@ -16,6 +16,7 @@ Use `pnpm`; the `preinstall` script enforces it.
 - `pnpm build`: generate icons, LQIPs, the Astro build, font subsets, and Pagefind search output in `dist`.
 - `pnpm preview`: preview the production build locally.
 - `pnpm new-post`: scaffold a new content post.
+- `pnpm post:push`: publish locally written posts — stages only `src/content/posts/**`, commits with a generated `post: …` message, and pushes. Run with no argument, or a slug to limit to one post; `--dry-run`, `--no-push`, `--build` are supported.
 
 ## Coding Style & Naming Conventions
 
