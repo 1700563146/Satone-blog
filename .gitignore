@@ -16,9 +16,31 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# environment variables
+# ── 敏感信息：以下内容一律不进仓库 ───────────────────────────────
+# 需要模板时用 .env.example，里面只放占位值
 .env
-.env.production
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ovpn
+*.kdbx
+# SSH / 部署密钥：生成到 ~/.ssh 里，不要生成在仓库目录内
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_ecdsa
+id_ecdsa.*
+*_deploy
+*_deploy.pub
+# 本地凭证目录
+secrets/
+credentials/
 
 # macOS-specific files
 .DS_Store

@@ -7,6 +7,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 敏感信息扫描：本地钩子（.githooks/）可以被 --no-verify 绕过，这里是绕不过的那一道。
+  # 只依赖 node 内置模块，不用 pnpm install。
+  secret-scan:
+    name: 敏感信息扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+      - run: node scripts/check-secrets.mjs --head
+
   checks:
     name: check, type-check, build
     runs-on: ubuntu-latest
@@ -49,7 +62,7 @@ jobs:
   deploy-cf:
     name: deploy (Cloudflare)
     runs-on: ubuntu-latest
-    needs: [checks]
+    needs: [secret-scan, checks]
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.SITE_URL != ''
     timeout-minutes: 25
     env:

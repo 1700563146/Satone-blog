@@ -50,12 +50,16 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### 第 4 步：配部署密钥
 
-本地：
+本地：**密钥生成在仓库外面**（仓库里只放代码；放在工作目录里迟早被 `git add -A` 捎上去）：
 
 ```bash
-ssh-keygen -t ed25519 -C "github-actions@sato-blog" -f ./aliyun_deploy -N ""
-ssh-copy-id -i ./aliyun_deploy.pub deploy@你的服务器IP
+ssh-keygen -t ed25519 -C "github-actions@sato-blog" -f ~/.ssh/aliyun_deploy -N ""
+ssh-copy-id -i ~/.ssh/aliyun_deploy.pub deploy@你的服务器IP
 ```
+
+> 私钥只留在本机；CI 用的是 GitHub Secrets 里的那份副本，见第 5 步。
+> 仓库已经把 `*_deploy`、`*.pem`、`.env*` 之类写进 `.gitignore`，
+> 提交前还有 `.githooks` 钩子扫一遍（见 `docs/SECRETS.md`）。
 
 ### 第 5 步：配 GitHub
 
@@ -65,7 +69,7 @@ Settings → Secrets and variables → Actions：
 |---|---|---|
 | `ALIYUN_HOST` | Secret | 服务器 IP |
 | `ALIYUN_USER` | Secret | `deploy` |
-| `ALIYUN_SSH_KEY` | Secret | `aliyun_deploy` 私钥全文 |
+| `ALIYUN_SSH_KEY` | Secret | `~/.ssh/aliyun_deploy` 私钥全文 |
 | `ALIYUN_PORT` | Secret（可选） | 非 22 端口 |
 | `ALIYUN_PATH` | Secret（可选） | 默认 `/var/www/sato-blog` |
 | `ALIYUN_DEPLOY` | **Variable** | `true` |

@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# 推送前再查一遍 HEAD：拦住 `git commit --no-verify` 漏过去的提交。
+# 这是本地最后一道闸；服务端还有 .github/workflows/ci.yml 的 secret-scan。
+#
+# 确实需要推送这类文件时：git push --no-verify（明确绕过）
+
+if ! command -v node >/dev/null 2>&1; then
+	echo "警告：未找到 node，跳过敏感信息扫描" >&2
+	exit 0
+fi
+
+exec node scripts/check-secrets.mjs --head

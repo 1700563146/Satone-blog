@@ -32,3 +32,5 @@ Use Conventional Commits, matching the current history: `feat: ...`, `fix: ...`,
 ## Security & Configuration Tips
 
 Do not commit secrets, tokens, or service keys in config files. Keep deployment-specific settings in the target platform environment, and review generated files such as `dist`, `src/constants/lqips.json`, and `src/constants/icons.ts` before committing them.
+
+`pnpm install` installs the repo's Git hooks (`core.hooksPath` → `.githooks`), so `pre-commit` and `pre-push` run `scripts/check-secrets.mjs` and reject staged/pushed secrets; CI repeats the scan in the `secret-scan` job. Rules, key locations, and the explicit `--no-verify` escape hatch are documented in `docs/SECRETS.md` — never weaken the rules to get a commit through.

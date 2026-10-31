@@ -99,6 +99,11 @@ pnpm build                # 提交前跑一次，frontmatter 不合 schema 会�
 
 图片直接放进 `src/content/posts/images/`，正文写 `./images/xxx.png`。
 
+提交前钩子会自动扫一遍敏感文件（`.env`、私钥、token 之类），被拦下时按提示把它们移出暂存区；
+规则与绕过方式见 `docs/SECRETS.md`。只想手动查一次：`pnpm check:secrets`。
+
+> 顺手一提：别用 `git add -A` / `git add .` 一把梭 —— 只 add 文章和它的图片。
+
 ---
 
 ## 常见问题

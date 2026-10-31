@@ -58,6 +58,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 先把敏感信息拦住，别让它跟着产物一起上线。
+      - name: 敏感信息扫描
+        run: node scripts/check-secrets.mjs --head
+
       - name: Build
         run: pnpm build
         env:
